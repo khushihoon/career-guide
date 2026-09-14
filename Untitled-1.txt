@@ -1,0 +1,107 @@
+
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  final List<String> careers = const [
+    "Flutter Developer",
+    "Web Developer",
+    "AI Engineer",
+    "Cyber Security",
+    "UI/UX Designer",
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+
+      appBar: AppBar(
+        title: const Text("Career Guide App"),
+        backgroundColor: Colors.blue,
+        centerTitle: true,
+      ),
+
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+
+        child: ListView(
+          children: [
+
+            const Text(
+              "Hello Khushi 👋",
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            const Text(
+              "Choose Your Career Path",
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            ...careers.map(
+              (career) => Container(
+                margin: const EdgeInsets.only(bottom: 15),
+
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.school,
+                    color: Colors.blue,
+                  ),
+
+                  title: Text(
+                    career,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  trailing: const Icon(Icons.arrow_forward_ios),
+
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("$career Selected"),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

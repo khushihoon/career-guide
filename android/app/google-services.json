@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "108208458576",
+    "project_id": "ai-career-app-a38db",
+    "storage_bucket": "ai-career-app-a38db.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:108208458576:android:80dc26689dc0dd64e3ba55",
+        "android_client_info": {
+          "package_name": "com.aicareer.guidance"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmeb_XIeUO-uIbbRnhrzXHFP8ILgu2kFc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:108208458576:android:79a06261b7597a10e3ba55",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmeb_XIeUO-uIbbRnhrzXHFP8ILgu2kFc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
