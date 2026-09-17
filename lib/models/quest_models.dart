@@ -1,6 +1,13 @@
+
 // ══════════════════════════════════════════════════════════════════════
 // lib/models/quest_models.dart
-// NEW — Quest / Mission system models
+// Quest / Mission system models + AI Memory, Leveling, Leaderboard,
+// and Analytics helper models.
+//
+// Defensive parsing pass: fromMap factories now tolerate missing, null,
+// malformed, or wrong-type Firestore values with sensible defaults.
+// Public classes, fields, enum names, XP values, and LevelSystem
+// thresholds/titles are unchanged.
 // ══════════════════════════════════════════════════════════════════════
 
 enum QuestType { daily, weekly, monthly, bonus }
@@ -67,28 +74,85 @@ class Quest {
       (DateTime.now().isAfter(expiresAt) && !isCompleted);
 
   double get progressPercent =>
-      progressTarget == 0 ? 0 : (progressCurrent / progressTarget).clamp(0.0, 1.0);
+      progressTarget <= 0
+          ? 0.0
+          : (progressCurrent / progressTarget).clamp(0.0, 1.0);
 
-  factory Quest.fromMap(Map<String, dynamic> map) => Quest(
-        id: map['id'] as String,
-        title: map['title'] as String,
-        description: map['description'] as String,
-        type: QuestType.values.firstWhere(
-          (t) => t.name == (map['type'] as String),
-          orElse: () => QuestType.daily,
-        ),
-        status: QuestStatus.values.firstWhere(
-          (s) => s.name == (map['status'] as String),
-          orElse: () => QuestStatus.active,
-        ),
-        xpReward: (map['xpReward'] as int?) ?? 50,
-        progressCurrent: (map['progressCurrent'] as int?) ?? 0,
-        progressTarget: (map['progressTarget'] as int?) ?? 1,
-        expiresAt: DateTime.fromMillisecondsSinceEpoch(
-            map['expiresAt'] as int),
-        badgeId: map['badgeId'] as String?,
-        isAiGenerated: (map['isAiGenerated'] as bool?) ?? false,
-      );
+  /// Defensive parse. Missing or malformed fields fall back to safe
+  /// defaults; never throws on a single bad record.
+  factory Quest.fromMap(Map<String, dynamic> map) {
+    // --- id / title / description ---
+    final id          = map['id'] is String ? map['id'] as String : '';
+    final title       = map['title'] is String ? map['title'] as String : '';
+    final description =
+        map['description'] is String ? map['description'] as String : '';
+
+    // --- type / status ---
+    final rawType = map['type'];
+    final type = rawType is String
+        ? QuestType.values.firstWhere(
+            (t) => t.name == rawType,
+            orElse: () => QuestType.daily,
+          )
+        : QuestType.daily;
+
+    final rawStatus = map['status'];
+    final status = rawStatus is String
+        ? QuestStatus.values.firstWhere(
+            (s) => s.name == rawStatus,
+            orElse: () => QuestStatus.active,
+          )
+        : QuestStatus.active;
+
+    // --- xpReward ---
+    final rawXp = map['xpReward'];
+    final xpReward = rawXp is num ? rawXp.toInt() : 50;
+
+    // --- progressCurrent / progressTarget, sanitized ---
+    final rawTarget = map['progressTarget'];
+    int progressTarget = rawTarget is num ? rawTarget.toInt() : 1;
+    if (progressTarget < 0) progressTarget = 0;
+
+    final rawCurrent = map['progressCurrent'];
+    int progressCurrent = rawCurrent is num ? rawCurrent.toInt() : 0;
+    if (progressCurrent < 0) progressCurrent = 0;
+    if (progressTarget > 0 && progressCurrent > progressTarget) {
+      progressCurrent = progressTarget;
+    }
+
+    // --- expiresAt, defensive ---
+    final rawExpires = map['expiresAt'];
+    DateTime expiresAt;
+    if (rawExpires is int) {
+      expiresAt = DateTime.fromMillisecondsSinceEpoch(rawExpires);
+    } else if (rawExpires is num) {
+      expiresAt = DateTime.fromMillisecondsSinceEpoch(rawExpires.toInt());
+    } else if (rawExpires is String) {
+      expiresAt = DateTime.tryParse(rawExpires) ??
+          DateTime.now().add(const Duration(days: 1));
+    } else {
+      expiresAt = DateTime.now().add(const Duration(days: 1));
+    }
+
+    // --- optional fields ---
+    final badgeId = map['badgeId'] is String ? map['badgeId'] as String : null;
+    final isAiGenerated =
+        map['isAiGenerated'] is bool ? map['isAiGenerated'] as bool : false;
+
+    return Quest(
+      id: id,
+      title: title,
+      description: description,
+      type: type,
+      status: status,
+      xpReward: xpReward,
+      progressCurrent: progressCurrent,
+      progressTarget: progressTarget,
+      expiresAt: expiresAt,
+      badgeId: badgeId,
+      isAiGenerated: isAiGenerated,
+    );
+  }
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -143,19 +207,40 @@ class AiMemory {
     this.contextSummary = '',
   });
 
-  factory AiMemory.fromMap(Map<String, dynamic> map) => AiMemory(
-        goals: List<String>.from(map['goals'] as List? ?? []),
-        interests: List<String>.from(map['interests'] as List? ?? []),
-        recentAchievements:
-            List<String>.from(map['recentAchievements'] as List? ?? []),
-        companionName: map['companionName'] as String?,
-        lastAdvice: map['lastAdvice'] as String?,
-        lastAdviceDate: map['lastAdviceDate'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(
-                map['lastAdviceDate'] as int)
-            : null,
-        contextSummary: (map['contextSummary'] as String?) ?? '',
-      );
+  factory AiMemory.fromMap(Map<String, dynamic> map) {
+    // Safe list parsing: only accept List, and keep only string entries.
+    List<String> readStringList(dynamic raw) {
+      if (raw is! List) return const [];
+      final out = <String>[];
+      for (final e in raw) {
+        if (e is String) out.add(e);
+      }
+      return out;
+    }
+
+    final rawAdviceDate = map['lastAdviceDate'];
+    DateTime? lastAdviceDate;
+    if (rawAdviceDate is int) {
+      lastAdviceDate =
+          DateTime.fromMillisecondsSinceEpoch(rawAdviceDate);
+    } else if (rawAdviceDate is num) {
+      lastAdviceDate =
+          DateTime.fromMillisecondsSinceEpoch(rawAdviceDate.toInt());
+    }
+
+    return AiMemory(
+      goals: readStringList(map['goals']),
+      interests: readStringList(map['interests']),
+      recentAchievements: readStringList(map['recentAchievements']),
+      companionName:
+          map['companionName'] is String ? map['companionName'] as String : null,
+      lastAdvice:
+          map['lastAdvice'] is String ? map['lastAdvice'] as String : null,
+      lastAdviceDate: lastAdviceDate,
+      contextSummary:
+          map['contextSummary'] is String ? map['contextSummary'] as String : '',
+    );
+  }
 
   Map<String, dynamic> toMap() => {
         'goals': goals,
@@ -222,7 +307,9 @@ class LevelSystem {
     if (level >= _thresholds.length) return 1.0;
     final levelStart = _thresholds[level - 1];
     final levelEnd   = _thresholds[level];
-    return ((xp - levelStart) / (levelEnd - levelStart)).clamp(0.0, 1.0);
+    final range = levelEnd - levelStart;
+    if (range <= 0) return 0.0;
+    return ((xp - levelStart) / range).clamp(0.0, 1.0);
   }
 }
 
@@ -248,16 +335,47 @@ class LeaderboardEntry {
     this.isCurrentUser = false,
   });
 
-  factory LeaderboardEntry.fromMap(Map<String, dynamic> map, String docId) =>
-      LeaderboardEntry(
-        uid: docId,
-        displayName: map['displayName'] as String,
-        photoUrl: map['photoUrl'] as String?,
-        totalXp: (map['totalXp'] as int?) ?? 0,
-        level: (map['level'] as int?) ?? 1,
-        rank: (map['rank'] as int?) ?? 0,
-        weeklyXp: (map['weeklyXp'] as int?) ?? 0,
-      );
+  /// Defensive parse. [docId] is always used as the uid so the caller
+  /// can trust the returned entry's identity even if the map is
+  /// malformed.
+  factory LeaderboardEntry.fromMap(
+    Map<String, dynamic> map,
+    String docId,
+  ) {
+    final displayName =
+        map['displayName'] is String ? map['displayName'] as String : '';
+    final photoUrl =
+        map['photoUrl'] is String ? map['photoUrl'] as String : null;
+
+    final rawTotalXp   = map['totalXp'];
+    final rawLevel     = map['level'];
+    final rawRank      = map['rank'];
+    final rawWeeklyXp  = map['weeklyXp'];
+
+    int totalXp  = rawTotalXp  is num ? rawTotalXp.toInt()  : 0;
+    int level    = rawLevel    is num ? rawLevel.toInt()    : 1;
+    int rank     = rawRank     is num ? rawRank.toInt()     : 0;
+    int weeklyXp = rawWeeklyXp is num ? rawWeeklyXp.toInt() : 0;
+
+    if (totalXp  < 0) totalXp  = 0;
+    if (level    < 1) level    = 1;
+    if (rank     < 0) rank     = 0;
+    if (weeklyXp < 0) weeklyXp = 0;
+
+    final isCurrentUser =
+        map['isCurrentUser'] is bool ? map['isCurrentUser'] as bool : false;
+
+    return LeaderboardEntry(
+      uid: docId,
+      displayName: displayName,
+      photoUrl: photoUrl,
+      totalXp: totalXp,
+      level: level,
+      rank: rank,
+      weeklyXp: weeklyXp,
+      isCurrentUser: isCurrentUser,
+    );
+  }
 }
 
 // ── Analytics snapshot ─────────────────────────────────────────────────

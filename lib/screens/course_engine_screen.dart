@@ -10,20 +10,97 @@
 //  Screen N+3 — Final Project (goal, steps, expected output)
 //  Screen N+4 — Completion  (animation, total XP, next button)
 //
-// Entry point from courses_screen.dart Learn tab:
-//   Navigator.push(context, MaterialPageRoute(
-//     builder: (_) => CourseEngineScreen(course: topicCourse)));
+// CAREER INTELLIGENCE LOOP
+// ────────────────────────
+// This screen closes the loop:
 //
-// XP is added via EngagementProvider (if available), otherwise
-// stored locally in SharedPreferences — zero hard dependency.
+//   Skill Gap → Targeted Course → Quiz/Challenge Evidence
+//     → Copilot re-analysis → Next Best Action
+//
+// Every correct quiz answer, every correct challenge answer, and the
+// final project completion is persisted through the existing
+// CopilotController.recordCourseEvent(...) path. That method writes to
+// the same per-career learning-progress document (arrayUnion on
+// `completedCourseEventIds` and `courseEvidenceIds`), awards the event's
+// XP atomically on users/{uid}.totalXp ONLY on the first write of that
+// event id, and then refreshes Copilot intelligence so Skill Gap /
+// Readiness / Next Best Action / Recommendations can recalculate.
+//
+// The event id is stable and unique per course event:
+//     quiz:{courseId}:{index}
+//     challenge:{courseId}:{index}
+//     project:{courseId}
+// so reopening, retrying, or rebuilding cannot duplicate XP, completion
+// records, or evidence in Firestore.
+//
+// Course completion (the final lesson) is recorded through the existing
+// CopilotController.recordLessonCompleted, which appends a stable
+// per-course lesson id to the append-only completedLessonIds array and
+// triggers the same intelligence refresh.
+//
+// LOCAL XP COUNTER — PERSISTENCE + IDEMPOTENCY
+// ────────────────────────────────────────────
+// `_xpEarned` is the LOCAL display counter shown in the top-bar pill
+// and on the completion screen. Its persistence rules are:
+//
+//   • On screen load, `_xpEarned` is restored from the existing
+//     SharedPreferences key `course_xp_{courseId}`.
+//
+//   • On every successful course event (Firestore accepted the write),
+//     `_xpEarned` is incremented AND immediately written back to
+//     `course_xp_{courseId}`, so the new total survives app restart.
+//
+//   • A per-event SharedPreferences marker
+//     (`course_evt_done_{courseId}_{eventId}`) ensures the same event
+//     can never bump `_xpEarned` twice, even if the user reopens the
+//     course and re-answers the same question correctly.
+//
+//   • An IN-FLIGHT guard (`_eventInFlight`) prevents rapid double-taps
+//     or concurrent submissions for the same event from racing past the
+//     check-then-write sequence. It is set BEFORE the Firestore call and
+//     cleared in a finally block, so a failure path also releases it.
+//
+// Firestore remains the authoritative source of persisted XP on
+// users/{uid}.totalXp — the local counter mirrors the events the user
+// has genuinely recorded this session and is a UX convenience, not the
+// source of truth. If the Firestore write fails, the local counter is
+// NOT advanced, NOT saved, and the user can retry.
+//
+// ARCHITECTURE NOTE — RAW EVIDENCE SCOPE
+// ──────────────────────────────────────
+// `_LearningEvidence` (quizCorrect/Total, challengeCorrect/Total,
+// weakQuizTopics, weakChallengeTopics, accuracy) is captured in-session
+// for UI display only. The current CopilotController / CopilotFirestore
+// Service API accepts a per-event `(careerId, eventId, xpReward)` triple
+// and does NOT expose any method for persisting raw per-answer accuracy
+// or weak-topic lists. No such method is invented here — that would
+// require modifying another file. The per-event id append in
+// `completedCourseEventIds` / `courseEvidenceIds` is the authoritative
+// learning-evidence trail the existing Copilot pipeline can consume.
+//
+// SAVE-STATE HONESTY
+// ──────────────────
+// Answer-submit and project-complete await the Firestore write before
+// advancing the UI. If persistence fails, the answer is NOT shown as
+// accepted and the local XP counter is NOT advanced — the user can
+// retry. Course completion (the final lesson) also awaits its Copilot
+// write before being considered saved.
+//
+// IMPORTANT: recordLessonCompleted is called WITHOUT totalLessons, so
+// the existing per-career totalLessons value stored on the learning
+// progress document is preserved. Only the append-only completedLessonIds
+// array grows, keyed by a stable lessonId.
 // ══════════════════════════════════════════════════════════════════════
 
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/course_content_data.dart';
+import '../services/copilot_controller.dart';
+import '../services/copilot_provider.dart';
 
 // ── Public entry point ────────────────────────────────────────────────
 
@@ -34,6 +111,42 @@ class CourseEngineScreen extends StatefulWidget {
 
   @override
   State<CourseEngineScreen> createState() => _CourseEngineScreenState();
+}
+
+/// Session-local learning evidence. Lives only on screen state; used for
+/// UI display. The authoritative persistence happens via
+/// CopilotController.recordCourseEvent for each individual event.
+class _LearningEvidence {
+  int quizCorrect = 0;
+  int quizTotal = 0;
+  int challengeCorrect = 0;
+  int challengeTotal = 0;
+
+  /// Topic labels the user answered incorrectly, in the order seen.
+  final List<String> weakQuizTopics = <String>[];
+  final List<String> weakChallengeTopics = <String>[];
+
+  void recordQuiz({required bool correct, required String topic}) {
+    quizTotal += 1;
+    if (correct) {
+      quizCorrect += 1;
+    } else {
+      weakQuizTopics.add(topic);
+    }
+  }
+
+  void recordChallenge({required bool correct, required String topic}) {
+    challengeTotal += 1;
+    if (correct) {
+      challengeCorrect += 1;
+    } else {
+      weakChallengeTopics.add(topic);
+    }
+  }
+
+  double get quizAccuracy => quizTotal == 0 ? 0 : quizCorrect / quizTotal;
+  double get challengeAccuracy =>
+      challengeTotal == 0 ? 0 : challengeCorrect / challengeTotal;
 }
 
 class _CourseEngineScreenState extends State<CourseEngineScreen>
@@ -51,20 +164,44 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   static const _red      = Color(0xFFEF4444);
 
   // ── State ──────────────────────────────────────────────────────────
-  int    _screen       = 0;   // 0=intro, 1..n=concepts, quiz, challenges, project, done
+  int    _screen       = 0;
   int    _conceptIndex = 0;
   int    _quizIndex    = 0;
   int    _chalIndex    = 0;
 
   int    _xpEarned    = 0;
-  int?   _selectedOpt;       // current quiz/challenge selected option
+  int?   _selectedOpt;
   bool   _answered    = false;
+
+  bool   _alreadyCompletedBefore = false;
+  bool   _progressPersisted = false;
+
+  /// In-flight guard for course events. An event id present here means a
+  /// persist attempt for that event is currently running. This prevents
+  /// rapid double-taps / concurrent submissions from racing past the
+  /// check-then-write sequence and double-bumping the local counter.
+  ///
+  /// The guard is set BEFORE the Firestore call and cleared in a finally
+  /// block, so a failure path also releases it and the user can retry.
+  final Set<String> _eventInFlight = <String>{};
+
+  /// Session-local learning evidence (display-only).
+  final _LearningEvidence _evidence = _LearningEvidence();
+
+  // ── SharedPreferences keys ────────────────────────────────────────
+  String get _doneKey => 'course_done_${widget.course.id}';
+  String get _xpKey   => 'course_xp_${widget.course.id}';
 
   Future<void> _loadProgress() async {
     final prefs = await SharedPreferences.getInstance();
 
+    final done  = prefs.getBool(_doneKey) ?? false;
+    final saved = prefs.getInt(_xpKey) ?? 0;
+
+    if (!mounted) return;
     setState(() {
-      _xpEarned = prefs.getInt('course_xp_${widget.course.id}') ?? 0;
+      _alreadyCompletedBefore = done;
+      _xpEarned = saved;
     });
   }
 
@@ -72,9 +209,8 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   late AnimationController _celebCtrl;
   late AnimationController _xpCtrl;
 
-  // Screen IDs (computed from course content)
-  late final int _conceptScreenStart; // = 1
-  late final int _conceptScreenEnd;   // = concepts.length
+  late final int _conceptScreenStart;
+  late final int _conceptScreenEnd;
   late final int _quizScreenId;
   late final int _chalScreenId;
   late final int _projectScreenId;
@@ -86,7 +222,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
     _loadProgress();
     final c = widget.course;
     _conceptScreenStart = 1;
-    _conceptScreenEnd   = c.concepts.length;          // screens 1..n
+    _conceptScreenEnd   = c.concepts.length;
     _quizScreenId       = c.concepts.length + 1;
     _chalScreenId       = c.concepts.length + 2;
     _projectScreenId    = c.concepts.length + 3;
@@ -124,24 +260,221 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
     HapticFeedback.lightImpact();
   }
 
-  void _addXp(int amount) {
+  /// Increments the local display counter, triggers the brief XP-pulse
+  /// animation, and immediately persists the new total to the existing
+  /// SharedPreferences key so it survives an app restart.
+  ///
+  /// Persistence failure here is non-fatal and silent: the counter is a
+  /// UX convenience, and Firestore (users/{uid}.totalXp) remains the
+  /// authoritative source of XP. The in-memory counter still reflects
+  /// the new value for the current session.
+  Future<void> _addXpAndPersist(int amount) async {
     setState(() => _xpEarned += amount);
     _xpCtrl.forward(from: 0);
     HapticFeedback.mediumImpact();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_xpKey, _xpEarned);
+    } catch (_) {
+      // Best-effort local mirror — Firestore stays authoritative.
+    }
   }
 
-  Future<void> _onComplete() async {
-    // Persist completion in SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('course_done_${widget.course.id}', true);
-    await prefs.setInt(
-        'course_xp_${widget.course.id}', _xpEarned);
+  // ── Local idempotency marker for the display XP counter ─────────────
+  //
+  // Keyed by the stable event id used for Firestore persistence. A
+  // present marker means "this event has already been recorded, so do
+  // NOT bump the local XP counter again". This makes `_xpEarned`
+  // idempotent across retries and app restarts, WITHOUT changing any
+  // other file. Firestore remains the authoritative source for the
+  // persisted XP on users/{uid}.totalXp.
+  String _eventMarkerKey(String eventId) =>
+      'course_evt_done_${widget.course.id}_$eventId';
 
-    // Add total XP to engagement system if available
-    // (safe — no hard dependency on EngagementProvider)
+  Future<bool> _eventAlreadyRecorded(String eventId) async {
     try {
-      // ignore: use_build_context_synchronously
-      final ctrl = _EngagementBridge.maybeAddXp(context, _xpEarned);
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_eventMarkerKey(eventId)) ?? false;
+    } catch (_) {
+      // If SharedPreferences is unavailable, assume not recorded so the
+      // Firestore call is still made (its transaction is idempotent).
+      return false;
+    }
+  }
+
+  Future<void> _markEventRecorded(String eventId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_eventMarkerKey(eventId), true);
+    } catch (_) {
+      // Best-effort. Firestore is still authoritative for XP and history.
+    }
+  }
+
+  /// Persists ONE course event (quiz answer / challenge answer / project
+  /// completion) through the existing CopilotController.recordCourseEvent
+  /// path, awaits it, and — only when the event is genuinely new —
+  /// updates the local display counter AND immediately writes the new
+  /// total to the existing `course_xp_{courseId}` SharedPreferences key.
+  ///
+  /// Idempotency:
+  ///   • Firestore: the transaction inside recordCourseEvent is a no-op
+  ///     for an already-recorded event id, so XP/history/evidence can
+  ///     never be duplicated.
+  ///   • Local display counter: gated by a SharedPreferences marker per
+  ///     event id, so reopening the course and re-answering the same
+  ///     question correctly does NOT bump `_xpEarned` again, and the
+  ///     persisted `course_xp_{courseId}` value is not touched either.
+  ///   • In-flight: an in-memory `_eventInFlight` set prevents a second
+  ///     concurrent call for the same event from racing past the check.
+  ///     The guard is set BEFORE the Firestore call and cleared in a
+  ///     finally block, so a failure path also releases it.
+  ///
+  /// Returns true on success (or when no controller/user is available so
+  /// the offline UX is preserved, or when another call for the same
+  /// event is already in-flight), false on a genuine persistence
+  /// failure. On failure, a retryable snackbar is shown and the caller
+  /// does NOT advance the UI.
+  Future<bool> _persistCourseEvent({
+    required String eventId,
+    required int xpReward,
+  }) async {
+    // In-flight guard: if this event is already being persisted, treat
+    // it as a duplicate attempt and short-circuit. This prevents rapid
+    // double-taps / concurrent submissions from racing past the
+    // check-then-write sequence and double-bumping the local counter.
+    if (_eventInFlight.contains(eventId)) return true;
+    _eventInFlight.add(eventId);
+
+    try {
+      final alreadyRecordedLocally = await _eventAlreadyRecorded(eventId);
+
+      final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
+      final uid  = FirebaseAuth.instance.currentUser?.uid;
+
+      // Offline-safe: if there is no controller or user, keep the
+      // existing local-only behaviour and do not block the UI.
+      if (ctrl == null || uid == null) {
+        return true;
+      }
+
+      try {
+        await ctrl.recordCourseEvent(
+          uid,
+          careerId: widget.course.careerId,
+          eventId: eventId,
+          xpReward: xpReward,
+        );
+        // Only advance the local display counter (and immediately
+        // persist it) when this event is genuinely new. Firestore
+        // already enforced idempotency on its side; this guard keeps
+        // the local mirror from double-counting a retried/reopened
+        // event.
+        if (!alreadyRecordedLocally && xpReward > 0) {
+          await _addXpAndPersist(xpReward);
+        }
+        if (!alreadyRecordedLocally) {
+          await _markEventRecorded(eventId);
+        }
+        return true;
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Couldn\'t save your progress. Please try again.'),
+              backgroundColor: Color(0xFFEF4444),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return false;
+      }
+    } finally {
+      // Always release the in-flight guard — success OR failure — so the
+      // user can retry a failed attempt and future calls are allowed.
+      _eventInFlight.remove(eventId);
+    }
+  }
+
+  /// Persists the completion of the course through the existing
+  /// recordLessonCompleted path, and triggers the existing intelligence
+  /// refresh. Returns true on success.
+  Future<bool> _persistCourseCompletion() async {
+    final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
+    final uid  = FirebaseAuth.instance.currentUser?.uid;
+
+    if (ctrl == null || uid == null) return true;
+
+    try {
+      await ctrl.recordLessonCompleted(
+        uid,
+        careerId: widget.course.careerId,
+        lessonId: 'course:${widget.course.id}',
+        currentLevelTitle: widget.course.topicTitle,
+        // totalLessons intentionally NOT passed so the per-career
+        // totalLessons value on the learning-progress document is
+        // preserved.
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Persists local session state and — only on a genuine, first-time
+  /// completion — records the lesson completion into the existing
+  /// Copilot/learning progress system.
+  ///
+  /// Idempotent: reopening an already-completed course will NOT re-award
+  /// or re-record.
+  ///
+  /// Save-state honesty:
+  ///   • Local SharedPreferences is written first. If that write fails,
+  ///     the course is NOT marked complete locally, and _progressPersisted
+  ///     is rolled back so the user can retry.
+  ///   • The Copilot hook (recordLessonCompleted + refreshIntelligence)
+  ///     runs only for the first completion. It is best-effort: a failure
+  ///     there is swallowed, because the local completion marker already
+  ///     stands and the append-only lesson history is idempotent.
+  Future<void> _onComplete() async {
+    if (_progressPersisted) return;
+    _progressPersisted = true;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    bool localSaved = false;
+    try {
+      await prefs.setBool(_doneKey, true);
+      await prefs.setInt(_xpKey, _xpEarned);
+      localSaved = true;
+    } catch (_) {
+      localSaved = false;
+    }
+
+    if (!localSaved) {
+      _progressPersisted = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Couldn\'t save your progress locally. Please try again.'),
+            backgroundColor: Color(0xFFEF4444),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    final isFirstCompletion = !_alreadyCompletedBefore;
+    _alreadyCompletedBefore = true;
+
+    if (isFirstCompletion) {
+      await _persistCourseCompletion();
+    }
+
+    try {
+      _EngagementBridge.maybeAddXp(_xpEarned);
     } catch (_) {}
   }
 
@@ -187,7 +520,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                     fontSize: 15),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
-          // XP counter
           AnimatedBuilder(
             animation: _xpCtrl,
             builder: (_, __) => Container(
@@ -200,7 +532,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                     ? [BoxShadow(
                         color: _primary.withOpacity(_xpCtrl.value * 0.5),
                         blurRadius: 12)]
-                    : [],
+                    : const [],
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const Text('⚡', style: TextStyle(fontSize: 12)),
@@ -257,7 +589,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
     return 'Complete!';
   }
 
-  // ── Route to correct screen ───────────────────────────────────────
   Widget _buildCurrentScreen() {
     if (_screen == 0)              return _introScreen();
     if (_screen <= _conceptScreenEnd) return _conceptScreen();
@@ -281,7 +612,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
         children: [
           const SizedBox(height: 20),
 
-          // Emoji hero
           Container(
             width: 100, height: 100,
             decoration: BoxDecoration(
@@ -305,13 +635,14 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               .animate().fadeIn(delay: 200.ms),
 
           const SizedBox(height: 8),
-          Text('Master this concept step by step',
+          Text(_alreadyCompletedBefore
+                  ? 'Already completed — reopen any time to revise'
+                  : 'Master this concept step by step',
               style: const TextStyle(color: _muted, fontSize: 14))
               .animate().fadeIn(delay: 300.ms),
 
           const SizedBox(height: 28),
 
-          // Meta cards
           Row(children: [
             Expanded(child: _metaCard('🎯', 'Difficulty', c.difficulty, diffColor)),
             const SizedBox(width: 10),
@@ -322,7 +653,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 28),
 
-          // Course breakdown
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -344,7 +674,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 20),
 
-          // Motivational intro
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -360,7 +689,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 32),
 
-          // Start button
           SizedBox(
             width: double.infinity, height: 54,
             child: ElevatedButton(
@@ -431,7 +759,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Concept number badge
           Row(children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -449,7 +776,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 16),
 
-          // Title
           Text(concept.title,
               style: const TextStyle(
                   color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))
@@ -457,7 +783,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 20),
 
-          // Definition card
           _conceptSection(
             icon: '📖',
             label: 'Definition',
@@ -468,7 +793,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 14),
 
-          // Analogy card
           _conceptSection(
             icon: '🧠',
             label: 'Real-World Analogy',
@@ -479,7 +803,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 14),
 
-          // Example card
           _conceptSection(
             icon: '💡',
             label: 'Example',
@@ -491,7 +814,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                     fontSize: 13, height: 1.6)),
           ).animate().fadeIn(delay: 220.ms),
 
-          // Code snippet (optional)
           if (concept.codeSnippet != null) ...[
             const SizedBox(height: 14),
             _codeBlock(concept.codeSnippet!).animate().fadeIn(delay: 270.ms),
@@ -499,7 +821,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 14),
 
-          // Key takeaway
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -527,7 +848,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 28),
 
-          // Next button
           SizedBox(
             width: double.infinity, height: 52,
             child: ElevatedButton(
@@ -632,7 +952,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -651,14 +970,12 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 18),
 
-          // Question
           Text(q.question,
               style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600, height: 1.4))
               .animate().fadeIn(delay: 60.ms),
 
           const SizedBox(height: 24),
 
-          // Options
           ...q.options.asMap().entries.map((e) {
             final i     = e.key;
             final opt   = e.value;
@@ -720,7 +1037,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 8),
 
-          // Explanation (shows after answer)
           if (_answered) ...[
             Container(
               width: double.infinity,
@@ -742,16 +1058,34 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
             const SizedBox(height: 16),
           ],
 
-          // Submit / Next button
           SizedBox(
             width: double.infinity, height: 52,
             child: ElevatedButton(
-              onPressed: _selectedOpt == null ? null : () {
+              onPressed: _selectedOpt == null ? null : () async {
                 if (!_answered) {
-                  setState(() => _answered = true);
-                  if (_selectedOpt == q.correctIndex) {
-                    _addXp(q.xpReward);
+                  final correct = _selectedOpt == q.correctIndex;
+
+                  // Persist the correct-answer event first, so XP and
+                  // evidence are durable before the UI acknowledges it.
+                  // Wrong answers persist no XP event; they are simply
+                  // not treated as evidence of mastery. The in-flight
+                  // guard inside _persistCourseEvent prevents rapid
+                  // double-taps from double-bumping the local counter.
+                  if (correct) {
+                    final eventId = 'quiz:${widget.course.id}:$_quizIndex';
+                    final ok = await _persistCourseEvent(
+                      eventId: eventId,
+                      xpReward: q.xpReward,
+                    );
+                    if (!mounted || !ok) return;
                   }
+
+                  if (!mounted) return;
+                  setState(() => _answered = true);
+                  _evidence.recordQuiz(
+                    correct: correct,
+                    topic: widget.course.topicTitle,
+                  );
                 } else {
                   setState(() {
                     _quizIndex++;
@@ -800,7 +1134,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -819,7 +1152,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 20),
 
-          // Prompt card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -843,7 +1175,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 20),
 
-          // Options (same pattern as quiz)
           ...ch.options.asMap().entries.map((e) {
             final i     = e.key;
             final opt   = e.value;
@@ -928,10 +1259,25 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           SizedBox(
             width: double.infinity, height: 52,
             child: ElevatedButton(
-              onPressed: _selectedOpt == null ? null : () {
+              onPressed: _selectedOpt == null ? null : () async {
                 if (!_answered) {
+                  final correct = _selectedOpt == ch.correctIndex;
+
+                  if (correct) {
+                    final eventId = 'challenge:${widget.course.id}:$_chalIndex';
+                    final ok = await _persistCourseEvent(
+                      eventId: eventId,
+                      xpReward: ch.xpReward,
+                    );
+                    if (!mounted || !ok) return;
+                  }
+
+                  if (!mounted) return;
                   setState(() => _answered = true);
-                  if (_selectedOpt == ch.correctIndex) _addXp(ch.xpReward);
+                  _evidence.recordChallenge(
+                    correct: correct,
+                    topic: widget.course.topicTitle,
+                  );
                 } else {
                   setState(() {
                     _chalIndex++;
@@ -966,7 +1312,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
@@ -984,13 +1329,11 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 16),
 
-          // Goal
           _projectSection('🎯 Project Goal', p.goal, const Color(0xFF60A5FA))
               .animate().fadeIn(delay: 100.ms),
 
           const SizedBox(height: 14),
 
-          // Steps
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -1033,7 +1376,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 14),
 
-          // Expected output
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(14),
@@ -1058,7 +1400,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 14),
 
-          // XP reward note
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(14),
@@ -1079,8 +1420,18 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           SizedBox(
             width: double.infinity, height: 52,
             child: ElevatedButton(
-              onPressed: () {
-                _addXp(p.xpReward);
+              onPressed: () async {
+                // Persist the project completion event first (durable XP
+                // + evidence), then advance. A failed write keeps the
+                // user on this screen so they can retry. The in-flight
+                // guard inside _persistCourseEvent prevents rapid
+                // double-taps from double-bumping the local counter.
+                final eventId = 'project:${widget.course.id}';
+                final ok = await _persistCourseEvent(
+                  eventId: eventId,
+                  xpReward: p.xpReward,
+                );
+                if (!mounted || !ok) return;
                 _next();
               },
               style: ElevatedButton.styleFrom(
@@ -1123,14 +1474,12 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
         children: [
           const SizedBox(height: 20),
 
-          // Celebration animation
           AnimatedBuilder(
             animation: _celebCtrl,
             builder: (_, __) {
               return Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Rotating rings
                   Transform.rotate(
                     angle: _celebCtrl.value * 2 * pi,
                     child: Container(
@@ -1154,7 +1503,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                       ),
                     ),
                   ),
-                  // Trophy
                   Container(
                     width: 80, height: 80,
                     decoration: const BoxDecoration(
@@ -1177,14 +1525,13 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           const SizedBox(height: 8),
 
           Text(
-            '${widget.course.topicTitle} — Mastered ✓',
+            '${widget.course.topicTitle} — Completed ✓',
             textAlign: TextAlign.center,
             style: const TextStyle(color: _secondary, fontSize: 15),
           ).animate().fadeIn(delay: 200.ms),
 
           const SizedBox(height: 28),
 
-          // XP summary card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -1204,7 +1551,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                   style: const TextStyle(
                       color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              // Breakdown
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 _xpBreakdown('Quiz', '${widget.course.quiz.length * 10}'),
                 _xpBreakdown('Challenges', '${widget.course.challenges.length * 15}'),
@@ -1215,7 +1561,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 20),
 
-          // What you mastered
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -1224,7 +1569,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               border: Border.all(color: _border),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Concepts Mastered:',
+              const Text('Concepts Covered:',
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
               const SizedBox(height: 10),
               ...widget.course.concepts.map((c) => Padding(
@@ -1240,7 +1585,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
           const SizedBox(height: 28),
 
-          // Done button
           SizedBox(
             width: double.infinity, height: 54,
             child: ElevatedButton(
@@ -1341,8 +1685,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 // ── Safe EngagementProvider bridge ─────────────────────────────────
 // Does not import EngagementProvider directly to avoid hard dependency
 class _EngagementBridge {
-  static void maybeAddXp(BuildContext context, int xp) {
+  static void maybeAddXp(int xp) {
     // No-op if engagement system not present — XP saved to SharedPrefs instead
   }
 }
-

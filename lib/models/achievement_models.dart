@@ -1,6 +1,15 @@
+
 // ══════════════════════════════════════════════════════════════════════
 // lib/models/achievement_models.dart
-// NEW — Achievement Engine models
+// Achievement Engine models.
+//
+// Backward-compatible with the existing AchievementService rule engine
+// and AchievementScreen UI. All Firestore field names are preserved so
+// existing stored documents keep loading without migration.
+//
+// The model is intentionally simple: it carries display + persisted
+// achievement state only. Unlock logic, progress calculation, and rule
+// definitions live in AchievementService — never here.
 // ══════════════════════════════════════════════════════════════════════
 
 enum AchievementRarity { common, rare, epic, legendary }
@@ -43,9 +52,9 @@ class Achievement {
   final AchievementRarity rarity;
   final int xpBonus;
   final DateTime? unlockedAt;
-  final double progress;       // 0.0–1.0 for in-progress
-  final int progressTarget;
-  final int progressCurrent;
+  final double progress;       // 0.0–1.0, clamped
+  final int progressTarget;    // >= 0
+  final int progressCurrent;   // >= 0, <= progressTarget when target > 0
 
   const Achievement({
     required this.id,
@@ -60,27 +69,105 @@ class Achievement {
     this.progressCurrent = 0,
   });
 
+  /// Historical unlock is defined strictly by the presence of an
+  /// [unlockedAt] timestamp. Current progress can never re-lock an
+  /// achievement.
   bool get isUnlocked => unlockedAt != null;
 
-  factory Achievement.fromMap(Map<String, dynamic> map) => Achievement(
-        id: map['id'] as String,
-        title: map['title'] as String,
-        description: map['description'] as String,
-        icon: map['icon'] as String,
-        rarity: AchievementRarity.values.firstWhere(
-          (r) => r.name == (map['rarity'] as String),
-          orElse: () => AchievementRarity.common,
-        ),
-        xpBonus: (map['xpBonus'] as int?) ?? 25,
-        unlockedAt: map['unlockedAt'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(
-                map['unlockedAt'] as int)
-            : null,
-        progress: (map['progress'] as num?)?.toDouble() ?? 0,
-        progressTarget: (map['progressTarget'] as int?) ?? 1,
-        progressCurrent: (map['progressCurrent'] as int?) ?? 0,
-      );
+  // ── Defensive Firestore parsing ────────────────────────────────────
+  //
+  // Every field is parsed defensively so one malformed stored value can
+  // never crash the whole cabinet. Missing or invalid values fall back
+  // to safe defaults that preserve the "locked, no progress" state
+  // rather than inventing progress.
+  factory Achievement.fromMap(Map<String, dynamic> map) {
+    final rawId          = map['id'];
+    final rawTitle       = map['title'];
+    final rawDescription = map['description'];
+    final rawIcon        = map['icon'];
+    final rawRarity      = map['rarity'];
+    final rawXpBonus     = map['xpBonus'];
+    final rawUnlockedAt  = map['unlockedAt'];
+    final rawProgress    = map['progress'];
+    final rawTarget      = map['progressTarget'];
+    final rawCurrent     = map['progressCurrent'];
 
+    // Title/description/icon/id fall back to empty strings so a malformed
+    // record never breaks parsing. The catalog still supplies the real
+    // display values via _allWithProgress for known ids.
+    final id          = rawId is String ? rawId : '';
+    final title       = rawTitle is String ? rawTitle : '';
+    final description = rawDescription is String ? rawDescription : '';
+    final icon        = rawIcon is String ? rawIcon : '';
+
+    final rarity = rawRarity is String
+        ? AchievementRarity.values.firstWhere(
+            (r) => r.name == rawRarity,
+            orElse: () => AchievementRarity.common,
+          )
+        : AchievementRarity.common;
+
+    final xpBonus = rawXpBonus is num
+        ? rawXpBonus.toInt().clamp(0, 1000000)
+        : 0;
+
+    DateTime? unlockedAt;
+    if (rawUnlockedAt is int) {
+      unlockedAt = DateTime.fromMillisecondsSinceEpoch(rawUnlockedAt);
+    } else if (rawUnlockedAt is num) {
+      unlockedAt =
+          DateTime.fromMillisecondsSinceEpoch(rawUnlockedAt.toInt());
+    } else if (rawUnlockedAt is String) {
+      unlockedAt = DateTime.tryParse(rawUnlockedAt);
+    }
+
+    // progress is stored as a 0.0–1.0 double, but tolerate 0–100 as well.
+    double progress = 0;
+    if (rawProgress is num) {
+      final v = rawProgress.toDouble();
+      if (!v.isNaN && !v.isInfinite) {
+        progress = v > 1.0 ? (v / 100.0) : v;
+      }
+    }
+
+    int progressTarget = 1;
+    if (rawTarget is num) {
+      final t = rawTarget.toInt();
+      progressTarget = t < 0 ? 0 : t;
+    }
+
+    int progressCurrent = 0;
+    if (rawCurrent is num) {
+      final c = rawCurrent.toInt();
+      progressCurrent = c < 0 ? 0 : c;
+    }
+
+    // Clamp progress to a safe [0, 1] range.
+    progress = progress.clamp(0.0, 1.0);
+
+    // Never let current exceed target when a target is defined.
+    if (progressTarget > 0 && progressCurrent > progressTarget) {
+      progressCurrent = progressTarget;
+    }
+
+    return Achievement(
+      id: id,
+      title: title,
+      description: description,
+      icon: icon,
+      rarity: rarity,
+      xpBonus: xpBonus,
+      unlockedAt: unlockedAt,
+      progress: progress,
+      progressTarget: progressTarget,
+      progressCurrent: progressCurrent,
+    );
+  }
+
+  // ── Firestore serialization ────────────────────────────────────────
+  //
+  // Field names are preserved exactly as before so existing stored
+  // documents remain readable and no migration is required.
   Map<String, dynamic> toMap() => {
         'id': id,
         'title': title,
@@ -97,6 +184,11 @@ class Achievement {
 }
 
 // ── Catalog of all achievements (used client-side) ─────────────────────
+//
+// This is the single client-side source of achievement definitions. The
+// AchievementService supplies the rule engine that unlocks them, and the
+// AchievementScreen renders whatever this catalog plus the persisted
+// unlock history produce. No other catalog should be created.
 class AchievementCatalog {
   static const List<Achievement> all = [
     // ── Common ──────────────────────────────────────────────────────

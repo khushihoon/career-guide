@@ -1,6 +1,27 @@
-// ══════════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
 // lib/features/copilot/services/copilot_firestore_service.dart
 // Firestore CRUD for every copilot collection.
+//
+// UPGRADE NOTES (this revision):
+//   • Added ONE new public method — `recordCourseEvent` — for persisting
+//     a single course learning event (quiz answer / challenge answer /
+//     project completion). It:
+//        - appends the eventId to the per-career learning-progress
+//          document under `completedCourseEventIds` (arrayUnion, so
+//          repeats are no-ops),
+//        - appends the eventId to `courseEvidenceIds` (arrayUnion) as
+//          the durable "learning evidence" trail that future Skill Gap
+//          re-analysis can read,
+//        - awards xpReward to users/{uid}.totalXp ONLY when the event
+//          is genuinely new — enforced inside a single Firestore
+//          transaction so repeated/concurrent calls can never
+//          double-award.
+//     Uses ONLY the existing per-career copilot_learning_progress
+//     document; no new collection, path, or schema.
+//   • Every existing public method, collection, document path, and
+//     field is unchanged. All previous callers keep compiling and
+//     behaving exactly as before.
 // ══════════════════════════════════════════════════════════════════════════════
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -171,16 +192,69 @@ class CopilotFirestoreService {
           .map((s) =>
               s.docs.map((d) => DailyGoal.fromFirestore(d.data())).toList());
 
+  /// Toggles a goal's completion state and awards normal goal XP on the
+  /// incomplete → complete transition, in a single Firestore transaction.
+  ///
+  /// Idempotency:
+  ///   • The transaction re-reads the goal doc and compares its CURRENT
+  ///     isCompleted value against the requested new value. Only a real
+  ///     false → true transition awards XP.
+  ///   • Repeated or concurrent taps that attempt the same transition
+  ///     will see the goal already completed and will NOT award XP again.
+  ///   • complete → incomplete never awards or subtracts XP.
+  ///
+  /// The goal XP is persisted on users/{uid}.totalXp in the SAME
+  /// transaction as the goal's isCompleted flip, so the two can never
+  /// disagree. Surprise-reward logic (RewardService) is intentionally
+  /// NOT handled here.
   static Future<void> toggleGoalCompletion(
       String uid, DailyGoal goal) async {
-    await _userDoc(uid)
+    final goalRef = _userDoc(uid)
         .collection('copilot_daily_goals')
-        .doc(goal.id)
-        .update({'isCompleted': !goal.isCompleted});
+        .doc(goal.id);
+    final userRef = _userDoc(uid);
+
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(goalRef);
+
+      // If the goal doc is missing, do nothing (matches previous
+      // `update(...)` behaviour of a silent no-op failure).
+      if (!snap.exists || snap.data() == null) return;
+
+      final data = snap.data()!;
+      final currentCompleted =
+          data['isCompleted'] is bool ? data['isCompleted'] as bool : false;
+
+      // The caller passes the goal with its CURRENT state; the requested
+      // new state is the negation, matching the old behaviour exactly.
+      final requestedNewState = !goal.isCompleted;
+      if (currentCompleted == requestedNewState) return;
+
+      // Reward only on a genuine false -> true transition.
+      final isCompleting = !currentCompleted && requestedNewState;
+      final reward =
+          data['xpReward'] is num ? (data['xpReward'] as num).toInt() : 0;
+
+      tx.update(goalRef, {'isCompleted': requestedNewState});
+
+      if (isCompleting && reward > 0) {
+        tx.set(
+          userRef,
+          {'totalXp': FieldValue.increment(reward)},
+          SetOptions(merge: true),
+        );
+      }
+    });
   }
 
   // ── Progress ───────────────────────────────────────────────────────────────
 
+  /// Recomputes and persists today's progress snapshot ONLY.
+  ///
+  /// This method is intentionally NOT responsible for awarding goal XP —
+  /// that happens exactly once in [toggleGoalCompletion]. Keeping XP
+  /// awarding out of here prevents double counting when progress is
+  /// re-synced for any reason.
   static Future<void> syncTodayProgress(
       String uid, List<DailyGoal> todayGoals) async {
     final today    = _todayKey();
@@ -258,6 +332,15 @@ class CopilotFirestoreService {
   //  • CareerReadiness is explicitly a derived/recomputed snapshot (see the
   //    comment on the model itself), so overwriting it on every recompute is
   //    correct and does not count as "erasing history".
+  //  • Course learning events (quiz answers, challenge answers, project
+  //    completions) are persisted into the SAME per-career learning-progress
+  //    document under two additive, append-only arrays:
+  //       - completedCourseEventIds — the idempotency guard + full record of
+  //         every event that has ever been recorded for that career.
+  //       - courseEvidenceIds       — the same events, kept as a durable
+  //         "learning evidence" trail for future Skill Gap re-analysis.
+  //    Both use FieldValue.arrayUnion, so a repeated call is a no-op.
+  //  • No new collection or document path is introduced anywhere.
   // ════════════════════════════════════════════════════════════════════════
 
   /// Shared helper for the singleton "current state" docs that live
@@ -332,6 +415,79 @@ class CopilotFirestoreService {
     if (currentLevelTitle != null) data['currentLevelTitle'] = currentLevelTitle;
     await _learningProgressDoc(uid, careerId)
         .set(data, SetOptions(merge: true));
+  }
+
+  /// Persists ONE course learning event (quiz answer / challenge answer /
+  /// project completion) under the existing per-career learning-progress
+  /// document, and awards xpReward to users/{uid}.totalXp atomically and
+  /// idempotently.
+  ///
+  /// Idempotency:
+  ///   • The transaction re-reads the per-career learning-progress document
+  ///     and checks whether [eventId] is already present in
+  ///     `completedCourseEventIds`.
+  ///   • If present → the call is a no-op (no duplicate history, no XP).
+  ///   • If absent → the event id is appended to BOTH
+  ///     `completedCourseEventIds` (the idempotency guard + full record)
+  ///     and `courseEvidenceIds` (the durable evidence trail for future
+  ///     Skill Gap re-analysis) via arrayUnion, and XP is incremented on
+  ///     users/{uid}.totalXp in the same transaction.
+  ///
+  /// Because the check and the write happen in ONE Firestore transaction,
+  /// repeated calls (double taps, retries, re-entering the course) can
+  /// never award XP twice, and concurrent calls can never race past the
+  /// check.
+  ///
+  /// [eventId] must be stable and unique per course event — for example
+  /// `quiz:{courseId}:{index}`, `challenge:{courseId}:{index}`, or
+  /// `project:{courseId}`. Empty [eventId] or empty [careerId] is a
+  /// safe no-op.
+  static Future<void> recordCourseEvent(
+    String uid, {
+    required String careerId,
+    required String eventId,
+    required int xpReward,
+  }) async {
+    if (careerId.isEmpty || eventId.isEmpty) return;
+
+    final learningRef = _learningProgressDoc(uid, careerId);
+    final userRef     = _userDoc(uid);
+
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(learningRef);
+      final data = snap.data() ?? <String, dynamic>{};
+
+      // Authoritative idempotency check inside the transaction.
+      final existingRaw = data['completedCourseEventIds'];
+      final existing = <String>{};
+      if (existingRaw is List) {
+        for (final e in existingRaw) {
+          if (e is String) existing.add(e);
+        }
+      }
+      if (existing.contains(eventId)) return;
+
+      tx.set(
+        learningRef,
+        {
+          'careerId': careerId,
+          // Idempotency guard + full record of every event for this career.
+          'completedCourseEventIds': FieldValue.arrayUnion([eventId]),
+          // Durable learning-evidence trail for future Skill Gap re-analysis.
+          'courseEvidenceIds': FieldValue.arrayUnion([eventId]),
+          'updatedAt': DateTime.now().toIso8601String(),
+        },
+        SetOptions(merge: true),
+      );
+
+      if (xpReward > 0) {
+        tx.set(
+          userRef,
+          {'totalXp': FieldValue.increment(xpReward)},
+          SetOptions(merge: true),
+        );
+      }
+    });
   }
 
   // ── Project Progress (singleton snapshot; history is append-only) ───────
