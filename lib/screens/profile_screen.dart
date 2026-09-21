@@ -1,6 +1,52 @@
 // ══════════════════════════════════════════════════════════════════════
 // lib/screens/profile_screen.dart
 // Professional AI Career Profile Screen
+//
+// ARCHITECTURE (compatibility / data-source correction)
+// ─────────────────────────────────────────────────────
+// This is a legacy profile screen. It remains a UI / consumer layer
+// and never becomes an authority for XP, career, or progress
+// persistence. Specifically:
+//
+//   • XP
+//       The single lifetime XP value displayed on this screen is read
+//       from `users/{uid}.totalXp` — the same authoritative lifetime XP
+//       field that the current Copilot architecture uses. The legacy
+//       `users/{uid}.xpPoints` value and the per-day
+//       `copilot_progress.xpEarned` values are NOT added into it and
+//       are NOT used as lifetime XP.
+//
+//       • Authoritative source: users/{uid}.totalXp
+//       • Legacy fallback (only when the authoritative value is
+//         genuinely absent): users/{uid}.xpPoints
+//       • Never sums the two.
+//       • Never treats the last-30-day progress sum as lifetime XP.
+//
+//       The 30-day progress sum is retained ONLY as an activity metric
+//       under a clearly labelled "Copilot XP (last 30 days)" tile — it
+//       is not presented as lifetime XP.
+//
+//   • Career
+//       The Edit Profile role list is a UI selection list for this
+//       legacy screen only. It now includes the canonical
+//       "Software Engineer" label so it is selectable alongside the
+//       other careers. No second career enum or database is created;
+//       `copilot_models.dart` is not modified.
+//
+//       The Copilot skill profile's `targetRole` continues to be read
+//       separately and is preferred for display when available.
+//
+//   • Persistence
+//       Profile edits continue to write only to the same existing
+//       `users/{uid}` document fields that this screen already wrote
+//       before. XP is never written or mutated from this screen.
+//
+//   • Safety
+//       Every read is defensive: missing Firestore fields, missing
+//       Copilot data, and legacy-only users are all handled without
+//       crashing. When the authoritative XP is unavailable, the last
+//       known value is kept; only when nothing is available does the
+//       screen fall back to `xpPoints` for display.
 // ══════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
@@ -46,7 +92,22 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   int _appliedJobs    = 0;
   int _savedJobsCount = 0;
-  int _xpPoints       = 0;
+
+  /// Authoritative lifetime XP — sourced from users/{uid}.totalXp.
+  /// This is the ONLY lifetime XP value this screen trusts. It is never
+  /// summed with legacy XP and never derived from progress history.
+  int _lifetimeXp     = 0;
+
+  /// Legacy XP (users/{uid}.xpPoints). Kept ONLY as a display fallback
+  /// for pre-Copilot users whose authoritative totalXp is genuinely
+  /// absent. Never added to _lifetimeXp.
+  int _legacyXp       = 0;
+
+  /// Whether the authoritative users/{uid}.totalXp field has been
+  /// observed. When true, _lifetimeXp is authoritative and _legacyXp is
+  /// not consulted for the lifetime XP display.
+  bool _hasAuthoritativeXp = false;
+
   int _doneSteps      = 0;
   int _streakDays     = 0;
 
@@ -66,6 +127,12 @@ class _ProfileScreenState extends State<ProfileScreen>
     _Level('🏆 Master',        3000, 9999, Color(0xFFFFD700)),
   ];
 
+  /// The authoritative lifetime XP value shown across the screen.
+  /// Prefers authoritative Copilot XP and only falls back to the legacy
+  /// field when the authoritative value has never been observed.
+  int get _xpPoints =>
+      _hasAuthoritativeXp ? _lifetimeXp : _legacyXp;
+
   _Level get _currentLevel => _levels.lastWhere(
         (l) => _xpPoints >= l.minXp,
         orElse: () => _levels.first,
@@ -83,11 +150,11 @@ class _ProfileScreenState extends State<ProfileScreen>
     return l.maxXp - _xpPoints;
   }
 
-  // Copilot XP from Firestore
-  int _copilotXp     = 0;
-  int _copilotStreak = 0;
-  int _roadmapPct    = 0;
-  String _copilotRole = '';
+  // Copilot-derived display values
+  int _copilotXpLast30 = 0;   // activity metric ONLY — never lifetime XP
+  int _copilotStreak   = 0;
+  int _roadmapPct      = 0;
+  String _copilotRole  = '';
 
   @override
   void initState() {
@@ -103,45 +170,69 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _loadAll() async {
-    setState(() => _loading = true);
+    if (mounted) setState(() => _loading = true);
     await Future.wait([
       _loadUserData(),
       _loadStats(),
       _loadCopilotData(),
     ]);
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _loadUserData() async {
     final user = _auth.currentUser;
     if (user == null) {
-      setState(() {
-        _userName   = 'Guest User';
-        _userEmail  = '';
-        _loading    = false;
-      });
+      if (mounted) {
+        setState(() {
+          _userName   = 'Guest User';
+          _userEmail  = '';
+          _loading    = false;
+        });
+      }
       return;
     }
-    setState(() {
-      _userName     = user.displayName ?? user.email?.split('@').first ?? 'User';
-      _userEmail    = user.email ?? '';
-      _userPhotoUrl = user.photoURL ?? '';
-    });
+    if (mounted) {
+      setState(() {
+        _userName     = user.displayName ?? user.email?.split('@').first ?? 'User';
+        _userEmail    = user.email ?? '';
+        _userPhotoUrl = user.photoURL ?? '';
+      });
+    }
 
     try {
       final doc = await _firestore.collection('users').doc(user.uid).get();
       if (doc.exists) {
         final d = doc.data()!;
+
+        // Authoritative lifetime XP — users/{uid}.totalXp.
+        // Only this field is treated as lifetime XP. It is never summed
+        // with anything else, and it is never derived from
+        // copilot_progress.xpEarned.
+        final num? totalXpRaw = d['totalXp'] as num?;
+        final int? totalXp    = totalXpRaw?.toInt();
+
+        // Legacy XP — users/{uid}.xpPoints. Kept ONLY for display
+        // fallback when the authoritative value is genuinely absent.
+        final num? legacyXpRaw = d['xpPoints'] as num?;
+        final int? legacyXp    = legacyXpRaw?.toInt();
+
+        if (!mounted) return;
         setState(() {
           _city        = d['city'] ?? d['location'] ?? 'India 🇮🇳';
           _bio         = d['bio'] ?? '';
           _phone       = d['phone'] ?? '';
-          _xpPoints    = (d['xpPoints'] as num?)?.toInt() ?? 0;
           _appliedJobs = (d['appliedJobs'] as num?)?.toInt() ?? 0;
           _doneSteps   = (d['completedSteps'] as num?)?.toInt() ?? 0;
           _userSkills  = List<String>.from(d['skills'] ?? []);
           _targetRole  = d['targetRole'] ?? 'AI Engineer';
           _experience  = d['experience'] ?? '0–1 years';
+
+          if (totalXp != null && totalXp >= 0) {
+            _lifetimeXp          = totalXp;
+            _hasAuthoritativeXp  = true;
+          } else if (legacyXp != null && legacyXp >= 0) {
+            _legacyXp = legacyXp;
+          }
         });
       }
     } catch (_) {}
@@ -152,29 +243,33 @@ class _ProfileScreenState extends State<ProfileScreen>
           .collection('saved_jobs')
           .where('userId', isEqualTo: user.uid)
           .get();
-      setState(() => _savedJobsCount = saved.docs.length);
+      if (mounted) setState(() => _savedJobsCount = saved.docs.length);
     } catch (_) {}
   }
 
   Future<void> _loadStats() async {
-    final prefs = await SharedPreferences.getInstance();
-    int done = 0;
-    for (int i = 1; i <= 15; i++) {
-      if (prefs.getBool('rmap_$i') ?? prefs.getBool('phase_v2_$i') ?? false) done++;
-    }
-    // streak from prefs
-    final streak = prefs.getInt('streak_days') ?? 0;
-    setState(() {
-      if (done > _doneSteps) _doneSteps = done;
-      _streakDays = streak;
-    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      int done = 0;
+      for (int i = 1; i <= 15; i++) {
+        if (prefs.getBool('rmap_$i') ?? prefs.getBool('phase_v2_$i') ?? false) {
+          done++;
+        }
+      }
+      final streak = prefs.getInt('streak_days') ?? 0;
+      if (!mounted) return;
+      setState(() {
+        if (done > _doneSteps) _doneSteps = done;
+        _streakDays = streak;
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadCopilotData() async {
     final user = _auth.currentUser;
     if (user == null) return;
     try {
-      // Copilot skill profile
+      // Copilot skill profile (target role is preferred for display).
       final profileDoc = await _firestore
           .collection('users')
           .doc(user.uid)
@@ -183,10 +278,13 @@ class _ProfileScreenState extends State<ProfileScreen>
           .get();
       if (profileDoc.exists) {
         final d = profileDoc.data()!;
-        setState(() => _copilotRole = d['targetRole'] ?? '');
+        final role = d['targetRole'];
+        if (role is String && role.isNotEmpty && mounted) {
+          setState(() => _copilotRole = role);
+        }
       }
 
-      // Copilot roadmap progress
+      // Copilot roadmap progress.
       final roadmapDoc = await _firestore
           .collection('users')
           .doc(user.uid)
@@ -196,12 +294,15 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (roadmapDoc.exists) {
         final phases = (roadmapDoc.data()!['phases'] as List?) ?? [];
         final completed = phases.where((p) => p['isCompleted'] == true).length;
-        if (phases.isNotEmpty) {
-          setState(() => _roadmapPct = ((completed / phases.length) * 100).round());
+        if (phases.isNotEmpty && mounted) {
+          setState(() =>
+              _roadmapPct = ((completed / phases.length) * 100).round());
         }
       }
 
-      // Copilot progress (XP + streak)
+      // 30-day activity window. This is an ACTIVITY metric only — it is
+      // NOT treated as lifetime XP and is never added to the
+      // authoritative lifetime XP value.
       final progressSnap = await _firestore
           .collection('users')
           .doc(user.uid)
@@ -210,33 +311,32 @@ class _ProfileScreenState extends State<ProfileScreen>
           .limit(30)
           .get();
 
-      int totalXp = 0;
-      int streak  = 0;
+      int last30Xp   = 0;
+      int streak     = 0;
       DateTime? lastDate;
       for (final doc in progressSnap.docs) {
         final d    = doc.data();
         final xp   = (d['xpEarned'] as num?)?.toInt() ?? 0;
         final date = DateTime.tryParse(d['date'] as String? ?? '');
-        totalXp += xp;
+        last30Xp += xp;
         if (date != null) {
           if (lastDate == null) {
             streak = 1;
             lastDate = date;
           } else {
             final diff = lastDate!.difference(date).inDays;
-            if (diff <= 1 && (d['goalsCompleted'] as num? ?? 0) > 0) {
+            if (diff <= 1 && ((d['goalsCompleted'] as num?) ?? 0) > 0) {
               streak++;
               lastDate = date;
             }
           }
         }
       }
+
+      if (!mounted) return;
       setState(() {
-        _copilotXp     = totalXp;
-        _copilotStreak = streak;
-        // Merge XP sources
-        final merged = _xpPoints + totalXp;
-        if (merged > _xpPoints) _xpPoints = merged;
+        _copilotXpLast30 = last30Xp;
+        _copilotStreak   = streak;
         if (streak > _streakDays) _streakDays = streak;
       });
     } catch (_) {}
@@ -255,10 +355,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               onRefresh: _loadAll,
               child: CustomScrollView(
                 slivers: [
-                  // ── Hero header ──────────────────────────────────
                   SliverToBoxAdapter(child: _buildHero()),
 
-                  // ── XP Level bar ─────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -266,7 +364,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ).animate().fadeIn(delay: 100.ms),
                   ),
 
-                  // ── Stats row ────────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -276,7 +373,6 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                   const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
-                  // ── Tab bar ──────────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -286,10 +382,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // ── Tab content ──────────────────────────────────
-                  SliverToBoxAdapter(
-                    child: _buildTabContent(),
-                  ),
+                  SliverToBoxAdapter(child: _buildTabContent()),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 32)),
                 ],
@@ -316,7 +409,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
       child: Column(
         children: [
-          // ── Avatar ──
           Stack(
             alignment: Alignment.bottomRight,
             children: [
@@ -335,8 +427,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: _userPhotoUrl.isNotEmpty
                     ? ClipOval(
                         child: Image.network(_userPhotoUrl, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _avatarIcon()),
+                            errorBuilder: (_, __, ___) => _avatarIcon()),
                       )
                     : _avatarIcon(),
               ),
@@ -357,7 +448,6 @@ class _ProfileScreenState extends State<ProfileScreen>
 
           const SizedBox(height: 14),
 
-          // ── Name ──
           Text(_userName,
               style: const TextStyle(
                   color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))
@@ -365,7 +455,6 @@ class _ProfileScreenState extends State<ProfileScreen>
 
           const SizedBox(height: 4),
 
-          // ── Role + location ──
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -377,7 +466,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 child: Text(
                   _copilotRole.isNotEmpty ? _copilotRole : _targetRole,
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600),
                 ),
               ),
               const SizedBox(width: 8),
@@ -387,17 +479,16 @@ class _ProfileScreenState extends State<ProfileScreen>
             ],
           ).animate().fadeIn(delay: 150.ms),
 
-          // ── Bio ──
           if (_bio.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(_bio,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 13, height: 1.4)),
           ],
 
           const SizedBox(height: 16),
 
-          // ── Email chip ──
           if (_userEmail.isNotEmpty)
             GestureDetector(
               onTap: () {
@@ -602,7 +693,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Roadmap progress
           _sectionTitle('🗺️ Roadmap Progress'),
           const SizedBox(height: 10),
           _progressCard(
@@ -675,7 +765,9 @@ class _ProfileScreenState extends State<ProfileScreen>
             children: [
               Text(label,
                   style: const TextStyle(
-                      color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
               const Spacer(),
               Text('${(value * 100).toInt()}%',
                   style: TextStyle(
@@ -761,13 +853,18 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _activityGrid() {
+    // The first tile is clearly labelled as a 30-day activity metric so
+    // it cannot be mistaken for the authoritative lifetime XP shown in
+    // the level card. It is not added to the lifetime XP value.
     return Row(
       children: [
-        _activityTile('⚡', '$_copilotXp', 'Copilot XP', const Color(0xFF60A5FA)),
+        _activityTile('⚡', '$_copilotXpLast30', 'XP (30 days)',
+            const Color(0xFF60A5FA)),
         const SizedBox(width: 10),
         _activityTile('🔥', '$_copilotStreak', 'Day Streak', _amber),
         const SizedBox(width: 10),
-        _activityTile('🏆', _currentLevel.name.split(' ').first, 'Level', _currentLevel.color),
+        _activityTile('🏆', _currentLevel.name.split(' ').first, 'Level',
+            _currentLevel.color),
       ],
     );
   }
@@ -833,7 +930,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                 children: [
                   Text(title,
                       style: const TextStyle(
-                          color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
                   Text(subtitle,
                       style: const TextStyle(color: _muted, fontSize: 12)),
                 ],
@@ -850,15 +949,14 @@ class _ProfileScreenState extends State<ProfileScreen>
   // TAB 1 — SKILLS
   // ──────────────────────────────────────────────────────────────────
   Widget _skillsTab() {
-    // Recommended skills based on target role
-    final recommended = _recommendedSkills(_copilotRole.isNotEmpty ? _copilotRole : _targetRole);
+    final recommended =
+        _recommendedSkills(_copilotRole.isNotEmpty ? _copilotRole : _targetRole);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Current skills
           Row(
             children: [
               _sectionTitle('🛠️ Your Skills'),
@@ -876,7 +974,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                     children: [
                       Icon(Icons.add, size: 14, color: _secondary),
                       SizedBox(width: 4),
-                      Text('Add', style: TextStyle(color: _secondary, fontSize: 12)),
+                      Text('Add',
+                          style: TextStyle(color: _secondary, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -920,7 +1019,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               child: Wrap(
                 spacing: 7,
                 runSpacing: 7,
-                children: _userSkills.map((s) => _skillChip(s, _primary)).toList(),
+                children:
+                    _userSkills.map((s) => _skillChip(s, _primary)).toList(),
               ),
             ),
 
@@ -944,7 +1044,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                   spacing: 7,
                   runSpacing: 7,
                   children: recommended.map((s) {
-                    final have = _userSkills.map((x) => x.toLowerCase())
+                    final have = _userSkills
+                        .map((x) => x.toLowerCase())
                         .contains(s.toLowerCase());
                     return _skillChip(s, have ? _green : _amber,
                         icon: have ? Icons.check : null);
@@ -978,16 +1079,20 @@ class _ProfileScreenState extends State<ProfileScreen>
             Icon(icon, size: 11, color: color),
             const SizedBox(width: 4),
           ],
-          Text(skill, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w500)),
+          Text(skill,
+              style: TextStyle(
+                  color: color, fontSize: 11, fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 
   Widget _skillGapBar() {
-    final recommended = _recommendedSkills(_copilotRole.isNotEmpty ? _copilotRole : _targetRole);
+    final recommended =
+        _recommendedSkills(_copilotRole.isNotEmpty ? _copilotRole : _targetRole);
     final have = _userSkills.map((s) => s.toLowerCase()).toSet();
-    final matching = recommended.where((s) => have.contains(s.toLowerCase())).length;
+    final matching =
+        recommended.where((s) => have.contains(s.toLowerCase())).length;
     final pct = recommended.isEmpty ? 0.0 : matching / recommended.length;
 
     return Container(
@@ -1006,7 +1111,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('$matching / ${recommended.length} core skills',
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
                     Text('${(pct * 100).toInt()}% job ready for $_targetRole',
                         style: const TextStyle(color: _muted, fontSize: 11)),
@@ -1049,7 +1157,8 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
           Center(
             child: Text('${(pct * 100).toInt()}%',
-                style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+                style: TextStyle(
+                    color: color, fontSize: 11, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1094,7 +1203,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           _settingItem(Icons.info_outline,       'About the App',       _showAbout),
 
           const SizedBox(height: 20),
-          // Logout button
           GestureDetector(
             onTap: _logout,
             child: Container(
@@ -1119,7 +1227,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
 
           const SizedBox(height: 12),
-          // Delete account
           GestureDetector(
             onTap: _deleteAccount,
             child: Center(
@@ -1173,9 +1280,22 @@ class _ProfileScreenState extends State<ProfileScreen>
     String role = _targetRole;
     String exp  = _experience;
 
-    final roles = ['AI Engineer','ML Engineer','Data Scientist','NLP Engineer',
-      'CV Engineer','Prompt Engineer','AI Researcher','AI Product Manager'];
-    final exps  = ['0–1 years','1–2 years','2–3 years','3–5 years','5+ years'];
+    // UI selection list for this legacy editor ONLY. Software Engineer is
+    // included so the canonical `CareerGoal.softwareEngineer` label is
+    // selectable. No second career enum is created, and copilot_models.dart
+    // is not modified.
+    const roles = [
+      'AI Engineer',
+      'ML Engineer',
+      'Data Scientist',
+      'NLP Engineer',
+      'CV Engineer',
+      'Prompt Engineer',
+      'AI Researcher',
+      'AI Product Manager',
+      'Software Engineer',
+    ];
+    const exps  = ['0–1 years','1–2 years','2–3 years','3–5 years','5+ years'];
 
     showModalBottomSheet(
       context: context,
@@ -1196,7 +1316,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                 const Center(
                   child: Text('Edit Profile',
                       style: TextStyle(
-                          color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 20),
                 _inputField('Full Name', nameCtrl),
@@ -1207,10 +1329,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 const SizedBox(height: 12),
                 _inputField('Bio', bioCtrl, hint: 'Brief intro about yourself', maxLines: 2),
                 const SizedBox(height: 12),
-                // Target role
                 _dropdownField('Target Role', role, roles, (v) => setBS(() => role = v!)),
                 const SizedBox(height: 12),
-                // Experience
                 _dropdownField('Experience', exp, exps, (v) => setBS(() => exp = v!)),
                 const SizedBox(height: 20),
                 SizedBox(
@@ -1231,6 +1351,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           'experience': exp,
                           'updatedAt': DateTime.now().toIso8601String(),
                         });
+                        if (!mounted) return;
                         setState(() {
                           _userName    = name.isNotEmpty ? name : _userName;
                           _city        = cityCtrl.text.trim();
@@ -1251,7 +1372,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                           borderRadius: BorderRadius.circular(14)),
                     ),
                     child: const Text('Save Changes',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
                   ),
                 ),
               ],
@@ -1293,7 +1415,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                   children: [
                     const Text('Add Skills',
                         style: TextStyle(
-                            color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold)),
                     const Spacer(),
                     ElevatedButton(
                       onPressed: () async {
@@ -1302,6 +1426,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           final list = selected.toList();
                           await _firestore.collection('users').doc(user.uid)
                               .update({'skills': list});
+                          if (!mounted) return;
                           setState(() => _userSkills = list);
                         }
                         if (mounted) Navigator.pop(context);
@@ -1312,7 +1437,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                       ),
                       child: const Text('Save'),
                     ),
@@ -1331,16 +1457,24 @@ class _ProfileScreenState extends State<ProfileScreen>
                         final sel = selected.contains(s);
                         return GestureDetector(
                           onTap: () => setBS(() {
-                            if (sel) selected.remove(s); else selected.add(s);
+                            if (sel) {
+                              selected.remove(s);
+                            } else {
+                              selected.add(s);
+                            }
                           }),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 160),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: sel ? _primary.withOpacity(0.2) : const Color(0xFF0F0F20),
+                              color: sel
+                                  ? _primary.withOpacity(0.2)
+                                  : const Color(0xFF0F0F20),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                  color: sel ? _primary : _border, width: sel ? 1.5 : 1),
+                                  color: sel ? _primary : _border,
+                                  width: sel ? 1.5 : 1),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1348,13 +1482,18 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 if (sel)
                                   const Padding(
                                     padding: EdgeInsets.only(right: 4),
-                                    child: Icon(Icons.check, size: 12, color: _secondary),
+                                    child: Icon(Icons.check,
+                                        size: 12, color: _secondary),
                                   ),
                                 Text(s,
                                     style: TextStyle(
-                                        color: sel ? _secondary : const Color(0xFF888899),
+                                        color: sel
+                                            ? _secondary
+                                            : const Color(0xFF888899),
                                         fontSize: 12,
-                                        fontWeight: sel ? FontWeight.w600 : FontWeight.normal)),
+                                        fontWeight: sel
+                                            ? FontWeight.w600
+                                            : FontWeight.normal)),
                               ],
                             ),
                           ),
@@ -1393,7 +1532,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         builder: (_) => AlertDialog(
           backgroundColor: _surface,
           title: const Text('Verify Email', style: TextStyle(color: Colors.white)),
-          content: const Text('Your email is not verified. Send a verification email?',
+          content: const Text(
+              'Your email is not verified. Send a verification email?',
               style: TextStyle(color: _muted)),
           actions: [
             TextButton(
@@ -1437,7 +1577,9 @@ class _ProfileScreenState extends State<ProfileScreen>
               padding: EdgeInsets.fromLTRB(24, 20, 24, 12),
               child: Text('My Applications',
                   style: TextStyle(
-                      color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
             ),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
@@ -1464,7 +1606,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                     itemCount: snap.data!.docs.length,
                     itemBuilder: (_, i) {
-                      final d = snap.data!.docs[i].data() as Map<String, dynamic>;
+                      final d =
+                          snap.data!.docs[i].data() as Map<String, dynamic>;
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.all(12),
@@ -1500,7 +1643,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text('Applied',
-                                  style: TextStyle(color: _green, fontSize: 10)),
+                                  style: TextStyle(
+                                      color: _green, fontSize: 10)),
                             ),
                           ],
                         ),
@@ -1533,7 +1677,9 @@ class _ProfileScreenState extends State<ProfileScreen>
               children: [
                 Text('📄 Resume Summary',
                     style: TextStyle(
-                        color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 16),
@@ -1547,7 +1693,8 @@ class _ProfileScreenState extends State<ProfileScreen>
             _resumeRow('⚡ XP',          '$_xpPoints points'),
             _resumeRow('✅ Phases',      '$_doneSteps / 15 completed'),
             const SizedBox(height: 16),
-            const Text('💡 Tip: Upload your full resume to LinkedIn and attach it when applying',
+            const Text(
+                '💡 Tip: Upload your full resume to LinkedIn and attach it when applying',
                 style: TextStyle(color: _muted, fontSize: 12, height: 1.4)),
             const SizedBox(height: 16),
             SizedBox(
@@ -1559,7 +1706,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _secondary,
                   side: const BorderSide(color: _primary),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -1589,17 +1737,22 @@ class _ProfileScreenState extends State<ProfileScreen>
       );
 
   void _sendJobAlert() async {
-    if (_userEmail.isEmpty) { _snack('No email found'); return; }
+    if (_userEmail.isEmpty) {
+      _snack('No email found');
+      return;
+    }
     final uri = Uri(
       scheme: 'mailto',
       path: _userEmail,
-      query: 'subject=AI Job Alert Subscription&body=Subscribe me to AI/ML job alerts for ${_targetRole}.',
+      query:
+          'subject=AI Job Alert Subscription&body=Subscribe me to AI/ML job alerts for ${_targetRole}.',
     );
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   void _rateApp() async {
-    const url = 'https://play.google.com/store/apps/details?id=com.example.ai_career_app';
+    const url =
+        'https://play.google.com/store/apps/details?id=com.example.ai_career_app';
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } else {
@@ -1611,7 +1764,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     final uri = Uri(
       scheme: 'mailto',
       path: '',
-      query: 'subject=Check out AI Career App!&body=I found this amazing AI Career App!%0A%0A'
+      query:
+          'subject=Check out AI Career App!&body=I found this amazing AI Career App!%0A%0A'
           'Features:%0A'
           '• AI Learning Roadmap (15 phases)%0A'
           '• 100+ AI Job Listings%0A'
@@ -1646,7 +1800,9 @@ class _ProfileScreenState extends State<ProfileScreen>
           children: [
             const Text('📞 Help & Support',
                 style: TextStyle(
-                    color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             _helpOption(Icons.email_outlined, 'Email Support',
                 'mailto:support@aicareerapp.com?subject=Support Request'),
@@ -1750,7 +1906,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               backgroundColor: _red,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             child: const Text('Log Out'),
           ),
@@ -1765,8 +1922,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       builder: (_) => AlertDialog(
         backgroundColor: _surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Account',
-            style: TextStyle(color: _red)),
+        title:
+            const Text('Delete Account', style: TextStyle(color: _red)),
         content: const Text(
           'This will permanently delete your account and all data. This cannot be undone.',
           style: TextStyle(color: _muted),
@@ -1907,6 +2064,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       'Prompt Engineer':    ['Python','Prompt Engineering','LangChain','OpenAI API','RAG','Evaluation'],
       'AI Researcher':      ['Python','PyTorch','JAX','Statistics','LaTeX','Papers','Mathematics'],
       'AI Product Manager': ['SQL','Python basics','ML concepts','A/B Testing','Product Strategy'],
+      'Software Engineer':  ['Data Structures & Algorithms','System Design','Git','Testing','APIs','Databases'],
     };
     return map[role] ?? map['AI Engineer']!;
   }

@@ -1,13 +1,53 @@
-
 // ══════════════════════════════════════════════════════════════════════
 // lib/models/quest_models.dart
 // Quest / Mission system models + AI Memory, Leveling, Leaderboard,
 // and Analytics helper models.
 //
-// Defensive parsing pass: fromMap factories now tolerate missing, null,
+// Defensive parsing pass: fromMap factories tolerate missing, null,
 // malformed, or wrong-type Firestore values with sensible defaults.
 // Public classes, fields, enum names, XP values, and LevelSystem
-// thresholds/titles are unchanged.
+// thresholds/titles are unchanged except where a change was strictly
+// required by the finalized QuestService claim-state contract.
+//
+// ─────────────────────────────────────────────────────────────────────
+// CLAIM STATE CONTRACT
+// ─────────────────────────────────────────────────────────────────────
+// QuestService persists reward claims in `quests/{uid}.claimedQuestIds`.
+// The Quest model carries a projected boolean, `rewardClaimed`, so the
+// service / screen integration can render claim affordances accurately.
+//
+// IMPORTANT: `rewardClaimed` is a MODEL / UI state only. It is NEVER
+// authoritative over Firestore. QuestService remains the single source
+// of truth for whether a reward has actually been paid out.
+//
+//   • A completed quest is NOT automatically considered claimed.
+//   • An unclaimed completed quest with a valid (unexpired) period has
+//     canClaimReward == true.
+//   • Old Firestore quest documents without the new field parse as
+//     rewardClaimed == false, so nothing breaks for existing data.
+//
+// ─────────────────────────────────────────────────────────────────────
+// EXPIRY SEMANTICS
+// ─────────────────────────────────────────────────────────────────────
+// `isExpired` is based solely on the raw `expiresAt` timestamp (plus an
+// explicit QuestStatus.expired). Completion status does NOT override
+// expiry — a completed quest whose period has ended is expired. This
+// keeps the model consistent with QuestService's period-rotation
+// decision, which also uses raw `expiresAt`.
+//
+// This is a read-only derived property. Status is never mutated
+// automatically.
+//
+// ─────────────────────────────────────────────────────────────────────
+// PARSING SAFETY
+// ─────────────────────────────────────────────────────────────────────
+// fromMap() applies defensive parsing to every field:
+//   • malformed / missing ids, titles, descriptions → ''
+//   • invalid type / status → safe defaults
+//   • negative xpReward → 0
+//   • negative progress values → 0, clamped to target
+//   • malformed expiresAt → an already-expired safe value
+//   • malformed rewardClaimed → false
 // ══════════════════════════════════════════════════════════════════════
 
 enum QuestType { daily, weekly, monthly, bonus }
@@ -55,6 +95,12 @@ class Quest {
   final String? badgeId;        // optional achievement to unlock on complete
   final bool isAiGenerated;
 
+  /// Model / UI projection of whether the reward for this quest has
+  /// already been paid out. Populated from QuestService's authoritative
+  /// `claimedQuestIds` set. Never authoritative on its own — see the
+  /// file header.
+  final bool rewardClaimed;
+
   const Quest({
     required this.id,
     required this.title,
@@ -67,16 +113,33 @@ class Quest {
     required this.expiresAt,
     this.badgeId,
     this.isAiGenerated = false,
+    this.rewardClaimed = false,
   });
 
   bool get isCompleted => status == QuestStatus.completed;
-  bool get isExpired   => status == QuestStatus.expired ||
-      (DateTime.now().isAfter(expiresAt) && !isCompleted);
+
+  /// Period-based expiry. An explicit `QuestStatus.expired` is honoured,
+  /// and any quest whose `expiresAt` has been reached is expired
+  /// regardless of completion status. Completion does NOT override
+  /// expiry — this mirrors QuestService's authoritative
+  /// period-rotation decision.
+  bool get isExpired =>
+      status == QuestStatus.expired ||
+      !DateTime.now().isBefore(expiresAt);
 
   double get progressPercent =>
       progressTarget <= 0
           ? 0.0
           : (progressCurrent / progressTarget).clamp(0.0, 1.0);
+
+  /// Whether the reward for this quest can be claimed right now, based
+  /// on the model's projected state. Authoritative claiming still
+  /// happens in QuestService.
+  bool get canClaimReward =>
+      isCompleted && !rewardClaimed && !isExpired;
+
+  /// Whether the model believes the reward has already been claimed.
+  bool get isRewardClaimed => rewardClaimed;
 
   /// Defensive parse. Missing or malformed fields fall back to safe
   /// defaults; never throws on a single bad record.
@@ -104,9 +167,10 @@ class Quest {
           )
         : QuestStatus.active;
 
-    // --- xpReward ---
+    // --- xpReward: malformed / missing / negative → 0 ---
     final rawXp = map['xpReward'];
-    final xpReward = rawXp is num ? rawXp.toInt() : 50;
+    int xpReward = rawXp is num ? rawXp.toInt() : 0;
+    if (xpReward < 0) xpReward = 0;
 
     // --- progressCurrent / progressTarget, sanitized ---
     final rawTarget = map['progressTarget'];
@@ -121,6 +185,13 @@ class Quest {
     }
 
     // --- expiresAt, defensive ---
+    //
+    // A missing / malformed expiresAt is parsed as an already-expired
+    // safe value (epoch) rather than as a long-lived future date. This
+    // prevents malformed Firestore data from lingering as a
+    // seemingly-valid quest, and matches the finalized QuestService
+    // contract which treats a missing / invalid expiry as
+    // non-awardable.
     final rawExpires = map['expiresAt'];
     DateTime expiresAt;
     if (rawExpires is int) {
@@ -129,15 +200,22 @@ class Quest {
       expiresAt = DateTime.fromMillisecondsSinceEpoch(rawExpires.toInt());
     } else if (rawExpires is String) {
       expiresAt = DateTime.tryParse(rawExpires) ??
-          DateTime.now().add(const Duration(days: 1));
+          DateTime.fromMillisecondsSinceEpoch(0);
     } else {
-      expiresAt = DateTime.now().add(const Duration(days: 1));
+      expiresAt = DateTime.fromMillisecondsSinceEpoch(0);
     }
 
     // --- optional fields ---
     final badgeId = map['badgeId'] is String ? map['badgeId'] as String : null;
     final isAiGenerated =
         map['isAiGenerated'] is bool ? map['isAiGenerated'] as bool : false;
+
+    // --- rewardClaimed, defensive ---
+    // Only an explicit bool is honoured. Anything else (including a
+    // missing field, which is the case for all legacy Firestore quest
+    // records) parses as false.
+    final rewardClaimed =
+        map['rewardClaimed'] is bool ? map['rewardClaimed'] as bool : false;
 
     return Quest(
       id: id,
@@ -151,6 +229,7 @@ class Quest {
       expiresAt: expiresAt,
       badgeId: badgeId,
       isAiGenerated: isAiGenerated,
+      rewardClaimed: rewardClaimed,
     );
   }
 
@@ -166,11 +245,13 @@ class Quest {
         'expiresAt': expiresAt.millisecondsSinceEpoch,
         if (badgeId != null) 'badgeId': badgeId,
         'isAiGenerated': isAiGenerated,
+        'rewardClaimed': rewardClaimed,
       };
 
   Quest copyWith({
     QuestStatus? status,
     int? progressCurrent,
+    bool? rewardClaimed,
   }) =>
       Quest(
         id: id,
@@ -184,6 +265,7 @@ class Quest {
         expiresAt: expiresAt,
         badgeId: badgeId,
         isAiGenerated: isAiGenerated,
+        rewardClaimed: rewardClaimed ?? this.rewardClaimed,
       );
 }
 

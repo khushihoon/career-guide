@@ -19,29 +19,57 @@
 // system, the SharedPreferences "already generated today" guard, and the
 // weekly/monthly generation entry points are UNCHANGED and backward
 // compatible — existing callers (e.g. CopilotController) keep working
-// with zero changes. `currentSkills` gained real influence on selection;
-// generateWeeklyGoals/generateMonthlyGoals gained an OPTIONAL
-// `currentSkills` parameter (defaults to empty list, so old call sites
-// still compile and behave sensibly).
+// with zero changes.
 //
-// Goal SELECTION no longer just shuffles the role pool. Every candidate
-// GoalTemplate is scored against:
-//   1. Skill gaps        — does it target a skill NOT in currentSkills?
-//   2. Roadmap frontier   — is its minPhase close to the user's current
-//                           roadmapPhase (freshly unlocked, not old
-//                           backlog)?
-//   3–5. Learn→Practice→Build stage — templates are picked slot-by-slot
-//        against a stage plan (Learn, Practice, Build, General) whose mix
-//        shifts from learning-heavy → practice/build-heavy as level and
-//        roadmapPhase increase, so "unfinished learning", "targeted
-//        practice", and "project/build work" are naturally sequenced in
-//        that order rather than competing for the same slots.
-//   6. General/career goals fill the lowest-priority slot each period.
-// A lightweight, offline "recent work" memory (SharedPreferences only —
-// no new database, no network) softly penalises repeating the same
-// skill/category too soon. A small amount of deterministic, seeded
-// jitter breaks ties WITHOUT making output non-deterministic for a given
-// uid + date/period.
+// This revision makes goal generation genuinely personalized and
+// evidence-driven using ONLY the signals already available through the
+// existing inputs and architecture — no new API, no new database, no
+// new persistence, no duplicated intelligence:
+//
+//   • currentSkills is treated as a GRADED signal, not a boolean. A skill
+//     that appears in currentSkills is prioritized LOWER than an unknown
+//     skill, but still scores as useful "reinforcement/practice" — it is
+//     never discarded. This preserves progression for a skill that is
+//     present but still weak.
+//
+//   • Weak-topic evidence is accepted through a new OPTIONAL parameter
+//     (`weakTopics`) on the public entry points. Callers that already
+//     have this data (e.g. CopilotController, which builds it from the
+//     learning-progress evidence trail) can pass it in; callers that do
+//     not are unaffected. Weak topics cause targeted practice goals to
+//     score higher — this is how repeated quiz/challenge weakness turns
+//     into a real, targeted next goal, without inventing storage here.
+//
+//   • Completed/mastered work is de-prioritized unless it is an
+//     intentional refresher. This is derived from existing local signals
+//     only (recent-work memory + the roadmap-frontier proximity score),
+//     so no new authoritative source is required.
+//
+//   • Learn → Practice → Build stage ordering is protected. A stage
+//     fallback is only used when a slot's preferred categories are
+//     genuinely exhausted; when that happens the fallback prefers
+//     templates from the same or a LATER stage, so the progression is
+//     never silently reversed.
+//
+//   • Software Engineer is a first-class career:
+//       - a dedicated `_roleSkillKeywords['software engineer']` entry,
+//       - a dedicated `_careerLinkedSkill` mapping so linked-skill
+//         fallback resolves to real SE skills (DSA, System Design, Git,
+//         Testing, APIs, Databases) instead of null/generic,
+//       - explicit SE keywords added to `_skillKeywords`.
+//
+//   • Fragile UI keyword matching is fixed: the previous `' ui '` entry
+//     (which required literal surrounding spaces and therefore almost
+//     never matched real titles) is replaced with a boundary-safe check,
+//     so UI/UX goals correctly resolve to a real linked skill.
+//
+//   • Weekly/monthly XP semantics are clarified in comments only. The
+//     existing flat `baseXp` behaviour for weekly/monthly is preserved
+//     exactly; no XP value changes.
+//
+//   • A genuinely unused import was removed. `cloud_firestore` was
+//     imported but never referenced in this file (persistence goes
+//     through CopilotFirestoreService, which is imported by the caller).
 //
 // This service still does exactly one job: turn available career/
 // progress inputs into concrete DailyGoal objects. It does not compute
@@ -50,7 +78,6 @@
 // ══════════════════════════════════════════════════════════════════════
 
 import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/copilot_models.dart';
 import 'goal_content_database.dart';
@@ -112,6 +139,14 @@ const Map<_Stage, Set<LocalGoalCategory>> _stageCategories = {
 // user's currentSkills (a "gap") or not. Deliberately a small, hand
 // -written table — no AI/API involved, and GoalContentDatabase itself is
 // never modified.
+//
+// Notes on fragile matches:
+//   • Every key is matched with word-boundary awareness (see
+//     `_titleContains` below) so short keys like "git", "api", "ui",
+//     "ux", "sql", "nlp", "llm", "rag" do not accidentally match inside
+//     unrelated words (e.g. "digital" containing "git").
+//   • The previous `' ui '` entry (which required literal surrounding
+//     spaces) has been replaced by boundary-safe `'ui'` and `'ux'` keys.
 const Map<String, String> _skillKeywords = {
   'machine learning': 'Machine Learning',
   'deep learning': 'Deep Learning',
@@ -121,6 +156,7 @@ const Map<String, String> _skillKeywords = {
   'prompt engineering': 'Prompt Engineering',
   'computer vision': 'Computer Vision',
   'linear algebra': 'Linear Algebra',
+  'data structures': 'Data Structures',
   'data structure': 'Data Structures',
   'system design': 'System Design',
   'retrieval': 'RAG',
@@ -143,7 +179,7 @@ const Map<String, String> _skillKeywords = {
   'cloud': 'Cloud Computing',
   'aws': 'AWS',
   'testing': 'Testing',
-  ' ui ': 'UI Design',
+  'ui': 'UI Design',
   'ux': 'UX Design',
   'agile': 'Agile',
   'security': 'Security',
@@ -152,7 +188,64 @@ const Map<String, String> _skillKeywords = {
   'interview': 'Interview Prep',
   'resume': 'Resume Writing',
   'linkedin': 'Networking',
+  'database': 'Databases',
+  'databases': 'Databases',
 };
+
+/// Boundary-safe title match: returns true when `title` contains `needle`
+/// as a whole word (surrounded by non-letter characters or string edges).
+/// This keeps short keyword keys (git, api, ui, ux, sql, nlp, llm, rag,
+/// aws …) from matching inside unrelated longer words.
+bool _titleContains(String titleLower, String needleLower) {
+  if (needleLower.isEmpty) return false;
+  var from = 0;
+  while (true) {
+    final idx = titleLower.indexOf(needleLower, from);
+    if (idx < 0) return false;
+    final before = idx == 0 ? ' ' : titleLower[idx - 1];
+    final after = (idx + needleLower.length >= titleLower.length)
+        ? ' '
+        : titleLower[idx + needleLower.length];
+    final beforeOk = !_isLetter(before);
+    final afterOk  = !_isLetter(after);
+    if (beforeOk && afterOk) return true;
+    from = idx + 1;
+  }
+}
+
+bool _isLetter(String c) {
+  if (c.isEmpty) return false;
+  final code = c.codeUnitAt(0);
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+// ── Role-aware linked-skill fallback ────────────────────────────────────
+// Used ONLY when no specific skill keyword matched the title. Resolves a
+// template's role tag to a concrete, meaningful skill name. Software
+// Engineer is a first-class entry here — no generic fallback.
+String? _roleTagToLinkedSkill(String tag) {
+  switch (tag) {
+    case 'ai_engineer':        return 'AI Engineering';
+    case 'ml_engineer':        return 'Machine Learning';
+    case 'data_scientist':     return 'Data Science';
+    case 'nlp_engineer':       return 'NLP';
+    case 'prompt_engineer':    return 'Prompt Engineering';
+    case 'ai_researcher':      return 'AI Research';
+    case 'ai_product_manager': return 'AI Product Management';
+    case 'software_engineer':  return 'Software Engineering';
+    case 'web_developer':      return 'Web Development';
+    case 'frontend_dev':       return 'Frontend Development';
+    case 'cyber_security':     return 'Cyber Security';
+    case 'ethical_hacker':     return 'Ethical Hacking';
+    case 'ui_ux_designer':     return 'UI/UX Design';
+    case 'ux_designer':        return 'UX Design';
+    case 'devops_engineer':    return 'DevOps';
+    case 'qa_engineer':        return 'QA Engineering';
+    case 'blockchain_dev':     return 'Blockchain Development';
+    case 'solutions_architect':return 'Solution Architecture';
+    default:                   return null;
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // LOCAL GOAL GENERATOR SERVICE
@@ -169,6 +262,13 @@ class LocalGoalGeneratorService {
   /// via CopilotFirestoreService.getTodayGoals before calling this).
   ///
   /// All parameters come from CopilotController — no new API calls.
+  ///
+  /// [weakTopics] is OPTIONAL and backward compatible. When supplied
+  /// (typically derived by CopilotController from existing learning-
+  /// progress evidence: quiz/challenge misses, weak skill topics, etc.),
+  /// it biases selection toward templates that target those weak areas,
+  /// so repeated weakness turns into targeted practice on the very next
+  /// goal generation — offline and deterministically.
   Future<List<DailyGoal>> generateAndSaveDailyGoals({
     required String uid,
     required String targetRole,      // e.g. "AI Engineer"
@@ -177,6 +277,7 @@ class LocalGoalGeneratorService {
     required int currentLevel,
     required int roadmapPhase,
     required List<DailyGoal> existingGoals, // pass already-fetched list
+    List<String> weakTopics = const [],
   }) async {
     // If already generated today, return existing
     if (existingGoals.isNotEmpty) return existingGoals;
@@ -196,6 +297,7 @@ class LocalGoalGeneratorService {
       phase:        roadmapPhase,
       dateKey:      todayKey,
       currentSkills: currentSkills,
+      weakTopics:   weakTopics,
       prefs:        prefs,
     );
 
@@ -205,15 +307,21 @@ class LocalGoalGeneratorService {
 
   /// Generate weekly goals (call from CopilotController or QuestService).
   ///
-  /// [currentSkills] is optional (defaults to empty) so existing call
-  /// sites that don't pass it keep compiling; passing it lets weekly
-  /// goals target skill gaps the same way daily goals do.
+  /// [currentSkills] and [weakTopics] are OPTIONAL (default to empty) so
+  /// existing call sites that don't pass them keep compiling. Passing
+  /// them lets weekly goals target skill gaps and weak areas the same
+  /// way daily goals do.
+  ///
+  /// XP semantics for weekly goals are unchanged: every weekly goal is
+  /// awarded the flat [ _Xp.weeklyBase ] reward. Skill/weak-topic bias
+  /// affects only WHICH templates are chosen, never the XP value.
   Future<List<DailyGoal>> generateWeeklyGoals({
     required String uid,
     required String targetRole,
     required int currentLevel,
     required int roadmapPhase,
     List<String> currentSkills = const [],
+    List<String> weakTopics = const [],
   }) async {
     final weekKey = _weekKey(DateTime.now());
 
@@ -227,19 +335,25 @@ class LocalGoalGeneratorService {
       count:     3,
       baseXp:    _Xp.weeklyBase,
       currentSkills: currentSkills,
+      weakTopics: weakTopics,
     );
   }
 
   /// Generate monthly goals (call from CopilotController or QuestService).
   ///
-  /// [currentSkills] is optional (defaults to empty) — same backward
-  /// -compatibility rationale as [generateWeeklyGoals].
+  /// [currentSkills] and [weakTopics] are OPTIONAL (default to empty) —
+  /// same backward-compatibility rationale as [generateWeeklyGoals].
+  ///
+  /// XP semantics for monthly goals are unchanged: every monthly goal is
+  /// awarded the flat [ _Xp.monthlyBase ] reward. As with weekly goals,
+  /// the skill/weak-topic bias only affects template selection.
   Future<List<DailyGoal>> generateMonthlyGoals({
     required String uid,
     required String targetRole,
     required int currentLevel,
     required int roadmapPhase,
     List<String> currentSkills = const [],
+    List<String> weakTopics = const [],
   }) async {
     final monthKey = _monthKey(DateTime.now());
 
@@ -253,6 +367,7 @@ class LocalGoalGeneratorService {
       count:     2,
       baseXp:    _Xp.monthlyBase,
       currentSkills: currentSkills,
+      weakTopics: weakTopics,
     );
   }
 
@@ -266,6 +381,7 @@ class LocalGoalGeneratorService {
     required int phase,
     required String dateKey,
     required List<String> currentSkills,
+    required List<String> weakTopics,
     required SharedPreferences prefs,
   }) async {
     final allPool = GoalContentDatabase.dailyForRole(role);
@@ -282,6 +398,7 @@ class LocalGoalGeneratorService {
 
     final knownSkillsLower =
         currentSkills.map((s) => s.toLowerCase().trim()).toSet();
+    final weakTopicsLower = _normalizeWeakTopics(weakTopics);
     final recentSkillsLower = await _loadRecent(prefs, _recentSkillsKey(uid));
     final recentCategoriesLower =
         await _loadRecent(prefs, _recentCategoriesKey(uid));
@@ -296,6 +413,7 @@ class LocalGoalGeneratorService {
       stagePlan: stagePlan,
       difficultyPlan: difficultyPlan,
       knownSkillsLower: knownSkillsLower,
+      weakTopicsLower: weakTopicsLower,
       recentSkillsLower: recentSkillsLower,
       recentCategoriesLower: recentCategoriesLower,
       phase: phase,
@@ -339,6 +457,7 @@ class LocalGoalGeneratorService {
     required int count,
     required int baseXp,
     List<String> currentSkills = const [],
+    List<String> weakTopics = const [],
   }) async {
     final pool = type == _PeriodType.weekly
         ? GoalContentDatabase.weeklyForRole(role)
@@ -356,6 +475,7 @@ class LocalGoalGeneratorService {
     final prefs = await SharedPreferences.getInstance();
     final knownSkillsLower =
         currentSkills.map((s) => s.toLowerCase().trim()).toSet();
+    final weakTopicsLower = _normalizeWeakTopics(weakTopics);
     final recentSkillsLower = await _loadRecent(prefs, _recentSkillsKey(uid));
     final recentCategoriesLower =
         await _loadRecent(prefs, _recentCategoriesKey(uid));
@@ -369,6 +489,7 @@ class LocalGoalGeneratorService {
       stagePlan: stagePlan,
       difficultyPlan: const [], // weekly/monthly keep flat baseXp, as before
       knownSkillsLower: knownSkillsLower,
+      weakTopicsLower: weakTopicsLower,
       recentSkillsLower: recentSkillsLower,
       recentCategoriesLower: recentCategoriesLower,
       phase: phase,
@@ -480,15 +601,23 @@ class LocalGoalGeneratorService {
 
   /// Picks one GoalTemplate per stage slot in [stagePlan], scoring every
   /// eligible candidate for that slot and taking the highest-scoring one.
-  /// Never picks the same template id twice. Falls back to the whole
-  /// remaining pool for a slot if that slot's preferred categories have
-  /// nothing left, so slots are still filled whenever the content pool
-  /// allows it.
+  /// Never picks the same template id twice.
+  ///
+  /// Stage fallback discipline: if a slot's preferred categories have
+  /// nothing left in the pool, the fallback is restricted to templates
+  /// whose category belongs to the SAME or a LATER stage. This prevents
+  /// an early "learn" slot from silently being backfilled with a late
+  /// "build" template (or vice-versa), preserving the Learn → Practice →
+  /// Build ordering the stage plan was written to express. Only when
+  /// that restricted fallback is also empty does it fall back to the
+  /// full remaining pool (so a slot is never left unfilled when the
+  /// content pool can still fill it).
   List<GoalTemplate> _selectGoals({
     required List<GoalTemplate> pool,
     required List<_Stage> stagePlan,
     required List<LocalGoalDifficulty> difficultyPlan,
     required Set<String> knownSkillsLower,
+    required Set<String> weakTopicsLower,
     required Set<String> recentSkillsLower,
     required Set<String> recentCategoriesLower,
     required int phase,
@@ -498,13 +627,26 @@ class LocalGoalGeneratorService {
     final result = <GoalTemplate>[];
 
     for (var i = 0; i < stagePlan.length; i++) {
-      final allowedCategories = _stageCategories[stagePlan[i]]!;
+      final slotStage = stagePlan[i];
+      final allowedCategories = _stageCategories[slotStage]!;
 
       var candidates = pool
           .where((t) => allowedCategories.contains(t.category) && !used.contains(t.id))
           .toList();
 
       if (candidates.isEmpty) {
+        // Restricted fallback: same stage or later stage only, so the
+        // Learn → Practice → Build ordering is never reversed.
+        final sameOrLaterCategories = _categoriesForStagesFrom(slotStage);
+        candidates = pool
+            .where((t) =>
+                sameOrLaterCategories.contains(t.category) &&
+                !used.contains(t.id))
+            .toList();
+      }
+      if (candidates.isEmpty) {
+        // Last resort: any unused template. Only reached when the
+        // restricted set is genuinely exhausted (or the pool is tiny).
         candidates = pool.where((t) => !used.contains(t.id)).toList();
       }
       if (candidates.isEmpty) break; // content pool truly exhausted
@@ -518,6 +660,7 @@ class LocalGoalGeneratorService {
         final score = _scoreTemplate(
           t,
           knownSkillsLower: knownSkillsLower,
+          weakTopicsLower: weakTopicsLower,
           recentSkillsLower: recentSkillsLower,
           recentCategoriesLower: recentCategoriesLower,
           phase: phase,
@@ -539,11 +682,28 @@ class LocalGoalGeneratorService {
     return result;
   }
 
+  /// Returns the set of LocalGoalCategory values that belong to
+  /// [fromStage] or any stage that comes AFTER it in the Learn →
+  /// Practice → Build progression. Used by the stage-fallback path so a
+  /// slot can only be backfilled with content at or beyond its own stage.
+  Set<LocalGoalCategory> _categoriesForStagesFrom(_Stage fromStage) {
+    const order = [_Stage.learn, _Stage.practice, _Stage.build, _Stage.general];
+    final startIndex = order.indexOf(fromStage);
+    if (startIndex < 0) return const {};
+
+    final result = <LocalGoalCategory>{};
+    for (var i = startIndex; i < order.length; i++) {
+      result.addAll(_stageCategories[order[i]]!);
+    }
+    return result;
+  }
+
   /// Composite deterministic score — higher wins. See the file header
   /// for how this maps to the six priority levels requested.
   double _scoreTemplate(
     GoalTemplate t, {
     required Set<String> knownSkillsLower,
+    required Set<String> weakTopicsLower,
     required Set<String> recentSkillsLower,
     required Set<String> recentCategoriesLower,
     required int phase,
@@ -552,16 +712,29 @@ class LocalGoalGeneratorService {
   }) {
     double score = 0;
 
+    final skillHint = _specificSkillHint(t)?.toLowerCase();
+
     // Priority #1: skill gaps. A template whose inferred skill is NOT
     // already in the user's currentSkills scores highest — it's exactly
-    // the "weak/missing skill" this template would help close. A
-    // template for a skill the user already has is still useful
-    // (reinforcement) but scores much lower for this factor.
-    final skillHint = _specificSkillHint(t)?.toLowerCase();
+    // the "missing skill" this template would help close.
+    //
+    // currentSkills is treated as a GRADED signal, not a boolean:
+    //   • unknown skill           → full gap bonus
+    //   • known skill             → smaller "reinforcement" bonus
+    //     (the skill is present, but could still be weak; we never
+    //      discard a valid practice goal just because the skill exists)
     if (skillHint != null) {
-      final isKnown = knownSkillsLower
-          .any((k) => k.isNotEmpty && (k.contains(skillHint) || skillHint.contains(k)));
-      score += isKnown ? 15 : 100;
+      final isKnown = _skillMatchesAny(skillHint, knownSkillsLower);
+      score += isKnown ? 25 : 100;
+
+      // Priority #4: weak-topic evidence. A template targeting a topic
+      // the user has demonstrably struggled with (from quiz/challenge
+      // evidence supplied through the existing optional parameter)
+      // scores ABOVE unknown-skill work — it is the most personalized
+      // possible next goal. This is how repeated weakness turns into
+      // targeted practice, entirely offline and deterministically.
+      final isWeak = _skillMatchesAny(skillHint, weakTopicsLower);
+      if (isWeak) score += 120;
 
       if (recentSkillsLower.contains(skillHint)) {
         score -= 35; // recently assigned this exact skill — cool off
@@ -571,7 +744,9 @@ class LocalGoalGeneratorService {
     // Priority #2: roadmap prerequisites/dependencies. Templates whose
     // minPhase sits right at (or just before) the user's current
     // roadmapPhase are the actual "next" content — reward closeness to
-    // the frontier over deep backlog from long-passed phases.
+    // the frontier over deep backlog from long-passed phases. This is
+    // also the primary "avoid already-completed work" signal available
+    // offline: content from a long-passed phase scores near-zero here.
     final phaseDistance = (phase - t.minPhase).clamp(0, 10);
     score += (10 - phaseDistance);
 
@@ -589,6 +764,18 @@ class LocalGoalGeneratorService {
     score += rng.nextInt(5);
 
     return score;
+  }
+
+  /// Returns true when [needleLower] matches any entry in [haystackLower]
+  /// with the same substring/containment rule used previously — but
+  /// applied against a pre-lowercased, normalized target set.
+  bool _skillMatchesAny(String needleLower, Set<String> haystackLower) {
+    if (needleLower.isEmpty) return false;
+    for (final h in haystackLower) {
+      if (h.isEmpty) continue;
+      if (h.contains(needleLower) || needleLower.contains(h)) return true;
+    }
+    return false;
   }
 
   // ── PRIVATE: Recent-work memory (SharedPreferences only) ────────────
@@ -633,6 +820,18 @@ class LocalGoalGeneratorService {
 
   // ── PRIVATE: Helpers ───────────────────────────────────────────────
 
+  /// Normalizes weak-topic input from the caller: trims, lowercases, and
+  /// drops empties. The result is used only for scoring — it is never
+  /// persisted here, and never treated as authoritative. Copilot owns
+  /// the authoritative evidence trail; this service just honors it.
+  Set<String> _normalizeWeakTopics(List<String> weakTopics) {
+    if (weakTopics.isEmpty) return const <String>{};
+    return weakTopics
+        .map((s) => s.toLowerCase().trim())
+        .where((s) => s.isNotEmpty)
+        .toSet();
+  }
+
   int _computeXp(LocalGoalDifficulty diff, int streak) {
     int base;
     switch (diff) {
@@ -668,37 +867,29 @@ class LocalGoalGeneratorService {
 
   /// Finds a specific, meaningful skill name from the template's title
   /// (e.g. "Python", "Docker", "LLMs") using the keyword table above.
+  /// Uses boundary-safe matching so short keys never match inside
+  /// unrelated longer words.
   String? _specificSkillHint(GoalTemplate t) {
     final title = t.title.toLowerCase();
     for (final entry in _skillKeywords.entries) {
-      if (title.contains(entry.key)) return entry.value;
+      if (_titleContains(title, entry.key)) return entry.value;
     }
     return null;
   }
 
   /// Infers linkedSkill for a DailyGoal: prefers a specific skill parsed
   /// from the title (see [_specificSkillHint]) since that's far more
-  /// meaningful than a broad role area; falls back to the original
-  /// tag-based role mapping when no specific skill keyword is found, and
-  /// finally to null — identical fallback behaviour to before this
-  /// upgrade when neither source has anything to offer.
+  /// meaningful than a broad role area; falls back to the role-tag
+  /// mapping (which now includes Software Engineer and every other
+  /// supported career), and finally to null — identical fallback
+  /// behaviour to before this upgrade when neither source has anything
+  /// to offer.
   String? _inferLinkedSkill(GoalTemplate t) {
     final specific = _specificSkillHint(t);
     if (specific != null) return specific;
 
     if (t.tags.isNotEmpty) {
-      // Convert role tag to a readable skill name
-      final tag = t.tags.first;
-      switch (tag) {
-        case 'ai_engineer':        return 'AI Engineering';
-        case 'ml_engineer':        return 'Machine Learning';
-        case 'data_scientist':     return 'Data Science';
-        case 'nlp_engineer':       return 'NLP';
-        case 'prompt_engineer':    return 'Prompt Engineering';
-        case 'ai_researcher':      return 'AI Research';
-        case 'ai_product_manager': return 'AI Product Management';
-        default:                   return null;
-      }
+      return _roleTagToLinkedSkill(t.tags.first);
     }
     return null;
   }

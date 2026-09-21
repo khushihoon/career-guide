@@ -14,10 +14,30 @@
 //    nothing about that pipeline is reimplemented here.
 //  • No skill-gap, roadmap, readiness, or Next-Best-Action logic lives in
 //    this file — that's entirely CopilotController's responsibility.
+//  • Career list is read exclusively from CareerGoal.values — no local
+//    duplicate list exists in this screen.
+//
+// SAVE-RESULT HANDLING
+// ────────────────────
+// CopilotController.saveSkillProfile(profile) persists the profile and
+// runs the analysis pipeline, but it swallows failures into
+// ctrl.state.error rather than throwing. This screen therefore inspects
+// ctrl.state.error AFTER the save completes:
+//
+//   • Error present  → keep the screen open, stop the saving state,
+//                      surface the actual error text in a SnackBar, and
+//                      leave every form field (target career, current
+//                      role, experience, skills) untouched so the user
+//                      can retry without re-entering data.
+//   • No error        → stop the saving state and Navigator.pop() as
+//                      before.
+//
+// The single persistence path (SkillProfileScreen → CopilotController →
+// Firestore) is preserved; no direct Firestore calls are made here.
 //
 // Built against copilot_models.dart's actual UserSkillProfile / UserSkill
-// / SkillLevel / CareerGoal shapes (see imports below) — nothing here
-// invents new fields or a new profile shape.
+// / SkillLevel / CareerGoal shapes — nothing here invents new fields or
+// a new profile shape.
 // ══════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
@@ -138,9 +158,44 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
     // Single call: CopilotController owns persistence AND kicks off its
     // existing skill-gap / roadmap / daily-goal analysis pipeline. This
     // screen does nothing else with the saved data.
-    await ctrl.saveSkillProfile(profile);
+    try {
+      await ctrl.saveSkillProfile(profile);
+    } catch (_) {
+      // Controller normally surfaces failures via ctrl.state.error, but
+      // guard against an unexpected throw so the screen never advances
+      // silently.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Couldn\'t save your profile. Please try again.'),
+        ),
+      );
+      return;
+    }
 
     if (!mounted) return;
+
+    // Production save-result handling: the controller writes failures
+    // into ctrl.state.error instead of throwing. Read the authoritative
+    // post-save state and only consider the save successful when there
+    // is no error recorded.
+    final saveError = ctrl.state.error;
+
+    if (saveError != null && saveError.trim().isNotEmpty) {
+      // Keep the screen open, stop the saving state, surface the actual
+      // error, and leave every form field intact so the user can retry
+      // without re-entering data.
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(saveError),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     setState(() => _saving = false);
     Navigator.pop(context);
   }

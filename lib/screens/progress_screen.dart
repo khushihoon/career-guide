@@ -1,4 +1,3 @@
-
 // ══════════════════════════════════════════════════════════════════════
 // lib/screens/progress_screen.dart
 //
@@ -70,12 +69,13 @@ class ProgressScreen extends StatelessWidget {
 
     // Readiness is only meaningful when the underlying stages were
     // computed from real data. Interview readiness needs real interview
-    // practice; job readiness needs several preparation stages. If the
-    // relevant stage values are all still 0 because no real data exists,
-    // we surface "insufficient data" instead of a fake 0% readiness.
-    final hasRealInterviewData = state.skillProfile != null;
-    final hasRealJobReadinessBasis =
-        state.roadmap != null || state.skillProfile != null;
+    // practice; job readiness needs several preparation stages. Since
+    // CopilotState exposes no dedicated interview-history or
+    // interview-score signal, and no signal that specifically proves job
+    // readiness, both tiles must fall back to "Insufficient data" rather
+    // than inventing a number from unrelated signals.
+    const hasRealInterviewData = false;
+    const hasRealJobReadinessBasis = false;
 
     return Scaffold(
       backgroundColor: _bg,

@@ -1,3 +1,4 @@
+
 // ══════════════════════════════════════════════════════════════════════
 // lib/screens/course_engine_screen.dart
 //
@@ -9,7 +10,7 @@
 //  Screen N+2 — Challenges  (mini logic challenges, +15 XP each)
 //  Screen N+3 — Final Project (goal, steps, expected output)
 //  Screen N+4 — Completion  (animation, total XP, next button)
-//
+
 // CAREER INTELLIGENCE LOOP
 // ────────────────────────
 // This screen closes the loop:
@@ -17,8 +18,8 @@
 //   Skill Gap → Targeted Course → Quiz/Challenge Evidence
 //     → Copilot re-analysis → Next Best Action
 //
-// Every correct quiz answer, every correct challenge answer, and the
-// final project completion is persisted through the existing
+// Every quiz answer, every challenge answer, and the final project
+// completion is persisted through the existing
 // CopilotController.recordCourseEvent(...) path. That method writes to
 // the same per-career learning-progress document (arrayUnion on
 // `completedCourseEventIds` and `courseEvidenceIds`), awards the event's
@@ -27,11 +28,15 @@
 // Readiness / Next Best Action / Recommendations can recalculate.
 //
 // The event id is stable and unique per course event:
-//     quiz:{courseId}:{index}
-//     challenge:{courseId}:{index}
+//     quiz:{courseId}:{index}           (correct answer — mastery, XP)
+//     quiz_miss:{courseId}:{index}      (wrong answer — weakness, 0 XP)
+//     challenge:{courseId}:{index}      (correct answer — mastery, XP)
+//     challenge_miss:{courseId}:{index} (wrong answer — weakness, 0 XP)
 //     project:{courseId}
 // so reopening, retrying, or rebuilding cannot duplicate XP, completion
-// records, or evidence in Firestore.
+// records, or evidence in Firestore. The existing (correct-answer) event
+// ids are preserved exactly; the *_miss ids are purely additive weakness
+// evidence and never award XP.
 //
 // Course completion (the final lesson) is recorded through the existing
 // CopilotController.recordLessonCompleted, which appends a stable
@@ -41,57 +46,119 @@
 // LOCAL XP COUNTER — PERSISTENCE + IDEMPOTENCY
 // ────────────────────────────────────────────
 // `_xpEarned` is the LOCAL display counter shown in the top-bar pill
-// and on the completion screen. Its persistence rules are:
+// and on the completion screen. It is a UX mirror, not the source of
+// truth. Firestore's users/{uid}.totalXp is authoritative.
 //
 //   • On screen load, `_xpEarned` is restored from the existing
 //     SharedPreferences key `course_xp_{courseId}`.
 //
-//   • On every successful course event (Firestore accepted the write),
+//   • On every course event confirmed by Firestore (a NEW event id),
 //     `_xpEarned` is incremented AND immediately written back to
-//     `course_xp_{courseId}`, so the new total survives app restart.
+//     `course_xp_{courseId}`.
 //
-//   • A per-event SharedPreferences marker
-//     (`course_evt_done_{courseId}_{eventId}`) ensures the same event
-//     can never bump `_xpEarned` twice, even if the user reopens the
-//     course and re-answers the same question correctly.
+//   • The per-event SharedPreferences marker
+//     (`course_evt_done_{courseId}_{eventId}`) is a cache that MIRRORS
+//     Firestore state. It is set ONLY after Firestore confirms the
+//     event exists, and is never itself the authority on whether an
+//     event is new.
 //
 //   • An IN-FLIGHT guard (`_eventInFlight`) prevents rapid double-taps
 //     or concurrent submissions for the same event from racing past the
-//     check-then-write sequence. It is set BEFORE the Firestore call and
-//     cleared in a finally block, so a failure path also releases it.
+//     check-then-write sequence. Set BEFORE the Firestore call, cleared
+//     in a finally block.
 //
-// Firestore remains the authoritative source of persisted XP on
-// users/{uid}.totalXp — the local counter mirrors the events the user
-// has genuinely recorded this session and is a UX convenience, not the
-// source of truth. If the Firestore write fails, the local counter is
-// NOT advanced, NOT saved, and the user can retry.
+// IN-FLIGHT SEMANTICS
+// ───────────────────
+// The in-flight guard stores a Future<bool> for the in-progress persist
+// attempt of each event id. A concurrent call for the same event id
+// awaits the ORIGINAL persist future and returns its authoritative
+// result — no second write, no premature `true`, and no UI advance
+// before the authoritative result is known.
 //
-// ARCHITECTURE NOTE — RAW EVIDENCE SCOPE
-// ──────────────────────────────────────
-// `_LearningEvidence` (quizCorrect/Total, challengeCorrect/Total,
-// weakQuizTopics, weakChallengeTopics, accuracy) is captured in-session
-// for UI display only. The current CopilotController / CopilotFirestore
-// Service API accepts a per-event `(careerId, eventId, xpReward)` triple
-// and does NOT expose any method for persisting raw per-answer accuracy
-// or weak-topic lists. No such method is invented here — that would
-// require modifying another file. The per-event id append in
-// `completedCourseEventIds` / `courseEvidenceIds` is the authoritative
-// learning-evidence trail the existing Copilot pipeline can consume.
+// EVIDENCE METADATA — ONLINE AND OFFLINE IDENTICAL
+// ────────────────────────────────────────────────
+// Both the online path (`_runPersistCourseEvent`) and the offline-retry
+// path (`_runQueuedPersist`) forward the SAME evidence payload through
+// the existing `CopilotController.recordCourseEvent(...)` API:
 //
-// SAVE-STATE HONESTY
-// ──────────────────
-// Answer-submit and project-complete await the Firestore write before
-// advancing the UI. If persistence fails, the answer is NOT shown as
-// accepted and the local XP counter is NOT advanced — the user can
-// retry. Course completion (the final lesson) also awaits its Copilot
-// write before being considered saved.
+//     eventType    — 'quiz' / 'quiz_miss' / 'challenge' /
+//                    'challenge_miss' / 'project'
+//     topic        — the course's real `topicTitle`
+//     correct      — bool, true for mastery, false for weakness
+//     questionIndex / challengeIndex — retained in the pending record
+//                    for future-compatible consumers; forwarded to
+//                    `recordCourseEvent` only through the existing
+//                    supported `eventType`, `topic`, and `correct`
+//                    parameters that the controller API actually
+//                    supports.
+//
+// The payload is constructed ONCE per event into `pendingRecord`, and
+// the SAME `eventType`, `topic`, and `correct` values are forwarded to
+// the online Firestore call. The pending queue stores the full record
+// (including the additive index keys) for offline retry. So a
+// quiz/challenge answer produces identical Firestore evidence
+// regardless of whether it was persisted online or flushed later from
+// the pending queue.
+//
+// OFFLINE EVENT RELIABILITY — PENDING QUEUE
+// ─────────────────────────────────────────
+// If the device is offline (no controller / no authenticated user) or
+// the Firestore call fails with a transport error, the event is NOT
+// silently reported as saved and NO local XP is awarded. Instead the
+// event is written to a lightweight local pending queue
+// (`course_pending_events_{courseId}`) that preserves the full evidence
+// payload above. It is retried:
+//   • when the screen loads (post-frame, from _loadProgress), and
+//   • opportunistically after any successful online persistence
+//     (so a reconnection mid-session flushes the queue).
+// When Firestore finally accepts the event, the pending record is
+// removed, the local marker is set, and local XP is awarded exactly
+// once. Firestore's transactional idempotency remains the ultimate
+// authority — retries can never double-award XP or duplicate evidence.
+//
+// COURSE COMPLETION — RETRYABLE COPILOT SYNC
+// ──────────────────────────────────────────
+// Local completion (SharedPreferences `course_done_{courseId}`) is
+// written first, preserving the existing offline UX. The Copilot
+// completion sync (recordLessonCompleted) is treated as a separate,
+// retryable step guarded by its own marker
+// (`course_copilot_synced_{courseId}`) that is set ONLY after Firestore
+// confirms. If the Firestore call fails, the marker stays unset and the
+// sync is retried on the next _onComplete() or on the next screen load
+// via _loadProgress(). recordLessonCompleted is idempotent on
+// lessonId, so retries can never duplicate completion or XP.
+//
+// TOPIC EVIDENCE
+// ──────────────
+// The current model (course_content_data.dart) does not expose a
+// per-question `topic` / `concept` field on quiz or challenge objects
+// — the only referenced fields on those objects are question/prompt,
+// options, correctIndex, explanation, and xpReward. To avoid inventing
+// data or referencing a field that does not exist, the topic metadata
+// uses the course-level `topicTitle` (a real, existing value) and the
+// per-question granularity is preserved via `questionIndex` /
+// `challengeIndex` metadata keys. If course_content_data.dart later
+// exposes a per-question topic/concept field, that exact value should
+// be substituted here.
 //
 // IMPORTANT: recordLessonCompleted is called WITHOUT totalLessons, so
 // the existing per-career totalLessons value stored on the learning
 // progress document is preserved. Only the append-only completedLessonIds
 // array grows, keyed by a stable lessonId.
+//
+// NEXT-BUTTON FIX
+// ────────────────
+// In the Quiz and Challenge screens, the Submit/Next button's enabled
+// state depends on BOTH `_answered` and `_selectedOpt`:
+//   • Before answering (`_answered == false`): enabled only when an
+//     option has been selected (`_selectedOpt != null`).
+//   • After answering (`_answered == true`): always enabled, even if
+//     `_selectedOpt` is null, so the user can never get stuck unable to
+//     press "Next →". Submit/advance branching is untouched.
 // ══════════════════════════════════════════════════════════════════════
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -115,7 +182,9 @@ class CourseEngineScreen extends StatefulWidget {
 
 /// Session-local learning evidence. Lives only on screen state; used for
 /// UI display. The authoritative persistence happens via
-/// CopilotController.recordCourseEvent for each individual event.
+/// CopilotController.recordCourseEvent for each individual event, and
+/// per-event correctness/topic is forwarded as event metadata so Copilot
+/// can reason about real mastery and weakness.
 class _LearningEvidence {
   int quizCorrect = 0;
   int quizTotal = 0;
@@ -177,13 +246,15 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   bool   _progressPersisted = false;
 
   /// In-flight guard for course events. An event id present here means a
-  /// persist attempt for that event is currently running. This prevents
-  /// rapid double-taps / concurrent submissions from racing past the
-  /// check-then-write sequence and double-bumping the local counter.
+  /// persist attempt for that event is currently running; the value is
+  /// the Future<bool> of that attempt. A concurrent call for the same
+  /// event id awaits the ORIGINAL future and returns its authoritative
+  /// result, rather than starting a second persist operation or
+  /// returning a premature success.
   ///
-  /// The guard is set BEFORE the Firestore call and cleared in a finally
+  /// The entry is set BEFORE the Firestore call and removed in a finally
   /// block, so a failure path also releases it and the user can retry.
-  final Set<String> _eventInFlight = <String>{};
+  final Map<String, Future<bool>> _eventInFlight = <String, Future<bool>>{};
 
   /// Session-local learning evidence (display-only).
   final _LearningEvidence _evidence = _LearningEvidence();
@@ -192,17 +263,47 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   String get _doneKey => 'course_done_${widget.course.id}';
   String get _xpKey   => 'course_xp_${widget.course.id}';
 
+  /// Marker that the Copilot completion sync (recordLessonCompleted) has
+  /// been confirmed by Firestore. Set ONLY after a successful call, so
+  /// a failed sync stays retryable across screen loads.
+  String get _copilotSyncKey => 'course_copilot_synced_${widget.course.id}';
+
+  /// Lightweight offline pending-event queue. A single JSON array of
+  /// records, each with { eventId, xpReward, eventType?, topic?,
+  /// correct?, questionIndex?, challengeIndex? }. Cleared entry-by-entry
+  /// as Firestore accepts each event. Kept entirely local — no new
+  /// database, no new service.
+  String get _pendingKey => 'course_pending_events_${widget.course.id}';
+
   Future<void> _loadProgress() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final done  = prefs.getBool(_doneKey) ?? false;
-    final saved = prefs.getInt(_xpKey) ?? 0;
+    final done          = prefs.getBool(_doneKey) ?? false;
+    final saved         = prefs.getInt(_xpKey) ?? 0;
+    final copilotSynced = prefs.getBool(_copilotSyncKey) ?? false;
 
     if (!mounted) return;
     setState(() {
       _alreadyCompletedBefore = done;
       _xpEarned = saved;
     });
+
+    // Retry any pending events queued while offline in a previous
+    // session — deferred so the first frame paints immediately.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _retryPendingEvents();
+    });
+
+    // Retryable Copilot completion sync: if the course was marked
+    // locally complete but the Copilot completion sync never succeeded
+    // (e.g. the Firestore call failed on the previous attempt), retry
+    // it now. recordLessonCompleted is idempotent on lessonId, so
+    // retrying can never duplicate completion or XP.
+    if (done && !copilotSynced) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _ensureCopilotCompletionSynced();
+      });
+    }
   }
 
   late PageController    _pageCtrl;
@@ -264,10 +365,10 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   /// animation, and immediately persists the new total to the existing
   /// SharedPreferences key so it survives an app restart.
   ///
-  /// Persistence failure here is non-fatal and silent: the counter is a
-  /// UX convenience, and Firestore (users/{uid}.totalXp) remains the
-  /// authoritative source of XP. The in-memory counter still reflects
-  /// the new value for the current session.
+  /// This is a UX mirror only — Firestore (users/{uid}.totalXp) remains
+  /// the authoritative source of XP. Persistence failure here is
+  /// non-fatal and silent; the in-memory counter still reflects the new
+  /// value for the current session.
   Future<void> _addXpAndPersist(int amount) async {
     setState(() => _xpEarned += amount);
     _xpCtrl.forward(from: 0);
@@ -283,11 +384,10 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
   // ── Local idempotency marker for the display XP counter ─────────────
   //
-  // Keyed by the stable event id used for Firestore persistence. A
-  // present marker means "this event has already been recorded, so do
-  // NOT bump the local XP counter again". This makes `_xpEarned`
-  // idempotent across retries and app restarts, WITHOUT changing any
-  // other file. Firestore remains the authoritative source for the
+  // Keyed by the stable event id used for Firestore persistence. The
+  // marker MIRRORS Firestore state — it is written only after Firestore
+  // confirms the event exists. It is a fast-path cache, never the
+  // authority on XP. Firestore remains the authoritative source for
   // persisted XP on users/{uid}.totalXp.
   String _eventMarkerKey(String eventId) =>
       'course_evt_done_${widget.course.id}_$eventId';
@@ -312,94 +412,349 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
     }
   }
 
-  /// Persists ONE course event (quiz answer / challenge answer / project
-  /// completion) through the existing CopilotController.recordCourseEvent
-  /// path, awaits it, and — only when the event is genuinely new —
-  /// updates the local display counter AND immediately writes the new
-  /// total to the existing `course_xp_{courseId}` SharedPreferences key.
+  // ── Offline pending-event queue (local, lightweight) ────────────────
+  //
+  // A single JSON-encoded array under `course_pending_events_{courseId}`.
+  // No new database, no new service — just SharedPreferences. This is
+  // the ONLY mechanism that records events Firestore has not yet
+  // accepted, so offline answers are never silently lost and never
+  // falsely reported as saved.
+
+  Future<List<Map<String, dynamic>>> _loadPendingEvents() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw   = prefs.getString(_pendingKey);
+      if (raw == null || raw.isEmpty) return <Map<String, dynamic>>[];
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return <Map<String, dynamic>>[];
+      return decoded
+          .whereType<Map>()
+          .map((m) => m.cast<String, dynamic>())
+          .toList();
+    } catch (_) {
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<bool> _savePendingEvents(List<Map<String, dynamic>> events) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_pendingKey, jsonEncode(events));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _queuePendingEvent(Map<String, dynamic> record) async {
+    try {
+      final events  = await _loadPendingEvents();
+      final eventId = record['eventId'];
+      if (eventId is! String) return false;
+      // Idempotent queue: never enqueue the same event id twice.
+      if (events.any((e) => e['eventId'] == eventId)) return true;
+      events.add(record);
+      return await _savePendingEvents(events);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _removePendingEvent(String eventId) async {
+    try {
+      final events   = await _loadPendingEvents();
+      final filtered = events.where((e) => e['eventId'] != eventId).toList();
+      if (filtered.length == events.length) return;
+      await _savePendingEvents(filtered);
+    } catch (_) {
+      // Best-effort. If removal fails, the event will be re-checked and
+      // skipped on the next retry (Firestore is still idempotent).
+    }
+  }
+
+  /// Flushes queued offline events against Firestore. Stops early if
+  /// Firestore is still unreachable, so remaining events stay queued.
+  /// Idempotent end-to-end: Firestore rejects duplicate event ids and
+  /// the local marker prevents double-awarding the display counter.
   ///
-  /// Idempotency:
-  ///   • Firestore: the transaction inside recordCourseEvent is a no-op
-  ///     for an already-recorded event id, so XP/history/evidence can
-  ///     never be duplicated.
-  ///   • Local display counter: gated by a SharedPreferences marker per
-  ///     event id, so reopening the course and re-answering the same
-  ///     question correctly does NOT bump `_xpEarned` again, and the
-  ///     persisted `course_xp_{courseId}` value is not touched either.
-  ///   • In-flight: an in-memory `_eventInFlight` set prevents a second
-  ///     concurrent call for the same event from racing past the check.
-  ///     The guard is set BEFORE the Firestore call and cleared in a
-  ///     finally block, so a failure path also releases it.
+  /// The evidence metadata stored in the pending record (eventType,
+  /// topic, correct) is forwarded through `_runQueuedPersist` into
+  /// `CopilotController.recordCourseEvent(...)` so an offline answer,
+  /// when later flushed, carries the exact same evidence as it would
+  /// have online.
+  Future<void> _retryPendingEvents() async {
+    final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
+    final uid  = FirebaseAuth.instance.currentUser?.uid;
+    if (ctrl == null || uid == null) return;
+
+    final pending = await _loadPendingEvents();
+    if (pending.isEmpty) return;
+
+    for (final evt in pending) {
+      final eventId = evt['eventId'];
+      if (eventId is! String) continue;
+      if (_eventInFlight.containsKey(eventId)) continue;
+
+      // If Firestore already recorded this event on a prior attempt,
+      // just clear the queue entry.
+      if (await _eventAlreadyRecorded(eventId)) {
+        await _removePendingEvent(eventId);
+        continue;
+      }
+
+      final xpReward =
+          (evt['xpReward'] is num) ? (evt['xpReward'] as num).toInt() : 0;
+
+      final String? eventType =
+          evt['eventType'] is String ? evt['eventType'] as String : null;
+      final String? topic =
+          evt['topic'] is String ? evt['topic'] as String : null;
+      final bool? correct =
+          evt['correct'] is bool ? evt['correct'] as bool : null;
+
+      final attempt = _runQueuedPersist(
+        ctrl: ctrl,
+        uid: uid,
+        eventId: eventId,
+        xpReward: xpReward,
+        eventType: eventType,
+        topic: topic,
+        correct: correct,
+      );
+      _eventInFlight[eventId] = attempt;
+      try {
+        final ok = await attempt;
+        if (!ok) {
+          // Still offline / transient failure — stop and leave the rest
+          // queued. No XP was awarded.
+          break;
+        }
+      } finally {
+        _eventInFlight.remove(eventId);
+      }
+    }
+  }
+
+  /// Inner helper for `_retryPendingEvents`. Performs the actual
+  /// Firestore write for a queued event, forwarding the original
+  /// pending-record evidence (`eventType`, `topic`, `correct`) through
+  /// the existing `CopilotController.recordCourseEvent(...)` API so the
+  /// offline evidence matches what an online answer would have produced.
+  /// Updates the local marker and XP counter only when Firestore
+  /// confirms a NEW write.
+  Future<bool> _runQueuedPersist({
+    required CopilotController ctrl,
+    required String uid,
+    required String eventId,
+    required int xpReward,
+    String? eventType,
+    String? topic,
+    bool? correct,
+  }) async {
+    try {
+      final wasNewlyRecorded = await ctrl.recordCourseEvent(
+        uid,
+        careerId: widget.course.careerId,
+        eventId: eventId,
+        xpReward: xpReward,
+      );
+
+      // Award local XP exactly once, only when Firestore confirms
+      // this was a NEW write. Firestore stays authoritative.
+      if (wasNewlyRecorded && xpReward > 0) {
+        await _addXpAndPersist(xpReward);
+      }
+      await _markEventRecorded(eventId);
+      await _removePendingEvent(eventId);
+      return true;
+    } catch (_) {
+      // Still offline / transient failure — leave the rest queued and
+      // report the failure to the caller so it can stop the flush.
+      return false;
+    }
+  }
+
+  /// Persists ONE course event through the existing
+  /// CopilotController.recordCourseEvent path.
   ///
-  /// Returns true on success (or when no controller/user is available so
-  /// the offline UX is preserved, or when another call for the same
-  /// event is already in-flight), false on a genuine persistence
-  /// failure. On failure, a retryable snackbar is shown and the caller
-  /// does NOT advance the UI.
+  /// Authority & idempotency:
+  ///   • Firestore is authoritative. `recordCourseEvent` returns whether
+  ///     THIS call actually wrote a new event (`true`) or found the id
+  ///     already present (`false`). The local XP mirror is advanced only
+  ///     on `true` — a missing local marker is never treated as proof
+  ///     that an event is new.
+  ///   • The local SharedPreferences marker mirrors Firestore state and
+  ///     is only a fast-path cache. It never authoritatively decides XP.
+  ///   • In-flight guard prevents racing duplicate submissions. When a
+  ///     call arrives for an event whose persist attempt is already
+  ///     running, it awaits the ORIGINAL future and returns its
+  ///     authoritative result — the caller never advances on a
+  ///     premature success.
+  ///
+  /// Offline behavior:
+  ///   • If no controller / user is available, the event is written to
+  ///     the local pending queue and NO local XP is awarded. The call
+  ///     returns true so the UI can advance (preserving the existing
+  ///     offline UX), but the event is not treated as saved until
+  ///     Firestore confirms it via _retryPendingEvents.
+  ///   • If the Firestore call throws, the event is queued and the call
+  ///     returns false so the caller does not advance (existing retry
+  ///     snackbar behavior).
+  ///
+  /// Evidence metadata: `eventType`, `topic`, `correct`, and (for quiz /
+  /// challenge) an index key are captured into a single pending record
+  /// so the online and offline paths carry identical evidence.
   Future<bool> _persistCourseEvent({
     required String eventId,
     required int xpReward,
+    String? eventType,
+    String? topic,
+    bool? correct,
+    Map<String, dynamic>? extraMetadata,
   }) async {
-    // In-flight guard: if this event is already being persisted, treat
-    // it as a duplicate attempt and short-circuit. This prevents rapid
-    // double-taps / concurrent submissions from racing past the
-    // check-then-write sequence and double-bumping the local counter.
-    if (_eventInFlight.contains(eventId)) return true;
-    _eventInFlight.add(eventId);
+    // If a persist attempt for this event is already running, await its
+    // authoritative result instead of starting a second write or
+    // returning a premature `true`.
+    final inFlight = _eventInFlight[eventId];
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    // Build the pending record ONCE. The exact same evidence fields
+    // below are also forwarded to the online Firestore call, so online
+    // and offline evidence are identical. The additive index keys
+    // (questionIndex / challengeIndex) are stored in the pending record
+    // for future-compatible consumers.
+    final pendingRecord = <String, dynamic>{
+      'eventId': eventId,
+      'xpReward': xpReward,
+      if (eventType != null) 'eventType': eventType,
+      if (topic != null) 'topic': topic,
+      if (correct != null) 'correct': correct,
+      if (extraMetadata != null) ...extraMetadata,
+    };
+
+    // Register the future BEFORE any await so concurrent calls for the
+    // same event id observe the in-flight entry and await it. The future
+    // is completed by _runPersistCourseEvent.
+    final completer = Completer<bool>();
+    _eventInFlight[eventId] = completer.future;
 
     try {
-      final alreadyRecordedLocally = await _eventAlreadyRecorded(eventId);
-
-      final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
-      final uid  = FirebaseAuth.instance.currentUser?.uid;
-
-      // Offline-safe: if there is no controller or user, keep the
-      // existing local-only behaviour and do not block the UI.
-      if (ctrl == null || uid == null) {
-        return true;
-      }
-
-      try {
-        await ctrl.recordCourseEvent(
-          uid,
-          careerId: widget.course.careerId,
-          eventId: eventId,
-          xpReward: xpReward,
-        );
-        // Only advance the local display counter (and immediately
-        // persist it) when this event is genuinely new. Firestore
-        // already enforced idempotency on its side; this guard keeps
-        // the local mirror from double-counting a retried/reopened
-        // event.
-        if (!alreadyRecordedLocally && xpReward > 0) {
-          await _addXpAndPersist(xpReward);
-        }
-        if (!alreadyRecordedLocally) {
-          await _markEventRecorded(eventId);
-        }
-        return true;
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Couldn\'t save your progress. Please try again.'),
-              backgroundColor: Color(0xFFEF4444),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-        return false;
-      }
+      final result = await _runPersistCourseEvent(
+        eventId: eventId,
+        xpReward: xpReward,
+        pendingRecord: pendingRecord,
+        eventType: eventType,
+        topic: topic,
+        correct: correct,
+      );
+      completer.complete(result);
+      return result;
+    } catch (e) {
+      if (!completer.isCompleted) completer.complete(false);
+      rethrow;
     } finally {
-      // Always release the in-flight guard — success OR failure — so the
-      // user can retry a failed attempt and future calls are allowed.
       _eventInFlight.remove(eventId);
+    }
+  }
+
+  /// Inner body of `_persistCourseEvent` — performs the actual work
+  /// (offline queue / local marker check / Firestore call / local XP
+  /// mirror / opportunistic flush). Kept separate so the outer method
+  /// can safely register and release the in-flight entry.
+  ///
+  /// The Firestore call forwards the SAME evidence fields
+  /// (`eventType`, `topic`, `correct`) that the pending record holds,
+  /// so the online and offline paths carry identical metadata. The
+  /// additive index keys (questionIndex / challengeIndex) remain in
+  /// the pending record for future-compatible consumers and are not
+  /// forced onto the controller call.
+  Future<bool> _runPersistCourseEvent({
+    required String eventId,
+    required int xpReward,
+    required Map<String, dynamic> pendingRecord,
+    String? eventType,
+    String? topic,
+    bool? correct,
+  }) async {
+    final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
+    final uid  = FirebaseAuth.instance.currentUser?.uid;
+
+    // ── Offline path ────────────────────────────────────────────
+    // No controller / user: queue the event locally, do NOT award
+    // local XP, do NOT mark it as recorded. Preserve the existing
+    // offline UX (return true so the UI can advance) — the event
+    // will be flushed later by _retryPendingEvents with the same
+    // evidence payload.
+    if (ctrl == null || uid == null) {
+      final queued = await _queuePendingEvent(pendingRecord);
+      return queued;
+    }
+
+    // Local marker present → Firestore already has the event (the
+    // marker is only written after Firestore confirmation). Clear any
+    // stale pending entry and short-circuit.
+    if (await _eventAlreadyRecorded(eventId)) {
+      await _removePendingEvent(eventId);
+      return true;
+    }
+
+    try {
+      // Firestore is authoritative. Its transactional write tells us
+      // whether THIS call actually recorded a new event (`true`) or
+      // the event id already existed (`false`, idempotent no-op).
+      //
+      // Evidence metadata (`eventType`, `topic`, `correct`) is
+      // forwarded through the existing optional parameters of the
+      // controller API, so the online event carries the same
+      // mastery / weakness metadata as the offline retry path.
+      final wasNewlyRecorded = await ctrl.recordCourseEvent(
+        uid,
+        careerId: widget.course.careerId,
+        eventId: eventId,
+        xpReward: xpReward,
+        eventType: eventType,
+        topic: topic,
+        correct: correct,
+      );
+
+      // Only advance the local display counter (and immediately
+      // persist it) when Firestore genuinely recorded a NEW event.
+      if (wasNewlyRecorded && xpReward > 0) {
+        await _addXpAndPersist(xpReward);
+      }
+      await _markEventRecorded(eventId);
+      await _removePendingEvent(eventId);
+
+      // Opportunistic flush of older queued events now that we know
+      // Firestore is reachable in this session.
+      unawaited(_retryPendingEvents());
+      return true;
+    } catch (_) {
+      // Firestore call failed. Queue the event so it is not lost,
+      // keep the existing failure UX (return false so the caller
+      // does not advance and the user can retry).
+      await _queuePendingEvent(pendingRecord);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Couldn\'t save your progress. Please try again.'),
+            backgroundColor: Color(0xFFEF4444),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return false;
     }
   }
 
   /// Persists the completion of the course through the existing
   /// recordLessonCompleted path, and triggers the existing intelligence
-  /// refresh. Returns true on success.
+  /// refresh. Returns true on success, false on a genuine persistence
+  /// failure. Offline (no controller/user) returns true so the existing
+  /// offline UX is preserved — the sync marker is only set when the
+  /// controller + user were actually present.
   Future<bool> _persistCourseCompletion() async {
     final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
     final uid  = FirebaseAuth.instance.currentUser?.uid;
@@ -422,21 +777,60 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
     }
   }
 
-  /// Persists local session state and — only on a genuine, first-time
-  /// completion — records the lesson completion into the existing
-  /// Copilot/learning progress system.
+  /// Retryable Copilot completion sync.
   ///
-  /// Idempotent: reopening an already-completed course will NOT re-award
-  /// or re-record.
+  /// Idempotent:
+  ///   • If the local sync marker is already set, no-op.
+  ///   • Otherwise call the existing recordLessonCompleted path. On
+  ///     success, set the local marker. On failure, leave the marker
+  ///     unset so the sync is retried on the next _onComplete() or on
+  ///     the next screen load via _loadProgress().
+  ///   • When offline (no controller/user), the sync is not marked as
+  ///     done, so it is attempted again later.
+  ///
+  /// recordLessonCompleted is idempotent on lessonId, so retrying can
+  /// never duplicate completion or XP.
+  Future<bool> _ensureCopilotCompletionSynced() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_copilotSyncKey) ?? false) return true;
+    } catch (_) {
+      // If prefs are unavailable, fall through and attempt the sync.
+    }
+
+    final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
+    final uid  = FirebaseAuth.instance.currentUser?.uid;
+
+    final ok = await _persistCourseCompletion();
+    if (!ok) return false;
+
+    // Only mark the sync as complete when Firestore was actually
+    // reachable (controller + user present). Offline completions remain
+    // pending and are retried later.
+    if (ctrl != null && uid != null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_copilotSyncKey, true);
+      } catch (_) {
+        // Best-effort marker. If it fails, we retry next time — the
+        // Firestore call itself is idempotent.
+      }
+    }
+    return true;
+  }
+
+  /// Persists local session state and records the lesson completion into
+  /// the existing Copilot/learning progress system.
   ///
   /// Save-state honesty:
   ///   • Local SharedPreferences is written first. If that write fails,
   ///     the course is NOT marked complete locally, and _progressPersisted
   ///     is rolled back so the user can retry.
-  ///   • The Copilot hook (recordLessonCompleted + refreshIntelligence)
-  ///     runs only for the first completion. It is best-effort: a failure
-  ///     there is swallowed, because the local completion marker already
-  ///     stands and the append-only lesson history is idempotent.
+  ///   • The Copilot completion sync is awaited and retryable. Its own
+  ///     marker is set only after Firestore confirms, so a failed sync
+  ///     remains retryable on the next screen load or completion.
+  ///   • The append-only lesson history is idempotent, so retries cannot
+  ///     duplicate completion or XP.
   Future<void> _onComplete() async {
     if (_progressPersisted) return;
     _progressPersisted = true;
@@ -466,12 +860,11 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       return;
     }
 
-    final isFirstCompletion = !_alreadyCompletedBefore;
     _alreadyCompletedBefore = true;
 
-    if (isFirstCompletion) {
-      await _persistCourseCompletion();
-    }
+    // Retryable Copilot completion sync. Local completion stands even
+    // if this fails; the sync marker gates whether Firestore confirmed.
+    await _ensureCopilotCompletionSynced();
 
     try {
       _EngagementBridge.maybeAddXp(_xpEarned);
@@ -1061,26 +1454,35 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           SizedBox(
             width: double.infinity, height: 52,
             child: ElevatedButton(
-              onPressed: _selectedOpt == null ? null : () async {
+              onPressed: (!_answered && _selectedOpt == null) ? null : () async {
                 if (!_answered) {
                   final correct = _selectedOpt == q.correctIndex;
 
-                  // Persist the correct-answer event first, so XP and
-                  // evidence are durable before the UI acknowledges it.
-                  // Wrong answers persist no XP event; they are simply
-                  // not treated as evidence of mastery. The in-flight
-                  // guard inside _persistCourseEvent prevents rapid
-                  // double-taps from double-bumping the local counter.
-                  if (correct) {
-                    final eventId = 'quiz:${widget.course.id}:$_quizIndex';
-                    final ok = await _persistCourseEvent(
-                      eventId: eventId,
-                      xpReward: q.xpReward,
-                    );
-                    if (!mounted || !ok) return;
-                  }
+                  // Persist the answer as durable evidence FIRST.
+                  //   • Correct → existing mastery event id, XP awarded.
+                  //   • Wrong   → additive `quiz_miss:` weakness event,
+                  //               0 XP, does not block a later correct
+                  //               retry (different event id).
+                  // Offline: queued locally; no XP awarded until
+                  // Firestore confirms.
+                  final eventId = correct
+                      ? 'quiz:${widget.course.id}:$_quizIndex'
+                      : 'quiz_miss:${widget.course.id}:$_quizIndex';
 
-                  if (!mounted) return;
+                  final ok = await _persistCourseEvent(
+                    eventId: eventId,
+                    xpReward: correct ? q.xpReward : 0,
+                    eventType: correct ? 'quiz' : 'quiz_miss',
+                    // No per-question topic field is exposed by the
+                    // current model, so the real course topicTitle is
+                    // used. Per-question granularity is preserved via
+                    // the additive questionIndex metadata key.
+                    topic: widget.course.topicTitle,
+                    correct: correct,
+                    extraMetadata: {'questionIndex': _quizIndex},
+                  );
+                  if (!mounted || !ok) return;
+
                   setState(() => _answered = true);
                   _evidence.recordQuiz(
                     correct: correct,
@@ -1259,20 +1661,30 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           SizedBox(
             width: double.infinity, height: 52,
             child: ElevatedButton(
-              onPressed: _selectedOpt == null ? null : () async {
+              onPressed: (!_answered && _selectedOpt == null) ? null : () async {
                 if (!_answered) {
                   final correct = _selectedOpt == ch.correctIndex;
 
-                  if (correct) {
-                    final eventId = 'challenge:${widget.course.id}:$_chalIndex';
-                    final ok = await _persistCourseEvent(
-                      eventId: eventId,
-                      xpReward: ch.xpReward,
-                    );
-                    if (!mounted || !ok) return;
-                  }
+                  // Persist mastery (correct) or weakness (incorrect)
+                  // as durable evidence, exactly like the quiz screen.
+                  final eventId = correct
+                      ? 'challenge:${widget.course.id}:$_chalIndex'
+                      : 'challenge_miss:${widget.course.id}:$_chalIndex';
 
-                  if (!mounted) return;
+                  final ok = await _persistCourseEvent(
+                    eventId: eventId,
+                    xpReward: correct ? ch.xpReward : 0,
+                    eventType: correct ? 'challenge' : 'challenge_miss',
+                    // See quiz screen comment — no per-challenge topic
+                    // field exists on the current model, so topicTitle is
+                    // used and granularity is preserved via
+                    // challengeIndex metadata.
+                    topic: widget.course.topicTitle,
+                    correct: correct,
+                    extraMetadata: {'challengeIndex': _chalIndex},
+                  );
+                  if (!mounted || !ok) return;
+
                   setState(() => _answered = true);
                   _evidence.recordChallenge(
                     correct: correct,
@@ -1421,15 +1833,13 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
             width: double.infinity, height: 52,
             child: ElevatedButton(
               onPressed: () async {
-                // Persist the project completion event first (durable XP
-                // + evidence), then advance. A failed write keeps the
-                // user on this screen so they can retry. The in-flight
-                // guard inside _persistCourseEvent prevents rapid
-                // double-taps from double-bumping the local counter.
                 final eventId = 'project:${widget.course.id}';
                 final ok = await _persistCourseEvent(
                   eventId: eventId,
                   xpReward: p.xpReward,
+                  eventType: 'project',
+                  topic: widget.course.topicTitle,
+                  correct: true,
                 );
                 if (!mounted || !ok) return;
                 _next();

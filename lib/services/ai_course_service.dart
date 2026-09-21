@@ -2,6 +2,7 @@ import '../models/course_content_data.dart';
 import 'course_generator_service.dart';
 
 // ══════════════════════════════════════════════════════════════════════
+//              ai_course_service.dart
 // Deterministic topic knowledge base.
 //
 // No AI/API calls — this is a hand-written, offline lookup table of real

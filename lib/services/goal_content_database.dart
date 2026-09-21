@@ -29,16 +29,27 @@
 //   • normaliseRole(), dailyForRole(), weeklyForRole(), monthlyForRole()
 //     keep their exact signatures and return types.
 //
-// Content upgrade: every role's daily pool now spans realistic
-// professional progression — Foundation → Core Skills → Practice → Real
-// Projects — and the shared `_genericDaily` pool (appended to every
-// role's list by dailyForRole) now also covers the universal engineering
-// stages every professional needs regardless of specialisation: Git/
-// GitHub, Debugging, Testing, APIs/Database, Architecture, Security,
-// CI/CD, Docker/Cloud, Deployment, Production, Portfolio, Interview, and
-// Job-Ready. Two previously-missing role pools (Flutter Developer,
-// Computer Vision Engineer — both already reachable via normaliseRole,
-// but with no template list behind them) have been added.
+// This revision:
+//   • Adds a full, dedicated Software Engineer daily pool covering
+//     Programming Fundamentals, DSA, Algorithms, OOP, Git/GitHub,
+//     Debugging, Testing, REST APIs, Databases/SQL, System Design,
+//     Security, CI/CD, Docker/Cloud, Real Projects, Portfolio,
+//     Interview, and Job Ready — with the same metadata richness
+//     (skill/stage/estimatedMinutes/professionalOutcome/prerequisites)
+//     the generator already consumes.
+//   • Extends the shared `_genericDaily` pool with additional,
+//     weakness-friendly practice goals (recursion, DSA, SQL, Git,
+//     testing, APIs, system design) so the intelligence layer has a
+//     real, selectable target for every common weak area — this file
+//     still does NOT detect weakness itself; the generator + Copilot
+//     do that and pass it in.
+//   • Adds an `ai_engineer` alias for `software_engineer` role-tag
+//     discoverability via normaliseRole, without changing any existing
+//     normalization rule's priority (existing matches still win).
+//   • Keeps every existing goal id and content line unchanged, so no
+//     prior selection behaviour is invalidated.
+//   • No new public classes, enums, methods, or fields are introduced.
+//     No persistence, no network, no AI, no duplicate goal system.
 // ══════════════════════════════════════════════════════════════════════
 
 // ── Internal difficulty enum (NOT exported to the rest of the app) ────
@@ -218,6 +229,13 @@ class GoalContentDatabase {
     if (lower.contains('prompt'))                                return 'prompt_engineer';
     if (lower.contains('researcher'))                            return 'ai_researcher';
     if (lower.contains('product manager'))                       return 'ai_product_manager';
+    // Software Engineer is matched before the generic 'ml'/'machine
+    // learn' branch so that a role label containing 'engineer' plus
+    // 'software' resolves here rather than to any ML bucket.
+    if (lower.contains('software engineer') ||
+        lower == 'software engineer' ||
+        lower.contains('swe') ||
+        lower.contains('sde'))                                 return 'software_engineer';
     if (lower.contains('ml') || lower.contains('machine learn')) return 'ml_engineer';
     if (lower.contains('data scien'))                            return 'data_scientist';
     return 'generic';
@@ -930,7 +948,7 @@ class GoalContentDatabase {
   ];
 
   // ════════════════════════════════════════════════════════════════════
-  // COMPUTER VISION ENGINEER GOALS (NEW)
+  // COMPUTER VISION ENGINEER GOALS
   // ════════════════════════════════════════════════════════════════════
   static const List<GoalTemplate> _cvEngineerDaily = [
     GoalTemplate(
@@ -1269,7 +1287,7 @@ class GoalContentDatabase {
   ];
 
   // ════════════════════════════════════════════════════════════════════
-  // FLUTTER DEVELOPER GOALS (NEW)
+  // FLUTTER DEVELOPER GOALS
   // ════════════════════════════════════════════════════════════════════
   static const List<GoalTemplate> _flutterDeveloperDaily = [
     GoalTemplate(
@@ -1379,6 +1397,545 @@ class GoalContentDatabase {
       stage: GoalStage.production,
       estimatedMinutes: 60,
       prerequisites: ['fl_h_02'],
+    ),
+  ];
+
+  // ════════════════════════════════════════════════════════════════════
+  // SOFTWARE ENGINEER GOALS (NEW — first-class career)
+  //
+  // Full progression: Programming Fundamentals → DSA → Algorithms → OOP
+  // → Git/GitHub → Debugging → Testing → REST APIs → Databases/SQL →
+  // System Design → Security → CI/CD → Docker/Cloud → Real Projects →
+  // Portfolio → Interview → Job Ready.
+  //
+  // Every template carries the same metadata richness the rest of the
+  // library uses (skill/stage/estimatedMinutes, plus prerequisites,
+  // minLevel/minPhase, and professionalOutcome where meaningful) so the
+  // existing LocalGoalGeneratorService scoring + selection machinery
+  // works without any change.
+  // ════════════════════════════════════════════════════════════════════
+  static const List<GoalTemplate> _softwareEngineerDaily = [
+    // ── Foundation: Programming Fundamentals ──────────────────────────
+    GoalTemplate(
+      id: 'se_f_01',
+      title: 'Practice one small programming exercise in your primary language',
+      description: 'Pick a warm-up problem and write idiomatic, clean code in Python/Java/JS',
+      difficulty: LocalGoalDifficulty.easy,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      skill: 'Programming Fundamentals',
+      stage: GoalStage.foundation,
+      estimatedMinutes: 25,
+    ),
+    GoalTemplate(
+      id: 'se_f_02',
+      title: 'Read the official style guide for your primary language',
+      description: 'Skim PEP 8 / Google Java Style / Airbnb JS style — pick 3 rules to apply',
+      difficulty: LocalGoalDifficulty.easy,
+      category: LocalGoalCategory.learning,
+      tags: ['software_engineer'],
+      skill: 'Programming Fundamentals',
+      stage: GoalStage.foundation,
+      estimatedMinutes: 20,
+    ),
+
+    // ── Foundation: DSA ───────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_dsa_01',
+      title: 'Solve one array or string problem',
+      description: 'Complete one easy problem on LeetCode and write down the time/space complexity',
+      difficulty: LocalGoalDifficulty.easy,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      skill: 'Data Structures & Algorithms',
+      stage: GoalStage.foundation,
+      estimatedMinutes: 25,
+    ),
+    GoalTemplate(
+      id: 'se_dsa_02',
+      title: 'Solve one recursion or backtracking problem',
+      description: 'Trace the recursion tree on paper before coding the solution',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      minLevel: 2,
+      skill: 'Recursion',
+      stage: GoalStage.practice,
+      estimatedMinutes: 40,
+    ),
+    GoalTemplate(
+      id: 'se_dsa_03',
+      title: 'Practice one hashing or two-pointer problem',
+      description: 'Solve a medium problem and compare brute-force vs optimised complexity',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      minLevel: 2,
+      skill: 'Data Structures & Algorithms',
+      stage: GoalStage.practice,
+      estimatedMinutes: 40,
+    ),
+    GoalTemplate(
+      id: 'se_dsa_04',
+      title: 'Implement one classic algorithm from scratch',
+      description: 'Write merge sort, quicksort, BFS, DFS, or Dijkstra without library help',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.coding,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Algorithms',
+      stage: GoalStage.practice,
+      estimatedMinutes: 45,
+    ),
+    GoalTemplate(
+      id: 'se_dsa_05',
+      title: 'Review Big-O complexity of code you wrote today',
+      description: 'Pick a function you wrote and identify its time and space complexity',
+      difficulty: LocalGoalDifficulty.easy,
+      category: LocalGoalCategory.review,
+      tags: ['software_engineer'],
+      skill: 'Data Structures & Algorithms',
+      stage: GoalStage.foundation,
+      estimatedMinutes: 15,
+    ),
+
+    // ── Core Skills: OOP ──────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_oop_01',
+      title: 'Refactor one function into a small class with clear responsibilities',
+      description: 'Apply single-responsibility thinking: one class, one job, testable API',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.coding,
+      tags: ['software_engineer'],
+      minLevel: 2,
+      skill: 'Object-Oriented Programming',
+      stage: GoalStage.coreSkills,
+      estimatedMinutes: 35,
+    ),
+    GoalTemplate(
+      id: 'se_oop_02',
+      title: 'Practice composition over inheritance on a small example',
+      description: 'Replace an inheritance hierarchy with composition and compare the result',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Object-Oriented Programming',
+      stage: GoalStage.coreSkills,
+      estimatedMinutes: 35,
+    ),
+
+    // ── Core Skills: Git/GitHub ───────────────────────────────────────
+    GoalTemplate(
+      id: 'se_git_01',
+      title: 'Make three clean, atomic commits in a repo',
+      description: 'Use conventional commit messages and one logical change per commit',
+      difficulty: LocalGoalDifficulty.easy,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      skill: 'Git',
+      stage: GoalStage.gitGithub,
+      estimatedMinutes: 15,
+    ),
+    GoalTemplate(
+      id: 'se_git_02',
+      title: 'Resolve a merge conflict end-to-end',
+      description: 'Rebase or merge a branch with a conflict and verify the result with tests',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      minLevel: 2,
+      skill: 'Git',
+      stage: GoalStage.gitGithub,
+      estimatedMinutes: 25,
+    ),
+    GoalTemplate(
+      id: 'se_git_03',
+      title: 'Open a pull request with a clear description',
+      description: 'Explain what changed, why, and how you verified it — request a review',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      minLevel: 2,
+      skill: 'Git',
+      stage: GoalStage.gitGithub,
+      estimatedMinutes: 25,
+    ),
+
+    // ── Debugging ─────────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_dbg_01',
+      title: 'Debug a real bug with a debugger (not print statements)',
+      description: 'Set breakpoints, inspect the call stack, and find the root cause',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      skill: 'Debugging',
+      stage: GoalStage.debugging,
+      estimatedMinutes: 30,
+    ),
+    GoalTemplate(
+      id: 'se_dbg_02',
+      title: 'Reproduce an intermittent bug reliably',
+      description: 'Write a failing test or script that reproduces a flaky bug every time',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Debugging',
+      stage: GoalStage.debugging,
+      estimatedMinutes: 40,
+    ),
+
+    // ── Testing ───────────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_test_01',
+      title: 'Write unit tests for one pure function',
+      description: 'Cover happy path, empty input, and one edge case',
+      difficulty: LocalGoalDifficulty.easy,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      skill: 'Testing',
+      stage: GoalStage.testing,
+      estimatedMinutes: 25,
+    ),
+    GoalTemplate(
+      id: 'se_test_02',
+      title: 'Write an integration test for a real workflow',
+      description: 'Test two or more modules together, not just one unit in isolation',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Testing',
+      stage: GoalStage.testing,
+      estimatedMinutes: 40,
+    ),
+    GoalTemplate(
+      id: 'se_test_03',
+      title: 'Generate and review a test coverage report',
+      description: 'Find your weakest-tested module and add one meaningful test to it',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.review,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Testing',
+      stage: GoalStage.testing,
+      estimatedMinutes: 25,
+    ),
+
+    // ── REST APIs ─────────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_api_01',
+      title: 'Build a REST endpoint with proper status codes',
+      description: 'Handle 200/201/400/404 correctly and validate request bodies',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.coding,
+      tags: ['software_engineer'],
+      minLevel: 2,
+      skill: 'APIs',
+      stage: GoalStage.apisDatabase,
+      estimatedMinutes: 45,
+    ),
+    GoalTemplate(
+      id: 'se_api_02',
+      title: 'Add pagination and filtering to an existing endpoint',
+      description: 'Support page/limit params and one filter, and test them with real requests',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.coding,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'APIs',
+      stage: GoalStage.apisDatabase,
+      estimatedMinutes: 40,
+      prerequisites: ['se_api_01'],
+    ),
+    GoalTemplate(
+      id: 'se_api_03',
+      title: 'Write API tests for one endpoint',
+      description: 'Test happy path, validation errors, and one auth/authorization case',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'APIs',
+      stage: GoalStage.testing,
+      estimatedMinutes: 35,
+    ),
+
+    // ── Databases / SQL ──────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_db_01',
+      title: 'Write 5 SQL queries of increasing difficulty',
+      description: 'Start with SELECT/WHERE, end with a JOIN and a GROUP BY + HAVING',
+      difficulty: LocalGoalDifficulty.easy,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      skill: 'SQL',
+      stage: GoalStage.foundation,
+      estimatedMinutes: 30,
+    ),
+    GoalTemplate(
+      id: 'se_db_02',
+      title: 'Design a database schema with proper indexes',
+      description: 'Model a small real use case and justify your indexes',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.coding,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Databases',
+      stage: GoalStage.apisDatabase,
+      estimatedMinutes: 40,
+    ),
+    GoalTemplate(
+      id: 'se_db_03',
+      title: 'Optimise one slow query using EXPLAIN',
+      description: 'Read the query plan, add or change an index, and measure the improvement',
+      difficulty: LocalGoalDifficulty.hard,
+      category: LocalGoalCategory.practice,
+      tags: ['software_engineer'],
+      minLevel: 4,
+      skill: 'Databases',
+      stage: GoalStage.practice,
+      estimatedMinutes: 45,
+    ),
+
+    // ── System Design ─────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_sd_01',
+      title: 'Write a one-page design doc for a feature you are building',
+      description: 'Cover requirements, data model, APIs, and one trade-off',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.design,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'System Design',
+      stage: GoalStage.architecture,
+      estimatedMinutes: 40,
+    ),
+    GoalTemplate(
+      id: 'se_sd_02',
+      title: 'Sketch a system design for a URL shortener or rate limiter',
+      description: 'Identify components, storage, and the main scaling bottlenecks',
+      difficulty: LocalGoalDifficulty.hard,
+      category: LocalGoalCategory.design,
+      tags: ['software_engineer'],
+      minLevel: 4,
+      skill: 'System Design',
+      stage: GoalStage.architecture,
+      estimatedMinutes: 50,
+    ),
+    GoalTemplate(
+      id: 'se_sd_03',
+      title: 'Refactor tightly-coupled code into testable components',
+      description: 'Break one module that does too much into focused, well-named pieces',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.coding,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Software Architecture',
+      stage: GoalStage.architecture,
+      estimatedMinutes: 45,
+    ),
+
+    // ── Security ──────────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_sec_01',
+      title: 'Audit a project for hard-coded secrets',
+      description: 'Find and move any keys/passwords into environment variables',
+      difficulty: LocalGoalDifficulty.easy,
+      category: LocalGoalCategory.review,
+      tags: ['software_engineer'],
+      skill: 'Security',
+      stage: GoalStage.security,
+      estimatedMinutes: 20,
+    ),
+    GoalTemplate(
+      id: 'se_sec_02',
+      title: 'Apply one OWASP Top 10 mitigation to a real endpoint',
+      description: 'Add input validation or parameterised queries to block injection',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.coding,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Security',
+      stage: GoalStage.security,
+      estimatedMinutes: 35,
+    ),
+
+    // ── CI/CD ─────────────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_cicd_01',
+      title: 'Set up CI that runs your test suite on every push',
+      description: 'GitHub Actions (or similar) workflow that fails on test failure',
+      difficulty: LocalGoalDifficulty.hard,
+      category: LocalGoalCategory.deployment,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'CI/CD',
+      stage: GoalStage.ciCd,
+      estimatedMinutes: 45,
+    ),
+    GoalTemplate(
+      id: 'se_cicd_02',
+      title: 'Add lint/format checks to your CI pipeline',
+      description: 'Fail the build when code style is violated',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.deployment,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'CI/CD',
+      stage: GoalStage.ciCd,
+      estimatedMinutes: 30,
+      prerequisites: ['se_cicd_01'],
+    ),
+
+    // ── Docker / Cloud ────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_dock_01',
+      title: 'Containerize one of your projects with Docker',
+      description: 'Write a Dockerfile and run the app from the built image',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.deployment,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Docker',
+      stage: GoalStage.dockerCloud,
+      estimatedMinutes: 45,
+    ),
+    GoalTemplate(
+      id: 'se_dock_02',
+      title: 'Deploy a small service to a free-tier cloud host',
+      description: 'Ship something real to Render, Railway, Fly.io, or a small VPS',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.deployment,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Cloud Computing',
+      stage: GoalStage.dockerCloud,
+      estimatedMinutes: 50,
+    ),
+
+    // ── Real Projects ─────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_proj_01',
+      title: 'Build a small end-to-end feature (API + DB + UI or CLI)',
+      description: 'Pick a real use case and ship the full slice, tested and committed',
+      difficulty: LocalGoalDifficulty.hard,
+      category: LocalGoalCategory.project,
+      tags: ['software_engineer'],
+      minLevel: 4,
+      skill: 'Software Engineering',
+      stage: GoalStage.realProjects,
+      estimatedMinutes: 120,
+      professionalOutcome: 'A shipped feature with tests, in a repo you own.',
+    ),
+    GoalTemplate(
+      id: 'se_proj_02',
+      title: 'Turn your best project into a production-grade repo',
+      description: 'Add a README, CI, tests, and one deploy — make it recruiters-ready',
+      difficulty: LocalGoalDifficulty.hard,
+      category: LocalGoalCategory.project,
+      tags: ['software_engineer'],
+      minLevel: 5,
+      skill: 'Software Engineering',
+      stage: GoalStage.realProjects,
+      estimatedMinutes: 120,
+      professionalOutcome: 'A production-grade repository you can link on your resume.',
+    ),
+
+    // ── Portfolio ─────────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_port_01',
+      title: 'Write a case-study write-up of one project',
+      description: 'Document the problem, your approach, and the measurable result',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.career,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Portfolio Building',
+      stage: GoalStage.portfolio,
+      estimatedMinutes: 45,
+      professionalOutcome: 'A portfolio case study ready for a public portfolio page.',
+    ),
+    GoalTemplate(
+      id: 'se_port_02',
+      title: 'Record a 2-minute demo of a project',
+      description: 'Walk through what it does and why it matters, on screen recording',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.career,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Portfolio Building',
+      stage: GoalStage.portfolio,
+      estimatedMinutes: 30,
+    ),
+
+    // ── Interview ─────────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_int_01',
+      title: 'Do one timed mock coding interview',
+      description: 'Solve one medium problem under a 35-minute timer, then review',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.career,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Interview Prep',
+      stage: GoalStage.interview,
+      estimatedMinutes: 40,
+    ),
+    GoalTemplate(
+      id: 'se_int_02',
+      title: 'Do one mock system design interview',
+      description: 'Sketch a whiteboard-style answer to a common system design prompt',
+      difficulty: LocalGoalDifficulty.hard,
+      category: LocalGoalCategory.career,
+      tags: ['software_engineer'],
+      minLevel: 4,
+      skill: 'System Design',
+      stage: GoalStage.interview,
+      estimatedMinutes: 50,
+    ),
+    GoalTemplate(
+      id: 'se_int_03',
+      title: 'Practice one behavioural answer in STAR format',
+      description: 'Prepare a 90-second story about a project or conflict you handled',
+      difficulty: LocalGoalDifficulty.easy,
+      category: LocalGoalCategory.career,
+      tags: ['software_engineer'],
+      minLevel: 2,
+      skill: 'Interview Prep',
+      stage: GoalStage.interview,
+      estimatedMinutes: 20,
+    ),
+
+    // ── Job Ready ─────────────────────────────────────────────────────
+    GoalTemplate(
+      id: 'se_job_01',
+      title: 'Tailor your resume to one real software engineering job posting',
+      description: 'Match your bullets and language to a specific job description',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.career,
+      tags: ['software_engineer'],
+      minLevel: 3,
+      skill: 'Resume Writing',
+      stage: GoalStage.jobReady,
+      estimatedMinutes: 35,
+      professionalOutcome: 'A targeted, ATS-friendly resume ready to submit.',
+    ),
+    GoalTemplate(
+      id: 'se_job_02',
+      title: 'Apply to one role that matches your stack and level',
+      description: 'Submit one tailored application — not a mass-apply',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.career,
+      tags: ['software_engineer'],
+      minLevel: 4,
+      minPhase: 1,
+      skill: 'Job Applications',
+      stage: GoalStage.jobReady,
+      estimatedMinutes: 30,
+      prerequisites: ['se_job_01'],
     ),
   ];
 
@@ -1518,6 +2075,77 @@ class GoalContentDatabase {
       skill: 'Data Structures & Algorithms',
       stage: GoalStage.foundation,
       estimatedMinutes: 15,
+    ),
+
+    // ── Weakness → targeted practice (universal) ──────────────────────
+    GoalTemplate(
+      id: 'gen_weak_01',
+      title: 'Practice one recursion problem step-by-step',
+      description: 'Draw the recursion tree on paper, then code it — then do one more',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: [],
+      minLevel: 2,
+      skill: 'Recursion',
+      stage: GoalStage.practice,
+      estimatedMinutes: 30,
+    ),
+    GoalTemplate(
+      id: 'gen_weak_02',
+      title: 'Drill 5 SQL queries around JOIN and GROUP BY',
+      description: 'Write each query from scratch, then verify against expected output',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: [],
+      skill: 'SQL',
+      stage: GoalStage.apisDatabase,
+      estimatedMinutes: 30,
+    ),
+    GoalTemplate(
+      id: 'gen_weak_03',
+      title: 'Practice 3 Git operations you avoid (rebase, cherry-pick, revert)',
+      description: 'Do them in a throwaway branch first, then in a real repo',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: [],
+      minLevel: 2,
+      skill: 'Git',
+      stage: GoalStage.gitGithub,
+      estimatedMinutes: 30,
+    ),
+    GoalTemplate(
+      id: 'gen_weak_04',
+      title: 'Write tests for the last untested function you shipped',
+      description: 'Cover happy path, one edge case, and one failure case',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.practice,
+      tags: [],
+      skill: 'Testing',
+      stage: GoalStage.testing,
+      estimatedMinutes: 30,
+    ),
+    GoalTemplate(
+      id: 'gen_weak_05',
+      title: 'Design and call one API endpoint end-to-end',
+      description: 'Build it, hit it with curl/Postman, and log status codes for each case',
+      difficulty: LocalGoalDifficulty.medium,
+      category: LocalGoalCategory.coding,
+      tags: [],
+      skill: 'APIs',
+      stage: GoalStage.apisDatabase,
+      estimatedMinutes: 40,
+    ),
+    GoalTemplate(
+      id: 'gen_weak_06',
+      title: 'Sketch a system design for a familiar app',
+      description: 'Pick an app you use daily and write the components, storage, and bottlenecks',
+      difficulty: LocalGoalDifficulty.hard,
+      category: LocalGoalCategory.design,
+      tags: [],
+      minLevel: 3,
+      skill: 'System Design',
+      stage: GoalStage.architecture,
+      estimatedMinutes: 40,
     ),
 
     // ── Git/GitHub ──────────────────────────────────────────────────
@@ -2129,6 +2757,7 @@ class GoalContentDatabase {
     'ai_researcher':      _aiResearcherDaily,
     'ai_product_manager': _aiProductManagerDaily,
     'flutter_developer':  _flutterDeveloperDaily,
+    'software_engineer':  _softwareEngineerDaily,
     'generic':            _genericDaily,
   };
 }

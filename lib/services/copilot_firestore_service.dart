@@ -1,41 +1,294 @@
-
 // ═══════════════════════════════════════════════════════════════════════════
-// lib/features/copilot/services/copilot_firestore_service.dart
+// lib/services/copilot_firestore_service.dart
 // Firestore CRUD for every copilot collection.
 //
-// UPGRADE NOTES (this revision):
-//   • Added ONE new public method — `recordCourseEvent` — for persisting
-//     a single course learning event (quiz answer / challenge answer /
-//     project completion). It:
-//        - appends the eventId to the per-career learning-progress
-//          document under `completedCourseEventIds` (arrayUnion, so
-//          repeats are no-ops),
-//        - appends the eventId to `courseEvidenceIds` (arrayUnion) as
-//          the durable "learning evidence" trail that future Skill Gap
-//          re-analysis can read,
-//        - awards xpReward to users/{uid}.totalXp ONLY when the event
-//          is genuinely new — enforced inside a single Firestore
-//          transaction so repeated/concurrent calls can never
-//          double-award.
-//     Uses ONLY the existing per-career copilot_learning_progress
-//     document; no new collection, path, or schema.
-//   • Every existing public method, collection, document path, and
-//     field is unchanged. All previous callers keep compiling and
-//     behaving exactly as before.
-// ══════════════════════════════════════════════════════════════════════════════
+// FINAL PRODUCTION VERSION — Authoritative Career Evidence Layer
+//
+// ───────────────────────────────────────────────────────────────────────────
+// TRANSACTION INVARIANT (applies to EVERY transaction in this file)
+// ───────────────────────────────────────────────────────────────────────────
+// Firestore transactions require all reads to happen before any writes.
+// Every transaction here follows this order strictly:
+//   1. READ every document needed for the decision.
+//   2. COMPUTE the write payload.
+//   3. WRITE.
+// No read is ever performed after the first write inside the same
+// transaction. Transaction retries therefore re-run the entire
+// read → compute → write sequence against fresh data, which is what
+// makes all idempotency guarantees below retry-safe and concurrency-safe.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// GOAL STATE AUTHORITY
+// ───────────────────────────────────────────────────────────────────────────
+// toggleGoalCompletion() derives the requested next state from the
+// authoritative Firestore goal document — never from the caller's UI
+// object. `goal.isCompleted` is advisory only. A stale UI snapshot can
+// therefore never produce a bogus flip, a duplicate XP award, or a
+// duplicate lifetime increment.
+//
+// toggleGoalCompletion() returns a [GoalToggleResult] carrying the
+// authoritative final state (`isCompleted`) together with a flag
+// (`becameCompleted`) that is true only when this call was a genuine
+// first-time false → true completion whose canonical completion record
+// did not already exist.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// GOAL COMPLETION IDENTITY — ONE CANONICAL, CAREER-AGNOSTIC RECORD
+// ───────────────────────────────────────────────────────────────────────────
+// Every genuine goal completion is identified by ONE canonical,
+// career-agnostic record id:
+//
+//     goal:{goalId}
+//
+// This id is written to a single canonical location that exists whether
+// or not a careerId is available:
+//
+//     users/{uid}/copilot_goal_events/{goal:{goalId}}
+//
+// This canonical record is the authoritative idempotency identity for
+// BOTH the goal XP award AND the lifetime totalGoalsCompleted counter.
+// It is the SAME record regardless of careerId availability, so the
+// no-career path has exactly the same persistent, retry-safe,
+// concurrency-safe idempotency as the career path.
+//
+// When a real careerId is ALSO available, the existing structured
+// career-event layer is written as a parallel evidence record at:
+//
+//     users/{uid}/copilot_learning_progress/{careerId}/events/goal:{goalId}
+//
+// (unchanged path, unchanged schema, backward compatible).
+//
+// ───────────────────────────────────────────────────────────────────────────
+// GOAL COMPLETION — EXACTLY-ONCE, ON EVERY AXIS
+// ───────────────────────────────────────────────────────────────────────────
+// On a genuine false → true transition of a goal:
+//   • The canonical goal-completion record is read inside the transaction.
+//   • If it already exists:
+//       - XP is NOT awarded again.
+//       - totalGoalsCompleted is NOT incremented again.
+//       - The record is not rewritten (recordedAt remains stable).
+//       - The career-side structured event (if any) is also left as-is.
+//       - becameCompleted is false.
+//   • If it does not exist:
+//       - XP is awarded exactly once.
+//       - totalGoalsCompleted is incremented exactly once.
+//       - The canonical record is written once.
+//       - The career-side structured event is written once (only when a
+//         real careerId is present — no fake/synthetic bucket is ever
+//         created).
+//       - becameCompleted is true.
+// All of the above are written in the SAME transaction as the goal flip,
+// so XP, lifetime count, and both evidence records are atomic.
+//
+// true → false:
+//   • Flips the goal's current state only.
+//   • Does NOT decrement totalGoalsCompleted.
+//   • Does NOT remove historical XP.
+//   • Does NOT delete or rewrite the canonical record or the career-side
+//     structured event. History is preserved.
+//   • becameCompleted is false.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// TOTAL GOALS COMPLETED (users/{uid}.totalGoalsCompleted)
+// ───────────────────────────────────────────────────────────────────────────
+// Authoritative lifetime count of successfully completed goals. Incremented
+// at most once per canonical goal-completion record. A missing field safely
+// reads as 0. Never derived from progressHistory or daily snapshots.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// AUTHORITATIVE XP READ
+// ───────────────────────────────────────────────────────────────────────────
+// getUserTotalXp(uid) returns users/{uid}.totalXp as int, or 0 when the
+// document/field is missing or invalid. It NEVER derives XP from
+// progressHistory and NEVER mutates state — it is a pure read helper.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// STRUCTURED CAREER EVENT LAYER
+// ───────────────────────────────────────────────────────────────────────────
+// users/{uid}/copilot_learning_progress/{careerId}/events/{eventId}
+// remains the primary career-scoped evidence trail. Structured evidence is
+// written only under a real careerId — synthetic buckets are never created.
+// Every structured event writer reads its event document inside its own
+// transaction before writing, so retries and concurrent calls cannot
+// duplicate, rewrite, or lose historical evidence.
+//
+// recordCourseEvent() returns Future<bool>: true when THIS call newly
+// recorded the event (and therefore awarded XP inside the transaction),
+// false when the event already existed (idempotent no-op) or the inputs
+// were invalid. Firestore remains the sole XP authority — callers must
+// not add XP logic of their own.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// CAREER ID NORMALIZATION
+// ───────────────────────────────────────────────────────────────────────────
+// Every career id is normalized by _safeId() before being used in a
+// document path or event id. Readers and writers use the same
+// normalization, so the same career identity always resolves to the same
+// document. Existing short, safe career ids pass through unchanged, so
+// previously-stored data keeps resolving.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// FIRESTORE LIMITS / SCALABILITY
+// ───────────────────────────────────────────────────────────────────────────
+// • Batch writes are chunked (450 ops/batch, safely below the 500 limit).
+// • Document ids are capped well below the byte limit; oversized ids are
+//   replaced with a deterministic, collision-resistant digest.
+// • Metadata maps are bounded by key count, key length, and string length.
+// • Historical arrays grow via FieldValue.arrayUnion (atomic, idempotent),
+//   never via full-document rewrites on the hot path.
+// • saveLearningProgress() writes only current-state fields; historical
+//   arrays are only ever extended atomically.
+// • getCopilotContext() reads run concurrently; only the career-scoped
+//   learning progress is read sequentially because it depends on the
+//   resolved careerId.
+// ═══════════════════════════════════════════════════════════════════════════
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/copilot_models.dart';
 
+/// Event types supported by the structured career-evidence subcollection.
+class CopilotEventType {
+  static const String lesson         = 'lesson';
+  static const String quiz           = 'quiz';
+  static const String challenge      = 'challenge';
+  static const String project        = 'project';
+  static const String goal           = 'goal';
+  static const String jobApplication = 'jobApplication';
+  static const String interview      = 'interview';
+  static const String topicEvidence  = 'topicEvidence';
+
+  static const List<String> all = [
+    lesson,
+    quiz,
+    challenge,
+    project,
+    goal,
+    jobApplication,
+    interview,
+    topicEvidence,
+  ];
+}
+
+/// Authoritative result of a goal toggle operation.
+///
+///   • [isCompleted]      — the final authoritative state of the goal
+///                          after the toggle, as observed in Firestore.
+///   • [becameCompleted]  — true ONLY when this call was a genuine
+///                          first-time false → true completion whose
+///                          canonical completion record did not already
+///                          exist (i.e. XP and the lifetime counter were
+///                          awarded by THIS call). False for
+///                          true → false flips and for idempotent
+///                          re-completions where the canonical record
+///                          already existed.
+class GoalToggleResult {
+  final bool isCompleted;
+  final bool becameCompleted;
+
+  const GoalToggleResult({
+    required this.isCompleted,
+    required this.becameCompleted,
+  });
+
+  /// Safe default for invalid inputs (missing uid / goal id / goal doc).
+  static const GoalToggleResult notToggled = GoalToggleResult(
+    isCompleted: false,
+    becameCompleted: false,
+  );
+}
+
 class CopilotFirestoreService {
-  static final FirebaseFirestore _db  = FirebaseFirestore.instance;
+  static final FirebaseFirestore _db   = FirebaseFirestore.instance;
   static final FirebaseAuth      _auth = FirebaseAuth.instance;
+
+  // ── Safety constants ──────────────────────────────────────────────────────
+  static const int _batchChunkSize = 450;
+  static const int _maxIdBytes     = 1400;
+
+  static const int _maxMetadataKeys      = 12;
+  static const int _maxMetadataKeyLen    = 40;
+  static const int _maxMetadataStringLen = 200;
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
   static DocumentReference<Map<String, dynamic>> _userDoc(String uid) =>
       _db.collection('users').doc(uid);
+
+  /// Returns a Firestore-safe document-id string derived deterministically
+  /// from [raw].
+  ///
+  /// Short, safe ASCII ids pass through unchanged so previously-stored
+  /// event ids keep resolving to the same documents. Oversized ids are
+  /// replaced with a deterministic, collision-resistant digest that stays
+  /// well within Firestore's byte limit. Characters Firestore rejects
+  /// ('/', control chars) are escaped.
+  static String _safeId(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return '';
+
+    final utf8Len = _utf8ByteLength(t);
+    if (utf8Len <= _maxIdBytes && !_needsEscaping(t)) {
+      return t;
+    }
+
+    final digest = _stableHashHex(t);
+    const prefixLen = 24;
+    final prefix = t.length <= prefixLen ? t : t.substring(0, prefixLen);
+    final safePrefix = _escapeForDocId(prefix);
+    return '$safePrefix~$digest';
+  }
+
+  static bool _needsEscaping(String s) {
+    for (final rune in s.runes) {
+      if (rune == 0x2F) return true;
+      if (rune < 0x20) return true;
+      if (rune == 0x7F) return true;
+    }
+    return false;
+  }
+
+  static String _escapeForDocId(String s) {
+    final buf = StringBuffer();
+    for (final rune in s.runes) {
+      if (rune == 0x2F) {
+        buf.write('%2F');
+      } else if (rune < 0x20 || rune == 0x7F) {
+        buf.write('%');
+        buf.write(rune.toRadixString(16).padLeft(2, '0').toUpperCase());
+      } else {
+        buf.writeCharCode(rune);
+      }
+    }
+    return buf.toString();
+  }
+
+  static int _utf8ByteLength(String s) {
+    var n = 0;
+    for (final rune in s.runes) {
+      if (rune <= 0x7F) {
+        n += 1;
+      } else if (rune <= 0x7FF) {
+        n += 2;
+      } else if (rune <= 0xFFFF) {
+        n += 3;
+      } else {
+        n += 4;
+      }
+    }
+    return n;
+  }
+
+  static String _stableHashHex(String s) {
+    var hash = BigInt.parse('0xcbf29ce484222325');
+    final prime = BigInt.parse('0x100000001b3');
+    final mask = BigInt.parse('0xFFFFFFFFFFFFFFFF');
+    for (final codeUnit in s.codeUnits) {
+      hash = (hash ^ BigInt.from(codeUnit)) & mask;
+      hash = (hash * prime) & mask;
+    }
+    return hash.toRadixString(16).padLeft(16, '0');
+  }
 
   // ── Skill Profile ──────────────────────────────────────────────────────────
 
@@ -67,18 +320,17 @@ class CopilotFirestoreService {
   // ── Skill Gaps ─────────────────────────────────────────────────────────────
 
   static Future<void> saveSkillGaps(String uid, List<SkillGap> gaps) async {
-    final batch = _db.batch();
     final col = _userDoc(uid).collection('copilot_skill_gaps');
-
-    // delete old docs
     final existing = await col.get();
-    for (final d in existing.docs) {
-      batch.delete(d.reference);
-    }
-    for (int i = 0; i < gaps.length; i++) {
-      batch.set(col.doc('gap_$i'), gaps[i].toFirestore());
-    }
-    await batch.commit();
+
+    final refsToDelete = existing.docs.map((d) => d.reference).toList();
+    final writes = <_BatchOp>[
+      for (final r in refsToDelete) _BatchOp.delete(r),
+      for (int i = 0; i < gaps.length; i++)
+        _BatchOp.set(col.doc('gap_$i'), gaps[i].toFirestore()),
+    ];
+
+    await _commitChunked(writes);
   }
 
   static Future<List<SkillGap>> getSkillGaps(String uid) async {
@@ -114,47 +366,56 @@ class CopilotFirestoreService {
                   ? PersonalizedRoadmap.fromFirestore(s.data()!)
                   : null);
 
+  /// Marks a roadmap phase complete inside a Firestore transaction.
+  /// Read happens first; writes happen after.
   static Future<void> completeRoadmapPhase(
       String uid, int phaseIndex) async {
     final doc = _userDoc(uid).collection('copilot').doc('roadmap');
-    final snap = await doc.get();
-    if (!snap.exists || snap.data() == null) return;
 
-    final roadmap = PersonalizedRoadmap.fromFirestore(snap.data()!);
-    if (phaseIndex >= roadmap.phases.length) return;
+    await _db.runTransaction((tx) async {
+      // READ
+      final snap = await tx.get(doc);
+      if (!snap.exists || snap.data() == null) return;
 
-    final phases = roadmap.phases.map((p) {
-      if (p.phaseNumber == phaseIndex) {
-        return RoadmapPhase(
-          phaseNumber: p.phaseNumber,
-          title: p.title,
-          description: p.description,
-          skills: p.skills,
-          resources: p.resources,
-          estimatedDuration: p.estimatedDuration,
-          isCompleted: true,
-          isUnlocked: p.isUnlocked,
-        );
-      }
-      if (p.phaseNumber == phaseIndex + 1) {
-        return RoadmapPhase(
-          phaseNumber: p.phaseNumber,
-          title: p.title,
-          description: p.description,
-          skills: p.skills,
-          resources: p.resources,
-          estimatedDuration: p.estimatedDuration,
-          isCompleted: p.isCompleted,
-          isUnlocked: true,
-        );
-      }
-      return p;
-    }).toList();
+      final roadmap = PersonalizedRoadmap.fromFirestore(snap.data()!);
+      if (phaseIndex < 0 || phaseIndex >= roadmap.phases.length) return;
 
-    await doc.set(
-      roadmap.copyWith(phases: phases, currentPhaseIndex: phaseIndex + 1)
-          .toFirestore(),
-    );
+      // COMPUTE
+      final phases = roadmap.phases.map((p) {
+        if (p.phaseNumber == phaseIndex) {
+          return RoadmapPhase(
+            phaseNumber: p.phaseNumber,
+            title: p.title,
+            description: p.description,
+            skills: p.skills,
+            resources: p.resources,
+            estimatedDuration: p.estimatedDuration,
+            isCompleted: true,
+            isUnlocked: p.isUnlocked,
+          );
+        }
+        if (p.phaseNumber == phaseIndex + 1) {
+          return RoadmapPhase(
+            phaseNumber: p.phaseNumber,
+            title: p.title,
+            description: p.description,
+            skills: p.skills,
+            resources: p.resources,
+            estimatedDuration: p.estimatedDuration,
+            isCompleted: p.isCompleted,
+            isUnlocked: true,
+          );
+        }
+        return p;
+      }).toList();
+
+      // WRITE
+      tx.set(
+        doc,
+        roadmap.copyWith(phases: phases, currentPhaseIndex: phaseIndex + 1)
+            .toFirestore(),
+      );
+    });
   }
 
   // ── Daily Goals ────────────────────────────────────────────────────────────
@@ -164,16 +425,26 @@ class CopilotFirestoreService {
     return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
   }
 
+  /// Persists a batch of daily goals.
+  ///
+  /// Each goal id is scoped by the caller and includes the date, so a
+  /// repeated save of the same goals for the same day writes to the same
+  /// documents with the same content — idempotent by construction. The
+  /// per-goal document is written with SetOptions(merge: true) so any
+  /// additional fields a future writer may add are not clobbered.
   static Future<void> saveDailyGoals(
       String uid, List<DailyGoal> goals) async {
-    final batch = _db.batch();
-    for (final g in goals) {
-      batch.set(
-        _userDoc(uid).collection('copilot_daily_goals').doc(g.id),
-        g.toFirestore(),
-      );
-    }
-    await batch.commit();
+    if (goals.isEmpty) return;
+
+    final writes = <_BatchOp>[
+      for (final g in goals)
+        _BatchOp.set(
+          _userDoc(uid).collection('copilot_daily_goals').doc(g.id),
+          g.toFirestore(),
+        ),
+    ];
+
+    await _commitChunked(writes);
   }
 
   static Future<List<DailyGoal>> getTodayGoals(String uid) async {
@@ -192,74 +463,244 @@ class CopilotFirestoreService {
           .map((s) =>
               s.docs.map((d) => DailyGoal.fromFirestore(d.data())).toList());
 
-  /// Toggles a goal's completion state and awards normal goal XP on the
-  /// incomplete → complete transition, in a single Firestore transaction.
+  /// Toggles a goal's completion state and, on the genuine false → true
+  /// transition, awards goal XP and increments the lifetime counter,
+  /// atomically, in a single Firestore transaction.
   ///
-  /// Idempotency:
-  ///   • The transaction re-reads the goal doc and compares its CURRENT
-  ///     isCompleted value against the requested new value. Only a real
-  ///     false → true transition awards XP.
-  ///   • Repeated or concurrent taps that attempt the same transition
-  ///     will see the goal already completed and will NOT award XP again.
-  ///   • complete → incomplete never awards or subtracts XP.
+  /// STATE AUTHORITY
+  ///   • The current completion state is READ from the Firestore goal
+  ///     document — NOT from the caller's UI object.
+  ///   • The requested next state is the inverse of the authoritative
+  ///     value, so stale UI, duplicate taps, and mis-ordered retries
+  ///     cannot corrupt the goal's state.
   ///
-  /// The goal XP is persisted on users/{uid}.totalXp in the SAME
-  /// transaction as the goal's isCompleted flip, so the two can never
-  /// disagree. Surprise-reward logic (RewardService) is intentionally
-  /// NOT handled here.
-  static Future<void> toggleGoalCompletion(
-      String uid, DailyGoal goal) async {
+  /// COMPLETION IDENTITY (career-agnostic)
+  ///   • One canonical user-level record per goal id:
+  ///       users/{uid}/copilot_goal_events/goal:{goalId}
+  ///     This record is the SINGLE authoritative idempotency identity for
+  ///     both the XP award and the lifetime totalGoalsCompleted increment,
+  ///     and it exists independently of careerId availability.
+  ///
+  /// STRUCTURED CAREER EVIDENCE (career-scoped, optional)
+  ///   • When a real careerId is available, a parallel evidence record is
+  ///     written to the existing structured career-event layer at:
+  ///       users/{uid}/copilot_learning_progress/{careerId}/events/goal:{goalId}
+  ///     The path and schema are unchanged; no fake/synthetic career
+  ///     bucket is ever created.
+  ///
+  /// EXACTLY-ONCE
+  ///   • XP: awarded only when the canonical goal-completion record does
+  ///     not already exist.
+  ///   • totalGoalsCompleted: incremented only under the same condition.
+  ///   • Canonical record: written only under the same condition.
+  ///   • Career-side structured event: written only under the same
+  ///     condition AND only when a real careerId exists.
+  ///
+  /// true → false
+  ///   • Flips the goal's state only.
+  ///   • Never decrements the lifetime counter, never removes historical
+  ///     XP, and never deletes or rewrites the canonical record or the
+  ///     career-side structured event. History is preserved.
+  ///
+  /// RESULT
+  ///   • Returns a [GoalToggleResult] carrying the final authoritative
+  ///     goal state and a flag that is true only for a genuine first-time
+  ///     false → true completion.
+  ///
+  /// Every transaction read happens before every transaction write.
+  static Future<GoalToggleResult> toggleGoalCompletion(
+    String uid,
+    DailyGoal goal, {
+    String? careerId,
+  }) async {
+    if (uid.isEmpty || goal.id.isEmpty) {
+      return GoalToggleResult.notToggled;
+    }
+
     final goalRef = _userDoc(uid)
         .collection('copilot_daily_goals')
         .doc(goal.id);
     final userRef = _userDoc(uid);
 
-    await _db.runTransaction((tx) async {
-      final snap = await tx.get(goalRef);
+    // Canonical, career-agnostic completion record id.
+    final canonicalEventId = 'goal:${goal.id}';
+    final canonicalRef     = _goalEventDoc(uid, canonicalEventId);
 
-      // If the goal doc is missing, do nothing (matches previous
-      // `update(...)` behaviour of a silent no-op failure).
-      if (!snap.exists || snap.data() == null) return;
+    // Optional career-scoped structured evidence.
+    final resolvedCareerId =
+        (careerId != null && careerId.isNotEmpty) ? _safeId(careerId) : null;
+    final hasCareer = resolvedCareerId != null && resolvedCareerId.isNotEmpty;
 
-      final data = snap.data()!;
+    final careerEventRef = hasCareer
+        ? _eventDoc(uid, resolvedCareerId, canonicalEventId)
+        : null;
+
+    return _db.runTransaction<GoalToggleResult>((tx) async {
+      // ── READ PHASE ─────────────────────────────────────────────────
+      final goalSnap = await tx.get(goalRef);
+      if (!goalSnap.exists || goalSnap.data() == null) {
+        return GoalToggleResult.notToggled;
+      }
+
+      // Canonical completion record — the idempotency identity.
+      final canonicalSnap = await tx.get(canonicalRef);
+      final alreadyCompleted =
+          canonicalSnap.exists && canonicalSnap.data() != null;
+
+      // Career-side structured event (when a real careerId exists).
+      final careerSnap = careerEventRef != null
+          ? await tx.get(careerEventRef)
+          : null;
+      final careerEventExists = careerSnap != null && careerSnap.exists;
+
+      // ── COMPUTE PHASE ──────────────────────────────────────────────
+      final data = goalSnap.data()!;
       final currentCompleted =
           data['isCompleted'] is bool ? data['isCompleted'] as bool : false;
 
-      // The caller passes the goal with its CURRENT state; the requested
-      // new state is the negation, matching the old behaviour exactly.
-      final requestedNewState = !goal.isCompleted;
-      if (currentCompleted == requestedNewState) return;
+      // Firestore is the authoritative source of the goal's state.
+      final requestedNewState = !currentCompleted;
+      if (currentCompleted == requestedNewState) {
+        // Not reachable in practice because requestedNewState is defined
+        // as the inverse of currentCompleted — kept as a defensive guard.
+        return GoalToggleResult(
+          isCompleted: currentCompleted,
+          becameCompleted: false,
+        );
+      }
 
-      // Reward only on a genuine false -> true transition.
       final isCompleting = !currentCompleted && requestedNewState;
       final reward =
           data['xpReward'] is num ? (data['xpReward'] as num).toInt() : 0;
 
+      // XP / lifetime counter / canonical record: awarded only on a
+      // genuine completion whose canonical record does not already exist.
+      // This makes them all exactly-once across retries, concurrent
+      // calls, and true → false → true cycles.
+      final shouldAwardCompletion = isCompleting && !alreadyCompleted;
+      final shouldAwardXp         = shouldAwardCompletion && reward > 0;
+
+      // Career-side structured event: written only under the same
+      // condition AND only when a real careerId exists.
+      final shouldWriteCareerEvent =
+          shouldAwardCompletion && careerEventRef != null && !careerEventExists;
+
+      // ── WRITE PHASE ────────────────────────────────────────────────
       tx.update(goalRef, {'isCompleted': requestedNewState});
 
-      if (isCompleting && reward > 0) {
+      if (shouldAwardXp) {
         tx.set(
           userRef,
           {'totalXp': FieldValue.increment(reward)},
           SetOptions(merge: true),
         );
       }
+
+      if (shouldAwardCompletion) {
+        // Lifetime counter — increments exactly once per canonical
+        // completion record, independent of careerId availability.
+        tx.set(
+          userRef,
+          {'totalGoalsCompleted': FieldValue.increment(1)},
+          SetOptions(merge: true),
+        );
+
+        // Canonical, career-agnostic completion record — the single
+        // authoritative identity protecting XP and the lifetime counter.
+        tx.set(
+          canonicalRef,
+          {
+            'eventId': canonicalEventId,
+            'eventType': CopilotEventType.goal,
+            'careerId': resolvedCareerId,
+            'goalId': goal.id,
+            'topic': goal.linkedSkill,
+            'correct': true,
+            'xp': reward,
+            'metadata': _boundedMetadata({
+              'goalId': goal.id,
+              'category': goal.category.label,
+              'date': goal.date,
+            }),
+            'recordedAt': DateTime.now().toIso8601String(),
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      if (shouldWriteCareerEvent) {
+        tx.set(
+          careerEventRef!,
+          {
+            'eventId': canonicalEventId,
+            'eventType': CopilotEventType.goal,
+            'careerId': resolvedCareerId,
+            'topic': goal.linkedSkill,
+            'correct': true,
+            'xp': reward,
+            'metadata': _boundedMetadata({
+              'goalId': goal.id,
+              'category': goal.category.label,
+              'date': goal.date,
+            }),
+            'recordedAt': DateTime.now().toIso8601String(),
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      return GoalToggleResult(
+        isCompleted: requestedNewState,
+        becameCompleted: shouldAwardCompletion,
+      );
     });
+  }
+
+  /// Authoritative lifetime count of successfully completed goals.
+  ///
+  /// Reads users/{uid}.totalGoalsCompleted. Returns 0 when the document
+  /// or field is missing, or when the stored value is not a valid
+  /// non-negative integer. Never derived from progressHistory — the
+  /// daily snapshot is not a lifetime source of truth.
+  static Future<int> getTotalGoalsCompleted(String uid) async {
+    if (uid.isEmpty) return 0;
+    final snap = await _userDoc(uid).get();
+    if (!snap.exists || snap.data() == null) return 0;
+    final raw = snap.data()!['totalGoalsCompleted'];
+    if (raw is int) return raw < 0 ? 0 : raw;
+    if (raw is num) {
+      final v = raw.toInt();
+      return v < 0 ? 0 : v;
+    }
+    return 0;
+  }
+
+  /// Authoritative total XP for the user.
+  ///
+  /// Reads users/{uid}.totalXp and returns it as a non-negative int.
+  /// Returns 0 when the document or field is missing, or when the value
+  /// is malformed/negative. This is a pure read helper — it NEVER derives
+  /// XP from progress history and NEVER mutates state.
+  static Future<int> getUserTotalXp(String uid) async {
+    if (uid.isEmpty) return 0;
+    final snap = await _userDoc(uid).get();
+    if (!snap.exists || snap.data() == null) return 0;
+    final raw = snap.data()!['totalXp'];
+    if (raw is int) return raw < 0 ? 0 : raw;
+    if (raw is num) {
+      final v = raw.toInt();
+      return v < 0 ? 0 : v;
+    }
+    return 0;
   }
 
   // ── Progress ───────────────────────────────────────────────────────────────
 
-  /// Recomputes and persists today's progress snapshot ONLY.
-  ///
-  /// This method is intentionally NOT responsible for awarding goal XP —
-  /// that happens exactly once in [toggleGoalCompletion]. Keeping XP
-  /// awarding out of here prevents double counting when progress is
-  /// re-synced for any reason.
   static Future<void> syncTodayProgress(
       String uid, List<DailyGoal> todayGoals) async {
-    final today    = _todayKey();
+    final today     = _todayKey();
     final completed = todayGoals.where((g) => g.isCompleted).toList();
-    final xp = completed.fold(0, (sum, g) => sum + g.xpReward);
+    final xp        = completed.fold(0, (sum, g) => sum + g.xpReward);
     final completedSkills = completed
         .where((g) => g.linkedSkill != null)
         .map((g) => g.linkedSkill!)
@@ -283,10 +724,11 @@ class CopilotFirestoreService {
 
   static Future<List<ProgressEntry>> getProgressHistory(
       String uid, {int limit = 30}) async {
+    final safeLimit = limit <= 0 ? 30 : (limit > 90 ? 90 : limit);
     final snap = await _userDoc(uid)
         .collection('copilot_progress')
         .orderBy('date', descending: true)
-        .limit(limit)
+        .limit(safeLimit)
         .get();
     return snap.docs
         .map((d) => ProgressEntry.fromFirestore(d.data()))
@@ -306,50 +748,81 @@ class CopilotFirestoreService {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // ─── EVERYTHING BELOW THIS LINE IS NEW ─────────────────────────────────
-  //
-  // Nothing above this line was changed: every existing method, collection
-  // name, document path, and field is untouched, so all current callers and
-  // previously written Firestore documents keep working exactly as before.
-  //
-  // Design notes:
-  //  • Singleton "current state" docs (career context, job/project/interview
-  //    progress snapshots, readiness) live under the SAME 'copilot'
-  //    subcollection that already holds 'skill_profile' and 'roadmap', using
-  //    set(..., SetOptions(merge: true)) so writing new fields never drops
-  //    fields the doc doesn't know about yet, and reading an old doc that
-  //    lacks these fields never throws (every *.fromFirestore below already
-  //    has safe defaults from copilot_models.dart).
-  //  • Learning progress is keyed by careerId (its own top-level collection)
-  //    because LearningProgressContext carries a careerId field — this keeps
-  //    a separate, permanent lesson-completion history PER career, so
-  //    switching careers never loses or overwrites another career's progress.
-  //  • Anything that represents a user's PAST ACTIVITY — completed lessons,
-  //    completed projects, applied jobs, completed interviews, Next Best
-  //    Actions, and Recommendations — is only ever appended to
-  //    (FieldValue.arrayUnion, new doc per item, or isCompleted/isDismissed
-  //    flags). Nothing here ever deletes or truncates that history.
-  //  • CareerReadiness is explicitly a derived/recomputed snapshot (see the
-  //    comment on the model itself), so overwriting it on every recompute is
-  //    correct and does not count as "erasing history".
-  //  • Course learning events (quiz answers, challenge answers, project
-  //    completions) are persisted into the SAME per-career learning-progress
-  //    document under two additive, append-only arrays:
-  //       - completedCourseEventIds — the idempotency guard + full record of
-  //         every event that has ever been recorded for that career.
-  //       - courseEvidenceIds       — the same events, kept as a durable
-  //         "learning evidence" trail for future Skill Gap re-analysis.
-  //    Both use FieldValue.arrayUnion, so a repeated call is a no-op.
-  //  • No new collection or document path is introduced anywhere.
+  // ─── STRUCTURED EVENT LAYER ────────────────────────────────────────────
   // ════════════════════════════════════════════════════════════════════════
 
-  /// Shared helper for the singleton "current state" docs that live
-  /// alongside 'skill_profile' and 'roadmap' in the existing 'copilot'
-  /// subcollection (career_context, project_progress, job_progress,
-  /// interview_progress, readiness).
   static DocumentReference<Map<String, dynamic>> _copilotDoc(
           String uid, String docId) =>
       _userDoc(uid).collection('copilot').doc(docId);
+
+  static DocumentReference<Map<String, dynamic>> _eventDoc(
+          String uid, String careerId, String eventId) =>
+      _userDoc(uid)
+          .collection('copilot_learning_progress')
+          .doc(careerId)
+          .collection('events')
+          .doc(eventId);
+
+  static CollectionReference<Map<String, dynamic>> _eventsCol(
+          String uid, String careerId) =>
+      _userDoc(uid)
+          .collection('copilot_learning_progress')
+          .doc(careerId)
+          .collection('events');
+
+  /// Canonical, career-agnostic goal-completion record. Used as the
+  /// single authoritative idempotency identity for goal XP and the
+  /// lifetime totalGoalsCompleted counter, independent of careerId
+  /// availability.
+  static DocumentReference<Map<String, dynamic>> _goalEventDoc(
+          String uid, String eventId) =>
+      _userDoc(uid).collection('copilot_goal_events').doc(eventId);
+
+  static Map<String, dynamic> _boundedMetadata(Map<String, dynamic>? raw) {
+    if (raw == null || raw.isEmpty) return const <String, dynamic>{};
+
+    final out = <String, dynamic>{};
+    for (final entry in raw.entries) {
+      if (out.length >= _maxMetadataKeys) break;
+      final key = entry.key;
+      if (key is! String || key.isEmpty) continue;
+      final safeKey = key.length > _maxMetadataKeyLen
+          ? key.substring(0, _maxMetadataKeyLen)
+          : key;
+
+      final v = entry.value;
+      if (v == null) continue;
+
+      if (v is String) {
+        final trimmed = v.trim();
+        if (trimmed.isEmpty) continue;
+        out[safeKey] = trimmed.length > _maxMetadataStringLen
+            ? trimmed.substring(0, _maxMetadataStringLen)
+            : trimmed;
+      } else if (v is num) {
+        final d = v.toDouble();
+        if (d.isNaN || d.isInfinite) continue;
+        out[safeKey] = v;
+      } else if (v is bool) {
+        out[safeKey] = v;
+      }
+    }
+    return out;
+  }
+
+  static Future<void> _commitChunked(List<_BatchOp> ops) async {
+    if (ops.isEmpty) return;
+    for (var i = 0; i < ops.length; i += _batchChunkSize) {
+      final end = (i + _batchChunkSize < ops.length)
+          ? i + _batchChunkSize
+          : ops.length;
+      final batch = _db.batch();
+      for (var j = i; j < end; j++) {
+        ops[j].applyTo(batch);
+      }
+      await batch.commit();
+    }
+  }
 
   // ── Career Context ──────────────────────────────────────────────────────
 
@@ -369,35 +842,71 @@ class CopilotFirestoreService {
               ? CareerContext.fromFirestore(s.data()!)
               : null);
 
-  // ── Learning Progress (per career — permanent per-career history) ───────
+  // ── Learning Progress ───────────────────────────────────────────────────
 
   static DocumentReference<Map<String, dynamic>> _learningProgressDoc(
           String uid, String careerId) =>
       _userDoc(uid).collection('copilot_learning_progress').doc(careerId);
 
+  /// Writes only the current-state fields of a [LearningProgressContext].
+  /// Historical arrays are NOT touched, so concurrent appends via
+  /// appendCompletedLesson() and recordCourseEvent() cannot be clobbered
+  /// by a stale snapshot.
   static Future<void> saveLearningProgress(
-          String uid, LearningProgressContext progress) =>
-      _learningProgressDoc(uid, progress.careerId)
-          .set(progress.toFirestore(), SetOptions(merge: true));
+          String uid, LearningProgressContext progress) async {
+    final safeCareerId = _safeId(progress.careerId);
+    if (safeCareerId.isEmpty) return;
+    final ref = _learningProgressDoc(uid, safeCareerId);
+    final data = <String, dynamic>{
+      'careerId': safeCareerId,
+      'totalLessons': progress.totalLessons,
+      'currentLevelTitle': progress.currentLevelTitle,
+      'lastLessonId': progress.lastLessonId,
+      'updatedAt': progress.updatedAt.toIso8601String(),
+    };
+    await ref.set(data, SetOptions(merge: true));
+  }
+
+  /// Explicit FULL snapshot write — including historical arrays. Only for
+  /// maintenance/migration flows that have freshly re-read the document.
+  static Future<void> saveLearningProgressSnapshot(
+          String uid, LearningProgressContext progress) async {
+    final safeCareerId = _safeId(progress.careerId);
+    if (safeCareerId.isEmpty) return;
+    await _learningProgressDoc(uid, safeCareerId)
+        .set(progress.toFirestore(), SetOptions(merge: true));
+  }
 
   static Future<LearningProgressContext?> getLearningProgress(
       String uid, String careerId) async {
-    final snap = await _learningProgressDoc(uid, careerId).get();
+    final safeCareerId = _safeId(careerId);
+    if (safeCareerId.isEmpty) return null;
+    final snap = await _learningProgressDoc(uid, safeCareerId).get();
     if (!snap.exists || snap.data() == null) return null;
     return LearningProgressContext.fromFirestore(snap.data()!);
   }
 
   static Stream<LearningProgressContext?> learningProgressStream(
-          String uid, String careerId) =>
-      _learningProgressDoc(uid, careerId).snapshots().map((s) =>
-          s.exists && s.data() != null
-              ? LearningProgressContext.fromFirestore(s.data()!)
-              : null);
+      String uid, String careerId) {
+    final safeCareerId = _safeId(careerId);
+    if (safeCareerId.isEmpty) {
+      return const Stream<LearningProgressContext?>.empty();
+    }
+    return _learningProgressDoc(uid, safeCareerId).snapshots().map((s) =>
+        s.exists && s.data() != null
+            ? LearningProgressContext.fromFirestore(s.data()!)
+            : null);
+  }
 
-  /// Appends one completed lesson id to permanent per-career history via
-  /// arrayUnion (never overwrites previously completed lessons), and
-  /// merge-updates the light metadata fields alongside it. Works whether or
-  /// not the doc already exists.
+  /// Appends a completed lesson id and writes the structured lesson event
+  /// in ONE transaction. All reads happen before all writes.
+  ///
+  /// Idempotency:
+  ///   • The structured event document is the idempotency authority.
+  ///   • If it already exists, the transaction writes only the
+  ///     arrayUnion onto the learning-progress document; the event doc
+  ///     (and its recordedAt) is left untouched.
+  ///   • Retries and concurrent calls cannot duplicate the event.
   static Future<void> appendCompletedLesson(
     String uid, {
     required String careerId,
@@ -405,76 +914,126 @@ class CopilotFirestoreService {
     int? totalLessons,
     String? currentLevelTitle,
   }) async {
-    final data = <String, dynamic>{
-      'careerId': careerId,
-      'completedLessonIds': FieldValue.arrayUnion([lessonId]),
-      'lastLessonId': lessonId,
-      'updatedAt': DateTime.now().toIso8601String(),
-    };
-    if (totalLessons != null) data['totalLessons'] = totalLessons;
-    if (currentLevelTitle != null) data['currentLevelTitle'] = currentLevelTitle;
-    await _learningProgressDoc(uid, careerId)
-        .set(data, SetOptions(merge: true));
+    if (careerId.isEmpty || lessonId.isEmpty) return;
+
+    final safeCareerId = _safeId(careerId);
+    final safeLessonId = _safeId(lessonId);
+    if (safeCareerId.isEmpty || safeLessonId.isEmpty) return;
+
+    final learningRef = _learningProgressDoc(uid, safeCareerId);
+    final eventId     = 'lesson:$safeLessonId';
+    final eventRef    = _eventDoc(uid, safeCareerId, eventId);
+
+    await _db.runTransaction((tx) async {
+      // READ
+      final eventSnap = await tx.get(eventRef);
+      final eventExists = eventSnap.exists;
+
+      // COMPUTE
+      final data = <String, dynamic>{
+        'careerId': safeCareerId,
+        'completedLessonIds': FieldValue.arrayUnion([safeLessonId]),
+        'lastLessonId': safeLessonId,
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+      if (totalLessons != null) data['totalLessons'] = totalLessons;
+      if (currentLevelTitle != null) {
+        data['currentLevelTitle'] = currentLevelTitle;
+      }
+
+      // WRITE
+      tx.set(learningRef, data, SetOptions(merge: true));
+
+      if (!eventExists) {
+        tx.set(eventRef, {
+          'eventId': eventId,
+          'eventType': CopilotEventType.lesson,
+          'careerId': safeCareerId,
+          'topic': currentLevelTitle,
+          'correct': null,
+          'xp': 0,
+          'metadata': _boundedMetadata({
+            'lessonId': safeLessonId,
+            if (totalLessons != null) 'totalLessons': totalLessons,
+            if (currentLevelTitle != null)
+              'currentLevelTitle': currentLevelTitle,
+          }),
+          'recordedAt': DateTime.now().toIso8601String(),
+        });
+      }
+    });
   }
 
-  /// Persists ONE course learning event (quiz answer / challenge answer /
-  /// project completion) under the existing per-career learning-progress
-  /// document, and awards xpReward to users/{uid}.totalXp atomically and
-  /// idempotently.
+  /// Persists ONE course learning event.
   ///
-  /// Idempotency:
-  ///   • The transaction re-reads the per-career learning-progress document
-  ///     and checks whether [eventId] is already present in
-  ///     `completedCourseEventIds`.
-  ///   • If present → the call is a no-op (no duplicate history, no XP).
-  ///   • If absent → the event id is appended to BOTH
-  ///     `completedCourseEventIds` (the idempotency guard + full record)
-  ///     and `courseEvidenceIds` (the durable evidence trail for future
-  ///     Skill Gap re-analysis) via arrayUnion, and XP is incremented on
-  ///     users/{uid}.totalXp in the same transaction.
+  /// The structured event document is the PRIMARY idempotency authority.
+  /// The transaction reads the event document FIRST, then writes. If the
+  /// event already exists, the whole call is a no-op — no XP, no array
+  /// update, no timestamp rewrite. Retries and concurrent calls cannot
+  /// duplicate the event, the XP, or the evidence arrays.
   ///
-  /// Because the check and the write happen in ONE Firestore transaction,
-  /// repeated calls (double taps, retries, re-entering the course) can
-  /// never award XP twice, and concurrent calls can never race past the
-  /// check.
+  /// RESULT
+  ///   • Returns `true` when THIS call newly recorded the event and
+  ///     therefore awarded XP inside the transaction.
+  ///   • Returns `false` when the event already existed (idempotent
+  ///     no-op) or when the inputs were invalid — nothing was recorded
+  ///     and nothing should be awarded.
   ///
-  /// [eventId] must be stable and unique per course event — for example
-  /// `quiz:{courseId}:{index}`, `challenge:{courseId}:{index}`, or
-  /// `project:{courseId}`. Empty [eventId] or empty [careerId] is a
-  /// safe no-op.
-  static Future<void> recordCourseEvent(
+  /// Firestore remains the SOLE XP authority. Callers must not add XP
+  /// logic of their own based on this result.
+  static Future<bool> recordCourseEvent(
     String uid, {
     required String careerId,
     required String eventId,
     required int xpReward,
+    String? eventType,
+    String? topic,
+    bool? correct,
   }) async {
-    if (careerId.isEmpty || eventId.isEmpty) return;
+    if (careerId.isEmpty || eventId.isEmpty) return false;
 
-    final learningRef = _learningProgressDoc(uid, careerId);
+    final safeCareerId = _safeId(careerId);
+    final safeEventId  = _safeId(eventId);
+    if (safeCareerId.isEmpty || safeEventId.isEmpty) return false;
+
+    final learningRef = _learningProgressDoc(uid, safeCareerId);
     final userRef     = _userDoc(uid);
+    final eventRef    = _eventDoc(uid, safeCareerId, safeEventId);
 
-    await _db.runTransaction((tx) async {
-      final snap = await tx.get(learningRef);
-      final data = snap.data() ?? <String, dynamic>{};
+    final resolvedEventType = eventType ??
+        (safeEventId.startsWith('quiz:')
+            ? CopilotEventType.quiz
+            : safeEventId.startsWith('challenge:')
+                ? CopilotEventType.challenge
+                : safeEventId.startsWith('project:')
+                    ? CopilotEventType.project
+                    : safeEventId.startsWith('lesson:')
+                        ? CopilotEventType.lesson
+                        : CopilotEventType.topicEvidence);
 
-      // Authoritative idempotency check inside the transaction.
-      final existingRaw = data['completedCourseEventIds'];
-      final existing = <String>{};
-      if (existingRaw is List) {
-        for (final e in existingRaw) {
-          if (e is String) existing.add(e);
-        }
-      }
-      if (existing.contains(eventId)) return;
+    return _db.runTransaction<bool>((tx) async {
+      // READ
+      final eventSnap = await tx.get(eventRef);
+      if (eventSnap.exists) return false; // already recorded — no-op
+
+      // WRITE
+      tx.set(eventRef, {
+        'eventId': safeEventId,
+        'eventType': resolvedEventType,
+        'careerId': safeCareerId,
+        'topic': topic,
+        'correct': correct,
+        'xp': xpReward,
+        'metadata': const <String, dynamic>{},
+        'recordedAt': DateTime.now().toIso8601String(),
+      });
 
       tx.set(
         learningRef,
         {
-          'careerId': careerId,
-          // Idempotency guard + full record of every event for this career.
-          'completedCourseEventIds': FieldValue.arrayUnion([eventId]),
-          // Durable learning-evidence trail for future Skill Gap re-analysis.
-          'courseEvidenceIds': FieldValue.arrayUnion([eventId]),
+          'careerId': safeCareerId,
+          'completedCourseEventIds': FieldValue.arrayUnion([safeEventId]),
+          'courseEvidenceIds': FieldValue.arrayUnion([safeEventId]),
           'updatedAt': DateTime.now().toIso8601String(),
         },
         SetOptions(merge: true),
@@ -487,10 +1046,99 @@ class CopilotFirestoreService {
           SetOptions(merge: true),
         );
       }
+
+      return true;
     });
   }
 
-  // ── Project Progress (singleton snapshot; history is append-only) ───────
+  /// Generic structured career-evidence writer. Reads before writes.
+  /// Returns the transaction result directly, so Firestore retries cannot
+  /// desynchronize an outer variable.
+  static Future<bool> recordCareerEvent(
+    String uid, {
+    required String careerId,
+    required String eventId,
+    required String eventType,
+    required DateTime recordedAt,
+    String? topic,
+    bool? correct,
+    int xpReward = 0,
+    Map<String, dynamic>? metadata,
+  }) async {
+    if (careerId.isEmpty || eventId.isEmpty || eventType.isEmpty) {
+      return false;
+    }
+
+    final safeCareerId = _safeId(careerId);
+    final safeEventId  = _safeId(eventId);
+    if (safeCareerId.isEmpty || safeEventId.isEmpty) return false;
+
+    final eventRef = _eventDoc(uid, safeCareerId, safeEventId);
+    final userRef  = _userDoc(uid);
+
+    return _db.runTransaction<bool>((tx) async {
+      // READ
+      final snap = await tx.get(eventRef);
+      if (snap.exists) return false; // already recorded
+
+      // WRITE
+      tx.set(eventRef, {
+        'eventId': safeEventId,
+        'eventType': eventType,
+        'careerId': safeCareerId,
+        'topic': topic,
+        'correct': correct,
+        'xp': xpReward,
+        'metadata': _boundedMetadata(metadata),
+        'recordedAt': recordedAt.toIso8601String(),
+      });
+
+      if (xpReward > 0) {
+        tx.set(
+          userRef,
+          {'totalXp': FieldValue.increment(xpReward)},
+          SetOptions(merge: true),
+        );
+      }
+
+      return true;
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getCareerEvents(
+    String uid,
+    String careerId, {
+    String? eventType,
+    int limit = 50,
+  }) async {
+    final safeCareerId = _safeId(careerId);
+    if (safeCareerId.isEmpty) return const [];
+    final safeLimit = limit <= 0 ? 50 : (limit > 200 ? 200 : limit);
+
+    Query<Map<String, dynamic>> q = _eventsCol(uid, safeCareerId);
+    if (eventType != null && eventType.isNotEmpty) {
+      q = q.where('eventType', isEqualTo: eventType);
+    }
+    q = q.orderBy('recordedAt', descending: true).limit(safeLimit);
+
+    final snap = await q.get();
+    return snap.docs.map((d) => d.data()).toList();
+  }
+
+  static Future<Map<String, dynamic>?> getCareerEvent(
+    String uid,
+    String careerId,
+    String eventId,
+  ) async {
+    final safeCareerId = _safeId(careerId);
+    final safeEventId  = _safeId(eventId);
+    if (safeCareerId.isEmpty || safeEventId.isEmpty) return null;
+    final snap = await _eventDoc(uid, safeCareerId, safeEventId).get();
+    if (!snap.exists || snap.data() == null) return null;
+    return snap.data();
+  }
+
+  // ── Project Progress ────────────────────────────────────────────────────
 
   static Future<void> saveProjectProgress(
           String uid, ProjectProgressContext progress) =>
@@ -511,25 +1159,73 @@ class CopilotFirestoreService {
               ? ProjectProgressContext.fromFirestore(s.data()!)
               : null);
 
-  /// Appends one completed project id via arrayUnion. Never overwrites
-  /// previously completed projects.
+  /// Appends a completed project and, when a real [careerId] is supplied,
+  /// writes the structured project event — atomically.
+  ///
+  /// Idempotency:
+  ///   • The structured event document (when a careerId is present) is
+  ///     the idempotency authority for the event layer.
+  ///   • The progress document uses FieldValue.arrayUnion, so repeated
+  ///     calls cannot duplicate the project id in the historical array.
+  ///   • When no careerId is present, no event document is written (no
+  ///     fake bucket); the arrayUnion remains idempotent by construction.
   static Future<void> appendCompletedProject(
     String uid,
     String projectId, {
     int? totalProjects,
     String? currentProjectId,
+    String? careerId,
   }) async {
-    final data = <String, dynamic>{
-      'completedProjectIds': FieldValue.arrayUnion([projectId]),
-      'updatedAt': DateTime.now().toIso8601String(),
-    };
-    if (totalProjects != null) data['totalProjects'] = totalProjects;
-    if (currentProjectId != null) data['currentProjectId'] = currentProjectId;
-    await _copilotDoc(uid, 'project_progress')
-        .set(data, SetOptions(merge: true));
+    final safeProjectId = _safeId(projectId);
+    if (safeProjectId.isEmpty) return;
+
+    final progressRef = _copilotDoc(uid, 'project_progress');
+    final resolvedCareerId =
+        (careerId != null && careerId.isNotEmpty) ? _safeId(careerId) : null;
+    final hasCareer = resolvedCareerId != null && resolvedCareerId.isNotEmpty;
+
+    final eventId  = 'project:$safeProjectId';
+    final eventRef = hasCareer
+        ? _eventDoc(uid, resolvedCareerId, eventId)
+        : null;
+
+    await _db.runTransaction((tx) async {
+      // READ
+      final eventSnap = eventRef != null ? await tx.get(eventRef) : null;
+      final eventExists = eventSnap != null && eventSnap.exists;
+
+      // WRITE
+      final progressData = <String, dynamic>{
+        'completedProjectIds': FieldValue.arrayUnion([safeProjectId]),
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+      if (totalProjects != null) progressData['totalProjects'] = totalProjects;
+      if (currentProjectId != null) {
+        progressData['currentProjectId'] = currentProjectId;
+      }
+      tx.set(progressRef, progressData, SetOptions(merge: true));
+
+      if (eventRef != null && !eventExists) {
+        tx.set(eventRef, {
+          'eventId': eventId,
+          'eventType': CopilotEventType.project,
+          'careerId': resolvedCareerId,
+          'topic': null,
+          'correct': null,
+          'xp': 0,
+          'metadata': _boundedMetadata({
+            'projectId': safeProjectId,
+            if (totalProjects != null) 'totalProjects': totalProjects,
+            if (currentProjectId != null)
+              'currentProjectId': currentProjectId,
+          }),
+          'recordedAt': DateTime.now().toIso8601String(),
+        });
+      }
+    });
   }
 
-  // ── Job Progress (singleton snapshot; history is append-only) ───────────
+  // ── Job Progress ────────────────────────────────────────────────────────
 
   static Future<void> saveJobProgress(String uid, JobProgressContext progress) =>
       _copilotDoc(uid, 'job_progress')
@@ -547,26 +1243,68 @@ class CopilotFirestoreService {
               ? JobProgressContext.fromFirestore(s.data()!)
               : null);
 
-  /// Appends one applied-job id via arrayUnion. Never overwrites previously
-  /// applied jobs.
-  static Future<void> appendAppliedJob(String uid, String jobId) async {
-    await _copilotDoc(uid, 'job_progress').set({
-      'appliedJobIds': FieldValue.arrayUnion([jobId]),
-      'updatedAt': DateTime.now().toIso8601String(),
-    }, SetOptions(merge: true));
+  /// Appends an applied job and, when a real [careerId] is supplied,
+  /// writes the structured jobApplication event — atomically.
+  ///
+  /// Idempotency: arrayUnion on the historical array plus event-existence
+  /// check inside the same transaction. Retries cannot duplicate.
+  static Future<void> appendAppliedJob(
+    String uid,
+    String jobId, {
+    String? careerId,
+  }) async {
+    final safeJobId = _safeId(jobId);
+    if (safeJobId.isEmpty) return;
+
+    final progressRef = _copilotDoc(uid, 'job_progress');
+    final resolvedCareerId =
+        (careerId != null && careerId.isNotEmpty) ? _safeId(careerId) : null;
+    final hasCareer = resolvedCareerId != null && resolvedCareerId.isNotEmpty;
+
+    final eventId  = 'jobApplication:$safeJobId';
+    final eventRef = hasCareer
+        ? _eventDoc(uid, resolvedCareerId, eventId)
+        : null;
+
+    await _db.runTransaction((tx) async {
+      // READ
+      final eventSnap = eventRef != null ? await tx.get(eventRef) : null;
+      final eventExists = eventSnap != null && eventSnap.exists;
+
+      // WRITE
+      tx.set(
+        progressRef,
+        {
+          'appliedJobIds': FieldValue.arrayUnion([safeJobId]),
+          'updatedAt': DateTime.now().toIso8601String(),
+        },
+        SetOptions(merge: true),
+      );
+
+      if (eventRef != null && !eventExists) {
+        tx.set(eventRef, {
+          'eventId': eventId,
+          'eventType': CopilotEventType.jobApplication,
+          'careerId': resolvedCareerId,
+          'topic': null,
+          'correct': null,
+          'xp': 0,
+          'metadata': _boundedMetadata({'jobId': safeJobId}),
+          'recordedAt': DateTime.now().toIso8601String(),
+        });
+      }
+    });
   }
 
-  /// Appends one saved-job id via arrayUnion. Never removes previously
-  /// saved jobs.
   static Future<void> appendSavedJob(String uid, String jobId) async {
+    final safeJobId = _safeId(jobId);
+    if (safeJobId.isEmpty) return;
     await _copilotDoc(uid, 'job_progress').set({
-      'savedJobIds': FieldValue.arrayUnion([jobId]),
+      'savedJobIds': FieldValue.arrayUnion([safeJobId]),
       'updatedAt': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
   }
 
-  /// Atomically increments the offers-received counter — a running total,
-  /// never reset.
   static Future<void> incrementJobOffers(String uid, {int by = 1}) async {
     await _copilotDoc(uid, 'job_progress').set({
       'offersReceived': FieldValue.increment(by),
@@ -574,7 +1312,7 @@ class CopilotFirestoreService {
     }, SetOptions(merge: true));
   }
 
-  // ── Interview Progress (singleton snapshot; history is append-only) ─────
+  // ── Interview Progress ──────────────────────────────────────────────────
 
   static Future<void> saveInterviewProgress(
           String uid, InterviewProgressContext progress) =>
@@ -595,27 +1333,80 @@ class CopilotFirestoreService {
               ? InterviewProgressContext.fromFirestore(s.data()!)
               : null);
 
-  /// Appends one completed interview id to permanent history and folds the
-  /// optional score into the running average. The weighted-average math
-  /// needs the prior count/average, so this does a safe read-modify-write
-  /// via the model's own `withInterviewCompleted` helper (which itself only
-  /// ever appends to `completedInterviewIds`, never drops entries) rather
-  /// than a blind overwrite.
+  /// Appends a completed interview and, when a real [careerId] is supplied,
+  /// writes the structured interview event — atomically.
+  ///
+  /// Idempotency:
+  ///   • The interview progress document tracks completedInterviewIds;
+  ///     a repeated call with the same interviewId is a no-op for
+  ///     mockInterviewsDone and averageScore.
+  ///   • The structured event document (when a careerId exists) is the
+  ///     idempotency authority for the event layer and is not rewritten
+  ///     on retries.
   static Future<void> appendCompletedInterview(
     String uid,
     String interviewId, {
     double? score,
+    String? careerId,
   }) async {
-    final ref = _copilotDoc(uid, 'interview_progress');
-    final snap = await ref.get();
-    final current = (snap.exists && snap.data() != null)
-        ? InterviewProgressContext.fromFirestore(snap.data()!)
-        : InterviewProgressContext(updatedAt: DateTime.now());
-    final updated = current.withInterviewCompleted(interviewId, score: score);
-    await ref.set(updated.toFirestore(), SetOptions(merge: true));
+    final safeInterviewId = _safeId(interviewId);
+    if (safeInterviewId.isEmpty) return;
+
+    final progressRef = _copilotDoc(uid, 'interview_progress');
+    final resolvedCareerId =
+        (careerId != null && careerId.isNotEmpty) ? _safeId(careerId) : null;
+    final hasCareer = resolvedCareerId != null && resolvedCareerId.isNotEmpty;
+
+    final eventId  = 'interview:$safeInterviewId';
+    final eventRef = hasCareer
+        ? _eventDoc(uid, resolvedCareerId, eventId)
+        : null;
+
+    await _db.runTransaction((tx) async {
+      // READ
+      final progressSnap = await tx.get(progressRef);
+      final eventSnap = eventRef != null ? await tx.get(eventRef) : null;
+
+      final eventExists = eventSnap != null && eventSnap.exists;
+
+      // COMPUTE
+      final current = (progressSnap.exists && progressSnap.data() != null)
+          ? InterviewProgressContext.fromFirestore(progressSnap.data()!)
+          : InterviewProgressContext(updatedAt: DateTime.now());
+
+      final alreadyRecorded =
+          current.completedInterviewIds.contains(safeInterviewId);
+
+      // WRITE
+      if (!alreadyRecorded) {
+        final updated =
+            current.withInterviewCompleted(safeInterviewId, score: score);
+        tx.set(
+          progressRef,
+          updated.toFirestore(),
+          SetOptions(merge: true),
+        );
+      }
+
+      if (eventRef != null && !eventExists) {
+        tx.set(eventRef, {
+          'eventId': eventId,
+          'eventType': CopilotEventType.interview,
+          'careerId': resolvedCareerId,
+          'topic': null,
+          'correct': null,
+          'xp': 0,
+          'metadata': _boundedMetadata({
+            if (score != null) 'score': score,
+            'interviewId': safeInterviewId,
+          }),
+          'recordedAt': DateTime.now().toIso8601String(),
+        });
+      }
+    });
   }
 
-  // ── Career Readiness (derived snapshot — safe to recompute/overwrite) ───
+  // ── Career Readiness ────────────────────────────────────────────────────
 
   static Future<void> saveCareerReadiness(
           String uid, CareerReadiness readiness) =>
@@ -634,7 +1425,7 @@ class CopilotFirestoreService {
               ? CareerReadiness.fromFirestore(s.data()!)
               : null);
 
-  // ── Next Best Actions (append-only; completed actions stay as history) ──
+  // ── Next Best Actions ───────────────────────────────────────────────────
 
   static Future<void> saveNextAction(String uid, NextBestAction action) =>
       _userDoc(uid)
@@ -645,10 +1436,15 @@ class CopilotFirestoreService {
   static Future<List<NextBestAction>> getNextActions(
     String uid, {
     bool onlyPending = false,
+    int limit = 50,
   }) async {
+    final safeLimit = limit <= 0 ? 50 : (limit > 200 ? 200 : limit);
+
     Query<Map<String, dynamic>> q =
         _userDoc(uid).collection('copilot_next_actions');
     if (onlyPending) q = q.where('isCompleted', isEqualTo: false);
+    q = q.orderBy('priority').limit(safeLimit);
+
     final snap = await q.get();
     final actions =
         snap.docs.map((d) => NextBestAction.fromFirestore(d.data())).toList();
@@ -659,10 +1455,15 @@ class CopilotFirestoreService {
   static Stream<List<NextBestAction>> nextActionsStream(
     String uid, {
     bool onlyPending = false,
+    int limit = 50,
   }) {
+    final safeLimit = limit <= 0 ? 50 : (limit > 200 ? 200 : limit);
+
     Query<Map<String, dynamic>> q =
         _userDoc(uid).collection('copilot_next_actions');
     if (onlyPending) q = q.where('isCompleted', isEqualTo: false);
+    q = q.orderBy('priority').limit(safeLimit);
+
     return q.snapshots().map((s) {
       final actions =
           s.docs.map((d) => NextBestAction.fromFirestore(d.data())).toList();
@@ -671,8 +1472,6 @@ class CopilotFirestoreService {
     });
   }
 
-  /// Marks an action as completed WITHOUT deleting it, so it remains in the
-  /// user's action history.
   static Future<void> completeNextAction(String uid, String actionId) async {
     await _userDoc(uid)
         .collection('copilot_next_actions')
@@ -680,7 +1479,7 @@ class CopilotFirestoreService {
         .set({'isCompleted': true}, SetOptions(merge: true));
   }
 
-  // ── Copilot Recommendations (append-only; dismissed, never deleted) ─────
+  // ── Copilot Recommendations ─────────────────────────────────────────────
 
   static Future<void> saveRecommendation(
           String uid, CopilotRecommendation recommendation) =>
@@ -692,10 +1491,15 @@ class CopilotFirestoreService {
   static Future<List<CopilotRecommendation>> getRecommendations(
     String uid, {
     bool onlyActive = false,
+    int limit = 50,
   }) async {
+    final safeLimit = limit <= 0 ? 50 : (limit > 200 ? 200 : limit);
+
     Query<Map<String, dynamic>> q =
         _userDoc(uid).collection('copilot_recommendations');
     if (onlyActive) q = q.where('isDismissed', isEqualTo: false);
+    q = q.orderBy('priority').limit(safeLimit);
+
     final snap = await q.get();
     final recs = snap.docs
         .map((d) => CopilotRecommendation.fromFirestore(d.data()))
@@ -707,10 +1511,15 @@ class CopilotFirestoreService {
   static Stream<List<CopilotRecommendation>> recommendationsStream(
     String uid, {
     bool onlyActive = false,
+    int limit = 50,
   }) {
+    final safeLimit = limit <= 0 ? 50 : (limit > 200 ? 200 : limit);
+
     Query<Map<String, dynamic>> q =
         _userDoc(uid).collection('copilot_recommendations');
     if (onlyActive) q = q.where('isDismissed', isEqualTo: false);
+    q = q.orderBy('priority').limit(safeLimit);
+
     return q.snapshots().map((s) {
       final recs = s.docs
           .map((d) => CopilotRecommendation.fromFirestore(d.data()))
@@ -720,8 +1529,6 @@ class CopilotFirestoreService {
     });
   }
 
-  /// Marks a recommendation as dismissed WITHOUT deleting it, so it remains
-  /// in the user's recommendation history.
   static Future<void> dismissRecommendation(
       String uid, String recommendationId) async {
     await _userDoc(uid)
@@ -730,18 +1537,8 @@ class CopilotFirestoreService {
         .set({'isDismissed': true}, SetOptions(merge: true));
   }
 
-  // ── Composite Copilot Context ────────────────────────────────────────────
-  // Reads/writes the full picture the Copilot reasons over:
-  //   Selected Career + User Skills + Current Progress + Historical Progress.
-  // Composed from the SAME collections/docs used above — no data is
-  // duplicated into a single giant blob, so every piece keeps loading and
-  // updating through its own already-safe method.
+  // ── Composite Copilot Context ───────────────────────────────────────────
 
-  /// Fetches every piece needed to build a [CopilotContext] for [uid] in
-  /// parallel. [careerId] selects which per-career learning-progress
-  /// document to load; if omitted, falls back to the user's currently
-  /// selected [CareerContext.careerId] (or an empty/default context if the
-  /// user hasn't selected a career yet — never throws on missing data).
   static Future<CopilotContext> getCopilotContext(
     String uid, {
     String? careerId,
@@ -761,23 +1558,30 @@ class CopilotFirestoreService {
       getRecommendations(uid),
     ]);
 
-    final skillProfile   = results[0] as UserSkillProfile?;
-    final skillGaps      = results[1] as List<SkillGap>;
-    final roadmap        = results[2] as PersonalizedRoadmap?;
-    final todayGoals     = results[3] as List<DailyGoal>;
-    final progressHistory= results[4] as List<ProgressEntry>;
-    final career         = results[5] as CareerContext?;
-    final projectProgress= results[6] as ProjectProgressContext?;
-    final jobProgress    = results[7] as JobProgressContext?;
+    final skillProfile    = results[0]  as UserSkillProfile?;
+    final skillGaps       = results[1]  as List<SkillGap>;
+    final roadmap         = results[2]  as PersonalizedRoadmap?;
+    final todayGoals      = results[3]  as List<DailyGoal>;
+    final progressHistory = results[4]  as List<ProgressEntry>;
+    final career          = results[5]  as CareerContext?;
+    final projectProgress = results[6]  as ProjectProgressContext?;
+    final jobProgress     = results[7]  as JobProgressContext?;
     final interviewProgress = results[8] as InterviewProgressContext?;
-    final readiness      = results[9] as CareerReadiness?;
-    final nextActions    = results[10] as List<NextBestAction>;
-    final recommendations= results[11] as List<CopilotRecommendation>;
+    final readiness       = results[9]  as CareerReadiness?;
+    final nextActions     = results[10] as List<NextBestAction>;
+    final recommendations = results[11] as List<CopilotRecommendation>;
 
+    // Career-scoped learning progress: resolved through the same
+    // normalization used by its writer, so a careerId that was stored
+    // via _safeId() will resolve to the same document on read.
     final resolvedCareerId = careerId ?? career?.careerId;
-    final learningProgress = (resolvedCareerId != null &&
+    final safeCareerId = (resolvedCareerId != null &&
             resolvedCareerId.isNotEmpty)
-        ? await getLearningProgress(uid, resolvedCareerId)
+        ? _safeId(resolvedCareerId)
+        : '';
+
+    final learningProgress = safeCareerId.isNotEmpty
+        ? await getLearningProgress(uid, safeCareerId)
         : null;
 
     final state = CopilotState(
@@ -801,17 +1605,13 @@ class CopilotFirestoreService {
     );
   }
 
-  /// Persists the "current state" pieces of a [CopilotContext]:
-  /// career, per-career learning progress, project/job/interview progress,
-  /// and readiness. Deliberately does NOT bulk-write todayGoals,
-  /// progressHistory, nextActions, or recommendations here — those are
-  /// permanent/append-only history and must go through their dedicated
-  /// append/save methods above (saveDailyGoals, syncTodayProgress,
-  /// saveNextAction, saveRecommendation, appendCompleted*) so a single
-  /// "save everything" call can never accidentally overwrite history.
-  /// skillProfile/roadmap ARE included since those were already
-  /// singleton "current state" docs with overwrite semantics before this
-  /// change (saveSkillProfile/saveRoadmap already behaved this way).
+  /// Persists the current-state side of a [CopilotContext].
+  ///
+  /// Historical arrays (learning progress arrays, project/job/interview
+  /// histories) are intentionally NOT written by this method — they are
+  /// extended only by their dedicated append* / record* writers using
+  /// atomic arrayUnion + event-existence checks. This prevents a stale
+  /// snapshot from clobbering newer concurrent data.
   static Future<void> saveCopilotContext(
     String uid,
     CopilotContext context,
@@ -828,13 +1628,50 @@ class CopilotFirestoreService {
       futures.add(saveCareerContext(uid, context.career!));
     }
     if (context.learningProgress.careerId.isNotEmpty) {
+      // saveLearningProgress writes only current-state fields; historical
+      // arrays are left untouched.
       futures.add(saveLearningProgress(uid, context.learningProgress));
     }
+
+    // Progress contexts are written as current-state documents. Their
+    // historical arrays (completedProjectIds, appliedJobIds,
+    // completedInterviewIds, ...) are owned by the dedicated append*
+    // writers and are never clobbered here.
     futures.add(saveProjectProgress(uid, context.projectProgress));
     futures.add(saveJobProgress(uid, context.jobProgress));
     futures.add(saveInterviewProgress(uid, context.interviewProgress));
     futures.add(saveCareerReadiness(uid, context.readiness));
 
     await Future.wait(futures);
+  }
+}
+
+// ── Internal batch-op helper ──────────────────────────────────────────────
+
+class _BatchOp {
+  final DocumentReference<Map<String, dynamic>> ref;
+  final Map<String, dynamic>? data;
+  final bool isDelete;
+
+  const _BatchOp._({
+    required this.ref,
+    this.data,
+    required this.isDelete,
+  });
+
+  factory _BatchOp.set(
+          DocumentReference<Map<String, dynamic>> ref,
+          Map<String, dynamic> data) =>
+      _BatchOp._(ref: ref, data: data, isDelete: false);
+
+  factory _BatchOp.delete(DocumentReference<Map<String, dynamic>> ref) =>
+      _BatchOp._(ref: ref, isDelete: true);
+
+  void applyTo(WriteBatch batch) {
+    if (isDelete) {
+      batch.delete(ref);
+    } else if (data != null) {
+      batch.set(ref, data!, SetOptions(merge: true));
+    }
   }
 }

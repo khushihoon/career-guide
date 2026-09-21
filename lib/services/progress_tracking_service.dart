@@ -41,6 +41,38 @@
 // This service does not duplicate CopilotController's intelligence or
 // Next-Best-Action engine — it names the earliest incomplete stage in
 // the pipeline, nothing more.
+//
+// ══════════════════════════════════════════════════════════════════════
+// JOB-READY SEMANTICS
+// ══════════════════════════════════════════════════════════════════════
+// Job Applications are job-search ACTIVITY, not preparation, and are
+// NEVER treated as proof of job readiness.
+//
+// [UserProfile] exposes no single genuine "job readiness" field, so the
+// Job Ready stage is derived from the SAME real preparation signals the
+// headline readiness composite uses: skills, learning, roadmap, DSA,
+// projects, portfolio, and interview practice. This keeps the stage
+// honest (no fabricated signal, no application-derived readiness) and
+// internally consistent with [calculateJobReadinessScore].
+//
+//   • [CareerStage.jobReady] is the preparation-derived readiness score
+//     (0-100) computed by the same weighted composite used by
+//     [_jobReadinessFromStages]. It is NOT derived from application
+//     counts and does NOT read [calculateApplicationActivity].
+//   • [calculateJobReadinessScore] remains the public readiness entry
+//     point and additionally applies the bounded application-activity
+//     bonus, capped at [_maxApplicationBonus], preserving backward
+//     compatibility without claiming applications equal readiness.
+//   • [calculateApplicationActivity] is preserved unchanged so any
+//     existing call site can still read job-search activity as its own
+//     separate signal.
+//
+// No circular dependency exists: [_jobReadinessFromStages] reads only
+// the seven preparation stage values and NEVER reads
+// `stages[CareerStage.jobReady]`.
+//
+// This service never fabricates interview scores, job-readiness scores,
+// or any other data not present on [UserProfile].
 // ══════════════════════════════════════════════════════════════════════
 
 import '../models/user_profile.dart';
@@ -170,7 +202,7 @@ class ProgressTrackingService {
   /// projects, portfolio, and interview readiness. Job-search activity
   /// (applications submitted) contributes only as a small bonus capped
   /// at [_maxApplicationBonus] points — it can never make up for
-  /// missing preparation.
+  /// missing preparation and is never presented as readiness on its own.
   static int calculateJobReadinessScore(UserProfile user) {
     final skills    = calculateSkillProgress(user);
     final learning  = calculateLearningProgress(user);
@@ -195,9 +227,13 @@ class ProgressTrackingService {
     return _clampScore(preparation + bonus);
   }
 
-  /// Interview readiness, 0-100. Weighted toward actual practice volume,
-  /// with skill and roadmap progress as supporting factors — you can't
-  /// be interview-ready on skills you haven't built yet.
+  /// Interview readiness, 0-100.
+  ///
+  /// Weighted toward actual practice volume, with skill and roadmap
+  /// progress as supporting factors — you can't be interview-ready on
+  /// skills you haven't built yet. The only real interview signal this
+  /// service has is [UserProfile.interviewsPracticed]; no interview
+  /// scores or outcomes are fabricated or inferred.
   static int calculateInterviewReadinessScore(UserProfile user) {
     final practice = calculateInterviewPracticeProgress(user);
     final skills   = calculateSkillProgress(user);
@@ -207,7 +243,7 @@ class ProgressTrackingService {
 
   /// The single most useful next step, chosen by walking the real
   /// pipeline in order and returning the first stage that isn't
-  /// meaningfully progressed yet. Returns "You are job ready!" only when
+  /// meaningfully progressed yet. Returns "Apply for jobs" only when
   /// every preparation stage has crossed [_milestoneThreshold]; a user
   /// with high early-stage progress but missing later stages is never
   /// mislabelled as job ready.
@@ -238,6 +274,11 @@ class ProgressTrackingService {
   /// readiness scores are all computed from the SAME effective targets
   /// resolved here (profile value first, then caller override, then
   /// shared default). No hidden defaults are used anywhere downstream.
+  ///
+  /// The [CareerStage.jobReady] stage value equals the preparation-based
+  /// readiness score produced by [_jobReadinessFromStages], so the Job
+  /// Ready stage in the map is internally consistent with the public
+  /// readiness composite. It is NOT derived from application activity.
   static CareerProgressSnapshot getProgressSnapshot(
     UserProfile user, {
     int totalRoadmapSteps  = _defaultTotalRoadmapSteps,
@@ -290,6 +331,10 @@ class ProgressTrackingService {
     );
 
     final overall       = _weightedOverallFromStages(stages);
+    // Job readiness is derived from preparation stages only and never
+    // reads stages[CareerStage.jobReady], so there is no circularity.
+    // The map's jobReady value is already equal to this same score, so
+    // both stay consistent by construction.
     final jobReady      = _jobReadinessFromStages(stages);
     final interviewRdy  = _interviewReadinessFromStages(stages);
 
@@ -405,6 +450,9 @@ class ProgressTrackingService {
   /// composite [calculateInterviewReadinessScore]. This is the "have you
   /// actually done the interview-stage action" signal used in the
   /// stage-progress map. Prefers user.interviewsTarget when set.
+  ///
+  /// Practice volume is the only real interview signal on [UserProfile];
+  /// no interview scores, outcomes, or inferred quality are used.
   static double calculateInterviewPracticeProgress(
     UserProfile user, {
     int targetInterviews = _defaultTargetInterviews,
@@ -414,9 +462,14 @@ class ProgressTrackingService {
     return _pct(user.interviewsPracticed, target);
   }
 
-  /// Job-search activity (0-100) — how many applications submitted vs.
-  /// a realistic target. This is job-search ACTIVITY, not readiness.
-  /// Prefers user.applicationsTarget when set.
+  /// Job-search ACTIVITY (0-100) — how many applications submitted vs.
+  /// a realistic target. This is job-search ACTIVITY, NOT readiness.
+  /// It must never be presented as proof of job readiness; the headline
+  /// readiness score treats it only as a bounded bonus on top of
+  /// preparation. Prefers user.applicationsTarget when set.
+  ///
+  /// Preserved as a separate public signal for backward compatibility;
+  /// it is NOT used as the [CareerStage.jobReady] stage percentage.
   static double calculateApplicationActivity(
     UserProfile user, {
     int targetApplications = _defaultTargetApplications,
@@ -431,8 +484,17 @@ class ProgressTrackingService {
   // ════════════════════════════════════════════════════════════════════
 
   /// Job readiness derived entirely from the stage map so it stays
-  /// internally consistent with [getProgressSnapshot]. Applications are
-  /// a bounded bonus on top of preparation, never a substitute.
+  /// internally consistent with [getProgressSnapshot].
+  ///
+  /// This composite reads ONLY the seven preparation stages — skills,
+  /// learning, roadmap, DSA, projects, portfolio, and interview. It
+  /// NEVER reads `stages[CareerStage.jobReady]`, so there is no circular
+  /// dependency, and it is safe to use as the value of that stage.
+  ///
+  /// Job Applications are NOT part of this composite — they are
+  /// job-search ACTIVITY, not preparation. The public
+  /// [calculateJobReadinessScore] applies the bounded application bonus
+  /// on top of this preparation-derived score.
   static int _jobReadinessFromStages(Map<CareerStage, double> stages) {
     final skills    = stages[CareerStage.skills]    ?? 0;
     final learning  = stages[CareerStage.learning]  ?? 0;
@@ -441,7 +503,6 @@ class ProgressTrackingService {
     final projects  = stages[CareerStage.projects]  ?? 0;
     final portfolio = stages[CareerStage.portfolio] ?? 0;
     final interview = _interviewReadinessFromStages(stages);
-    final apps      = stages[CareerStage.jobReady]  ?? 0;
 
     final preparation =
         (skills    * _wSkills)    +
@@ -452,12 +513,13 @@ class ProgressTrackingService {
         (portfolio * _wPortfolio) +
         (interview * _wInterview);
 
-    final bonus = (apps / 100.0) * _maxApplicationBonus;
-    return _clampScore(preparation + bonus);
+    return _clampScore(preparation);
   }
 
   /// Interview readiness derived from the stage map (practice volume,
   /// skills, roadmap) so it matches the snapshot's effective targets.
+  /// Uses only real [UserProfile] signals — practice volume is the
+  /// [CareerStage.interview] stage value; no fabricated scores.
   static double _interviewReadinessFromStages(Map<CareerStage, double> stages) {
     final practice = stages[CareerStage.interview] ?? 0;
     final skills   = stages[CareerStage.skills]    ?? 0;
@@ -473,6 +535,12 @@ class ProgressTrackingService {
   /// directly (no further resolution). Callers that want profile-then-
   /// override semantics should resolve once up front — see
   /// [getProgressSnapshot] — and pass the resolved values here.
+  ///
+  /// [CareerStage.jobReady] is the preparation-derived readiness score
+  /// produced by [_jobReadinessFromStages]. Because that composite reads
+  /// only the seven preparation stages — never `stages[jobReady]` — the
+  /// assignment here is well-defined and non-circular. Application
+  /// activity is NOT used as the Job Ready stage percentage.
   static Map<CareerStage, double> _stageProgressMap(
     UserProfile user, {
     int? effectiveRoadmapSteps,
@@ -498,8 +566,6 @@ class ProgressTrackingService {
         user.portfolioItemsTarget, null, _defaultTargetPortfolio);
     final interviewTarget = effectiveInterviewTarget ?? _resolveTarget(
         user.interviewsTarget, null, _defaultTargetInterviews);
-    final applicationTarget = effectiveApplicationTarget ?? _resolveTarget(
-        user.applicationsTarget, null, _defaultTargetApplications);
 
     final dsaCompleted = effectiveDsaCompleted
         ?? _resolveCount(user.dsaProblemsCompleted, null);
@@ -525,9 +591,19 @@ class ProgressTrackingService {
         ? 0.0
         : _pct(portfolioCount, portfolioTarget);
     final interview = _pct(user.interviewsPracticed, interviewTarget);
-    final jobReady = _pct(user.jobApplications, applicationTarget);
 
-    return {
+    // Job readiness is derived from the seven preparation stages above.
+    // Build a preliminary map WITHOUT jobReady so the composite cannot
+    // accidentally read it (no circularity), then assign its result as
+    // the jobReady stage value.
+    //
+    // The [effectiveApplicationTarget] parameter is retained to keep
+    // the private method signature stable; it does not affect this
+    // stage — application activity is not readiness.
+    // ignore: unused_local_variable
+    final _ = effectiveApplicationTarget;
+
+    final preparationStages = <CareerStage, double>{
       CareerStage.learning:  learning,
       CareerStage.skills:    skills,
       CareerStage.roadmap:   roadmap,
@@ -535,7 +611,15 @@ class ProgressTrackingService {
       CareerStage.projects:  projects,
       CareerStage.portfolio: portfolio,
       CareerStage.interview: interview,
-      CareerStage.jobReady:  jobReady,
+    };
+
+    // Preparation-derived readiness — 0-100, same composite used by the
+    // public readiness score (before the bounded application bonus).
+    final jobReady = _jobReadinessFromStages(preparationStages).toDouble();
+
+    return {
+      ...preparationStages,
+      CareerStage.jobReady: jobReady,
     };
   }
 
@@ -551,10 +635,17 @@ class ProgressTrackingService {
   }
 
   /// Walks the pipeline in progression order and returns the first
-  /// stage below [_milestoneThreshold]. "You are job ready!" is
-  /// returned only when every preparation stage has crossed the
-  /// threshold — a user with strong early-stage progress but missing
-  /// later stages is never mislabelled as job ready.
+  /// stage below [_milestoneThreshold]. "Apply for jobs" is returned only
+  /// when every preparation stage has crossed the threshold — a user
+  /// with strong early-stage progress but missing later stages is never
+  /// mislabelled as job ready.
+  ///
+  /// Only the seven preparation stages are checked here. The Job Ready
+  /// stage value is a derived readiness composite of the same seven
+  /// stages, so checking the stage itself would be redundant. Once all
+  /// preparation stages are complete, the next real action is to start
+  /// applying — regardless of whether any applications have been
+  /// submitted yet.
   static String? _nextMilestoneFromStages(Map<CareerStage, double> stages) {
     const order = [
       CareerStage.learning,
@@ -564,7 +655,6 @@ class ProgressTrackingService {
       CareerStage.projects,
       CareerStage.portfolio,
       CareerStage.interview,
-      CareerStage.jobReady,
     ];
 
     for (final stage in order) {
@@ -572,7 +662,7 @@ class ProgressTrackingService {
         return _milestoneMessageFor(stage);
       }
     }
-    return 'You are job ready!';
+    return _milestoneMessageFor(CareerStage.jobReady);
   }
 
   static String _milestoneMessageFor(CareerStage stage) {

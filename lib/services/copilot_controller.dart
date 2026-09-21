@@ -1,40 +1,99 @@
 // ══════════════════════════════════════════════════════════════════════
 // lib/services/copilot_controller.dart
 //
-// UPGRADE NOTES (this revision):
-//   • Added ONE new public method — `recordCourseEvent` — that persists
-//     a single course learning event (quiz answer / challenge answer /
-//     project completion) via CopilotFirestoreService.recordCourseEvent,
-//     then refreshes Copilot intelligence for that career so readiness,
-//     next-best actions, and recommendations reflect the new evidence.
-//   • In init(uid), when switching to a different user, the previous
-//     _selectedCareerId is cleared before loading the new user's career
-//     context. This prevents a stale career from leaking across users.
-//     No Firestore history is deleted or modified by this.
-//   • Everything else — public APIs, models, Firestore structure, the
-//     offline/no-paid-API architecture, the career-aware skill and
-//     roadmap tables, and all existing behaviour — is unchanged.
+// FINAL integration pass — CopilotController as the intelligence /
+// orchestration layer.
+//
+// Behaviour contract:
+//   User action
+//     → authoritative Firestore evidence/event (CopilotFirestoreService)
+//     → XP/progress persistence
+//     → CopilotContext refresh
+//     → readiness recalculation
+//     → skill gaps / roadmap / next action / today goals evolve
+//     → UI receives the new state.
+//
+// AUTHORITATIVE STATE RECONCILIATION
+// ──────────────────────────────────
+// CopilotController.init(uid) intentionally returns early when the UID
+// has not changed, so it cannot be used as a same-session refresh after
+// an external XP/progress-changing operation (RewardService daily/surprise
+// reward, QuestService, AchievementService, CopilotFirestoreService
+// course events, etc.).
+//
+// This revision preserves the existing additive public method:
+//
+//     Future<void> refreshAuthoritativeState(String uid)
+//
+// which reads users/{uid}.totalXp directly from the authoritative
+// Firestore document via CopilotFirestoreService.getUserTotalXp(uid).
+//
+// IMPORTANT — CopilotState.totalXp is DERIVED
+// ────────────────────────────────────────────
+// The current CopilotState model does NOT expose a writable `totalXp`
+// field on its `copyWith`. `totalXp` is derived (e.g. from the local
+// progress history). Because of that, `refreshAuthoritativeState(uid)`
+// cannot push a fresh Firestore value into CopilotState via copyWith.
+//
+// Instead, this Controller keeps the authoritative Firestore XP in a
+// dedicated in-memory field, `_authoritativeTotalXp`, which is populated
+// only from CopilotFirestoreService.getUserTotalXp(uid). It never
+// derives XP from progressHistory and never fabricates values. All
+// Controller-side XP reads that must be authoritative go through
+// `_resolveAuthoritativeTotalXp()`, which returns the cached
+// authoritative value when present and falls back to `_state.totalXp`
+// only when no authoritative value has ever been observed.
+//
+// rerunAnalysis(uid) is UID-safe: it does not mutate _currentUid. It
+// runs only for the currently initialized user and safely no-ops
+// otherwise.
+//
+// AUTHORITATIVE GOAL COMPLETION DETECTION
+// ──────────────────────────────────────
+// CopilotFirestoreService.toggleGoalCompletion() is the single source of
+// truth for whether a goal completion actually happened AND for what the
+// resulting Firestore state is. It returns a small result object that
+// carries the authoritative resulting `isCompleted` state together with
+// a `becameCompleted` flag that is true only for a genuine first-time
+// false → true completion (used to trigger surprise rewards).
+//
+// The Controller uses that authoritative result to build local
+// todayGoals and to feed syncTodayProgress(). The caller's UI
+// `goal.isCompleted` snapshot is never consulted.
+//
+// AUTHORITATIVE COURSE-EVENT RESULT
+// ─────────────────────────────────
+// CopilotFirestoreService.recordCourseEvent() returns
+// `Future<bool>`: true when THIS call newly recorded the event (and
+// therefore awarded XP inside the Firestore transaction), false when
+// the event already existed and the call was a no-op.
+//
+// The Controller forwards that result to the caller so a UI layer can
+// distinguish a genuine first-time completion from an idempotent
+// re-submission — WITHOUT adding any XP logic here. Firestore remains
+// the sole authority for whether XP was awarded.
+//
+// FINAL PASS NOTES (preserved, unchanged):
+//   • Software Engineer is a first-class Copilot career.
+//   • State-versioned NextBestAction IDs for project / interview / apply.
+//   • State-versioned Recommendation IDs.
+//   • Career-aware skill gaps and roadmaps.
+//   • Deterministic/offline fallback behaviour.
 // ══════════════════════════════════════════════════════════════════════
 
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/copilot_models.dart';
+import '../models/quest_models.dart';
 import 'copilot_firestore_service.dart';
 import 'copilot_ai_service.dart';
-import 'achievement_service.dart';   // for awarding XP on goal completion
-import '../models/achievement_models.dart'; // for awarding XP on goal completion
-import '../models/quest_models.dart';       // for awarding XP on goal completion      
-import 'ai_memory_service.dart';     // for storing conversation history and context 
-import 'goal_content_database.dart';   // for fetching engaging goal descriptions and tips
-import 'local_goal_generator_service.dart'; // for generating fallback goals without AI
-import 'reward_service.dart';        // for surprise rewards on goal completion
- 
+import 'local_goal_generator_service.dart';
+import 'reward_service.dart';
 
 class CopilotController extends ChangeNotifier {
   CopilotState _state = const CopilotState();
-  CopilotState get state => _state;  
+  CopilotState get state => _state;
 
   StreamSubscription<UserSkillProfile?>? _profileSub;
   StreamSubscription<PersonalizedRoadmap?>? _roadmapSub;
@@ -43,78 +102,72 @@ class CopilotController extends ChangeNotifier {
 
   String? _currentUid;
 
-  // ── NEW: Copilot Context (Selected Career + Skills + Current +
-  // Historical Progress). Purely additive — CopilotState above is
-  // completely untouched and keeps working exactly as before for any
-  // existing widget that only reads `state`. New/updated UI can read
-  // `copilotContext` for the richer, evolving picture. ──────────────────
+  /// Monotonic token used to invalidate stale async refreshes. Each call
+  /// to [refreshAuthoritativeState] captures the current value; on
+  /// completion it only applies its result if the token still matches
+  /// (i.e. no newer refresh or UID switch has occurred meanwhile).
+  int _authoritativeRefreshToken = 0;
+
+  /// Authoritative Firestore-backed total XP for the current user.
+  ///
+  /// Populated ONLY from
+  /// `CopilotFirestoreService.getUserTotalXp(uid)` — never derived from
+  /// `progressHistory` and never fabricated. It is intentionally NOT
+  /// stored on `CopilotState`, because the model does not expose a
+  /// writable `totalXp` field via `copyWith`. Consumers that need the
+  /// authoritative value must use [_resolveAuthoritativeTotalXp].
+  int? _authoritativeTotalXp;
+
   CopilotContext? _copilotContext;
   CopilotContext? get copilotContext => _copilotContext;
 
-  /// The career the Copilot's readiness/actions/recommendations are
-  /// currently scoped to. Restored from Firestore on init(); updated by
-  /// [selectCareer] or any of the `record*Completed` hooks below.
   String? _selectedCareerId;
   String? get selectedCareerId => _selectedCareerId;
 
-  // Existing RewardService — used only for surprise rewards after a
-  // goal is completed. It persists its own XP; this controller never
-  // adds surprise XP manually.
   final RewardService _rewardService = RewardService();
 
-static bool get _hasApiKey => false; // Disable real API calls for now (set to true to enable with valid key)
-  // ── Init (safe to call multiple times; re-inits if uid changes) ──────
+  static bool get _hasApiKey => false;
+
+  // ── Init ────────────────────────────────────────────────────────────
   Future<void> init(String uid) async {
-    // If same user already streaming, just ensure loading is off
     if (_currentUid == uid) {
       if (_state.isLoading) _set(_state.copyWith(isLoading: false));
       return;
     }
 
-    // Switching to a different user — clear the previous user's career
-    // scope so a stale career never leaks across users. This is an
-    // in-memory reset only; no Firestore history is deleted or modified.
     if (_currentUid != null && _currentUid != uid) {
       _selectedCareerId = null;
       _copilotContext = null;
+      _authoritativeTotalXp = null;
+      _state = const CopilotState(isLoading: true);
+      // Invalidate any in-flight authoritative refresh from the old UID.
+      _authoritativeRefreshToken++;
     }
 
     _currentUid = uid;
 
-    // Cancel any old streams
     await _cancelStreams();
-
     _set(_state.copyWith(isLoading: true, error: null));
 
-    // NEW: restore a previously selected career (if any) so learning
-    // progress and readiness stay tied to the right career across
-    // sessions. Read-only — never resets or overwrites anything.
     try {
       final career = await CopilotFirestoreService.getCareerContext(uid);
       if (career != null) _selectedCareerId = career.careerId;
-    } catch (_) {
-      // Non-fatal: Copilot intelligence still works without a stored
-      // career context; readiness/actions just won't be career-scoped yet.
-    }
+    } catch (_) {}
 
-    // Subscribe to real-time streams
-    _profileSub = CopilotFirestoreService.skillProfileStream(uid).listen((p) async {
+    _profileSub =
+        CopilotFirestoreService.skillProfileStream(uid).listen((p) async {
       _set(_state.copyWith(skillProfile: p));
 
-      if (p !=null) {
-        final existtingGoals =
-            await CopilotFirestoreService.getTodayGoals(uid); 
-
-        if (existtingGoals.isEmpty) {
-         await _runAnalysis(p);
+      if (p != null) {
+        final existingGoals =
+            await CopilotFirestoreService.getTodayGoals(uid);
+        if (existingGoals.isEmpty) {
+          await _runAnalysis(p);
         }
       }
 
-      // NEW: skill profile changed — recompute Copilot intelligence in
-      // the background. refreshIntelligence() never throws, so this can
-      // never turn into an unhandled stream error.
       unawaited(refreshIntelligence(uid));
-    });  
+    });
 
     _roadmapSub = CopilotFirestoreService.roadmapStream(uid).listen((r) {
       _set(_state.copyWith(roadmap: r));
@@ -128,7 +181,6 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       _set(_state.copyWith(progressHistory: h));
     });
 
-    // One-shot: load skill gaps from Firestore
     try {
       final gaps = await CopilotFirestoreService.getSkillGaps(uid);
       _set(_state.copyWith(skillGaps: gaps, isLoading: false));
@@ -136,42 +188,152 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       _set(_state.copyWith(isLoading: false, error: e.toString()));
     }
 
-    // NEW: one-shot initial intelligence refresh so readiness / next
-    // actions / recommendations are available as soon as this screen
-    // opens, even before any stream above has emitted yet.
+    // Initial authoritative reconciliation — pulls the real users/{uid}
+    // totalXp into the Controller's authoritative cache, then runs the
+    // intelligence pipeline.
+    await refreshAuthoritativeState(uid);
     unawaited(refreshIntelligence(uid));
 
-    // Safety: ensure loading clears after 800ms no matter what
     Future.delayed(const Duration(milliseconds: 800), () {
       if (_state.isLoading) _set(_state.copyWith(isLoading: false));
     });
   }
 
-  // ── Save skill profile + trigger full AI analysis ────────────────────
+  // ── AUTHORITATIVE STATE RECONCILIATION ─────────────────────────────
+
+  /// Reads users/{uid}.totalXp from the authoritative Firestore document
+  /// via CopilotFirestoreService.getUserTotalXp(uid) and stores it in the
+  /// Controller's authoritative XP cache.
+  ///
+  /// Guarantees:
+  ///   • Only the Controller's authoritative XP cache is replaced.
+  ///     Skill profile, roadmap, goals, skill gaps, progress history,
+  ///     streak, career selection, readiness, next actions and
+  ///     recommendations are all preserved.
+  ///   • A missing document / missing field / malformed value never
+  ///     zeroes out a previously valid value — the last known
+  ///     authoritative value is retained and a debug line is logged.
+  ///   • Safe to call repeatedly and concurrently: a monotonic token
+  ///     discards results from older refreshes and from a previous UID.
+  ///   • Notifies listeners only when the value actually changed.
+  ///
+  /// This method is the intended Hub-side refresh entry point after any
+  /// RewardService / QuestService / AchievementService / course-event
+  /// operation that may have changed XP on the user document.
+  Future<void> refreshAuthoritativeState(String uid) async {
+    if (uid.isEmpty) return;
+
+    final token = ++_authoritativeRefreshToken;
+
+    int? freshXp;
+    try {
+      freshXp = await CopilotFirestoreService.getUserTotalXp(uid);
+    } catch (e) {
+      debugPrint('refreshAuthoritativeState read failed: $e');
+      return;
+    }
+
+    // Discard if a newer refresh (or a UID switch) has happened.
+    if (token != _authoritativeRefreshToken) return;
+    if (_currentUid != uid) return;
+    if (freshXp == null) return;
+    if (freshXp < 0) return;
+
+    if (_authoritativeTotalXp == freshXp) return;
+
+    _authoritativeTotalXp = freshXp;
+    // CopilotState does not expose a writable totalXp field, so we notify
+    // listeners directly. Consumers that read the authoritative value
+    // must use `_resolveAuthoritativeTotalXp()`.
+    notifyListeners();
+  }
+
+  // ── Save skill profile + analysis ───────────────────────────────────
   Future<void> saveSkillProfile(UserSkillProfile profile) async {
     _set(_state.copyWith(isLoading: true, error: null));
     try {
       await CopilotFirestoreService.saveSkillProfile(profile);
       _set(_state.copyWith(skillProfile: profile));
       await _runAnalysis(profile);
+      await refreshAuthoritativeState(profile.uid);
     } catch (e) {
       _set(_state.copyWith(isLoading: false, error: 'Save failed: $e'));
     }
   }
 
-  // ── Re-run analysis on pull-to-refresh ───────────────────────────────
+  /// Reconciles authoritative state first, then re-runs intelligence
+  /// analysis only when it is actually required.
+  ///
+  /// UID SAFETY:
+  ///   • This method does NOT mutate _currentUid. Session/UID ownership
+  ///     remains exclusively with init().
+  ///   • If no session is initialized, or the caller's uid does not match
+  ///     the currently initialized user, the method safely no-ops.
+  ///
+  /// "Required" analysis means: no skill profile yet, or no roadmap yet,
+  /// or no today-goals yet. When profile, roadmap and goals already
+  /// exist, the only thing that needs refreshing is the authoritative XP
+  /// plus the intelligence pipeline (readiness / next actions /
+  /// recommendations), which refreshIntelligence() already handles
+  /// without regenerating goals.
   Future<void> rerunAnalysis(String uid) async {
+    if (uid.isEmpty) return;
+
+    // Session guard: only operate for the currently initialized user.
+    final activeUid = _currentUid;
+    if (activeUid == null || activeUid != uid) {
+      debugPrint(
+        'rerunAnalysis ignored: uid "$uid" does not match active session "$activeUid"',
+      );
+      return;
+    }
+
+    // 1. Authoritative reconciliation (XP, non-destructive).
+    await refreshAuthoritativeState(uid);
+
+    // 2. Decide whether full analysis is genuinely required.
     final profile = _state.skillProfile;
-    if (profile == null) return;
-    _currentUid = uid; // allow re-analysis
-    await _runAnalysis(profile);
+    final needsFullAnalysis = profile == null ||
+        _state.roadmap == null ||
+        _state.todayGoals.isEmpty;
+
+    if (needsFullAnalysis && profile != null) {
+      await _runAnalysis(profile);
+    }
+
+    // 3. Always refresh the intelligence pipeline (readiness / actions /
+    //    recommendations). This uses the freshly reconciled state.
+    await refreshIntelligence(uid);
   }
 
-  // ── Toggle a daily goal completion ───────────────────────────────────
+  // ── Toggle a daily goal completion ──────────────────────────────────
+  //
+  // Authoritative state and completion detection:
+  //   • CopilotFirestoreService.toggleGoalCompletion() is the single
+  //     source of truth. It returns a result object carrying the
+  //     AUTHORITATIVE resulting `isCompleted` state and a
+  //     `becameCompleted` flag that is true only for a genuine
+  //     first-time false → true completion (i.e. the canonical
+  //     completion record did not already exist).
+  //   • The Controller builds the new local todayGoals using that
+  //     authoritative resulting state — never from the caller's UI
+  //     `goal.isCompleted` and never from `!g.isCompleted`.
+  //   • syncTodayProgress() is fed the same authoritative todayGoals.
+  //   • Surprise-reward logic runs only when `becameCompleted == true`.
+  //   • Exactly-once XP/idempotency inside CopilotFirestoreService is
+  //     preserved unchanged.
   Future<void> toggleGoal(String uid, DailyGoal goal) async {
     try {
-      await CopilotFirestoreService.toggleGoalCompletion(uid, goal);
-      // Sync progress entry with updated list (stream will also update UI)
+      final result = await CopilotFirestoreService.toggleGoalCompletion(
+        uid,
+        goal,
+        careerId: _resolveActiveCareerId(fallbackToProfile: false),
+      );
+
+      // Authoritative resulting state for THIS goal — never derived from
+      // the caller's UI snapshot.
+      final authoritativeIsCompleted = result.isCompleted;
+
       final updated = _state.todayGoals.map((g) {
         if (g.id == goal.id) {
           return DailyGoal(
@@ -180,37 +342,38 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
             title: g.title,
             category: g.category,
             date: g.date,
-            isCompleted: !g.isCompleted,
+            isCompleted: authoritativeIsCompleted,
             xpReward: g.xpReward,
             linkedSkill: g.linkedSkill,
           );
         }
         return g;
       }).toList();
+
+      // Update local state first so the UI reflects the authoritative
+      // result even if the subsequent Firestore sync fails.
+      _set(_state.copyWith(todayGoals: updated));
+
       await CopilotFirestoreService.syncTodayProgress(uid, updated);
 
-      // NEW: a completed goal changes daily progress — recompute
-      // readiness/next-actions/recommendations in the background.
+      // Reconcile authoritative XP before intelligence refresh so any
+      // downstream listener sees the newly-awarded XP immediately.
+      await refreshAuthoritativeState(uid);
+
       unawaited(refreshIntelligence(uid));
 
-      // NEW: if this tap COMPLETED the goal (not un-completed it),
-      // roll the existing surprise-reward chance via RewardService.
-      // RewardService handles its own XP persistence, so we do NOT
-      // touch totalXp here. Firestore's syncTodayProgress /
-      // toggleGoalCompletion already handle normal goal XP, so this
-      // path cannot double-award.
-      final justCompleted = !goal.isCompleted; // previous state was incomplete
-      if (justCompleted) {
+      // Surprise reward only on a genuine, first-time completion.
+      if (result.becameCompleted) {
         try {
           final surprise = await _rewardService.rollSurpriseReward(uid);
           if (surprise != null) {
             debugPrint(
               '🎁 Surprise reward: ${surprise.message} (+${surprise.xpAmount} XP)',
             );
+            // Surprise reward writes XP — reconcile again.
+            await refreshAuthoritativeState(uid);
           }
         } catch (e) {
-          // Non-fatal — a surprise-reward failure must never break the
-          // goal-completion flow.
           debugPrint('rollSurpriseReward error: $e');
         }
       }
@@ -219,13 +382,10 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     }
   }
 
-  // ── Mark a roadmap phase complete ────────────────────────────────────
+  // ── Mark a roadmap phase complete ───────────────────────────────────
   Future<void> completePhase(String uid, int phaseIndex) async {
     try {
       await CopilotFirestoreService.completeRoadmapPhase(uid, phaseIndex);
-      // Stream will auto-update roadmap UI
-
-      // NEW: a completed roadmap phase changes readiness — recompute.
       unawaited(refreshIntelligence(uid));
     } catch (e) {
       debugPrint('completePhase error: $e');
@@ -233,7 +393,7 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // INTERNAL: Full AI analysis pipeline
+  // INTERNAL: Full analysis pipeline
   // ══════════════════════════════════════════════════════════════════════
   Future<void> _runAnalysis(UserSkillProfile profile) async {
     _set(_state.copyWith(isLoading: true, error: null));
@@ -243,7 +403,6 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       List<DailyGoal> goals;
 
       if (_hasApiKey) {
-        // ── Real Claude AI path ──────────────────────────────────────
         debugPrint('🤖 CopilotController: Using real Claude API');
 
         gaps = await CopilotAIService.analyseSkillGaps(profile);
@@ -254,7 +413,6 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
         await CopilotFirestoreService.saveRoadmap(roadmap);
         _set(_state.copyWith(roadmap: roadmap));
 
-        // Only generate goals if none exist for today
         final existingGoals =
             await CopilotFirestoreService.getTodayGoals(profile.uid);
         if (existingGoals.isEmpty) {
@@ -264,15 +422,8 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
           _set(_state.copyWith(todayGoals: goals));
         }
       } else {
-        // ── Smart mock fallback (no API key) ─────────────────────────
-        debugPrint(
-            '⚠️  CopilotController: No API key — using mock data');
+        debugPrint('⚠️  CopilotController: No API key — using mock data');
 
-        // NEW: fold in whatever Copilot context we already have (career +
-        // real learning progress) so the mock gaps/roadmap are influenced
-        // by the user's actual progress instead of being fully generic.
-        // Falls back to the exact old generic behaviour when no context
-        // has been loaded yet (context == null), so nothing regresses.
         gaps = _mockGapsFor(profile, context: _copilotContext);
         await CopilotFirestoreService.saveSkillGaps(profile.uid, gaps);
         _set(_state.copyWith(skillGaps: gaps));
@@ -284,13 +435,18 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
         final existingGoals =
             await CopilotFirestoreService.getTodayGoals(profile.uid);
         if (existingGoals.isEmpty) {
+          final realStreak = _state.currentStreak;
+          final realTotalXp = await _resolveAuthoritativeTotalXp();
+          final realLevel = LevelSystem.levelFor(realTotalXp);
+          final realPhase = _currentRoadmapPhaseIndex();
+
           goals = await LocalGoalGeneratorService().generateAndSaveDailyGoals(
             uid: profile.uid,
             targetRole: profile.targetRole.label,
             currentSkills: profile.skills.map((s) => s.name).toList(),
-            currentStreak: 0,
-            currentLevel: 1,
-            roadmapPhase:0, // could be dynamic based on progress
+            currentStreak: realStreak,
+            currentLevel: realLevel,
+            roadmapPhase: realPhase,
             existingGoals: existingGoals,
           );
           await CopilotFirestoreService.saveDailyGoals(profile.uid, goals);
@@ -306,37 +462,91 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // MOCK DATA  (used when ANTHROPIC_API_KEY is not set)
-  // Career-aware so it reflects what the user's selected career needs.
+  // AUTHORITATIVE XP
   // ══════════════════════════════════════════════════════════════════════
 
-  /// Returns the required-skill spec for the user's selected career.
+  /// Returns the best available total XP for the current user, in priority
+  /// order:
   ///
-  /// Career resolution order (all offline, no AI):
-  ///   1. CopilotContext.career.careerId (the actual selected career)
-  ///   2. profile.targetRole (CareerGoal enum) — mapped to a career id
-  ///   3. fallback to the AI Engineer spec so a brand-new user with an
-  ///      unknown role still gets a meaningful, safe default.
+  ///   1. The Controller's authoritative Firestore-backed cache, which is
+  ///      populated ONLY by `CopilotFirestoreService.getUserTotalXp(uid)`.
+  ///      A fresh read is attempted first so the returned value is always
+  ///      current when Firestore is reachable.
+  ///
+  ///   2. Fall back to the last observed authoritative value when a fresh
+  ///      read fails.
+  ///
+  ///   3. Fall back to the local `CopilotState.totalXp` ONLY when no
+  ///      authoritative value has ever been observed (e.g. before init
+  ///      completed).
+  ///
+  /// This method NEVER sums progressHistory.xpEarned. It NEVER fabricates
+  /// or estimates XP. It NEVER zeroes a previously valid value on a
+  /// transient failure.
+  Future<int> _resolveAuthoritativeTotalXp() async {
+    final uid = _currentUid;
+    if (uid != null && uid.isNotEmpty) {
+      try {
+        final fresh = await CopilotFirestoreService.getUserTotalXp(uid);
+        if (fresh >= 0) {
+          _authoritativeTotalXp = fresh;
+          return fresh;
+        }
+      } catch (_) {}
+    }
+    final cached = _authoritativeTotalXp;
+    if (cached != null && cached >= 0) return cached;
+    return _state.totalXp;
+  }
+
+  /// Real current roadmap phase index from the live roadmap; falls back to
+  /// 0 only when there is genuinely no roadmap yet.
+  int _currentRoadmapPhaseIndex() {
+    final ctx = _copilotContext;
+    if (ctx != null && ctx.state.roadmap != null) {
+      return ctx.state.roadmap!.currentPhaseIndex;
+    }
+    final localRoadmap = _state.roadmap;
+    if (localRoadmap != null) return localRoadmap.currentPhaseIndex;
+    return 0;
+  }
+
+  /// Resolves the active career id in priority order:
+  ///   1. explicit caller override,
+  ///   2. _selectedCareerId,
+  ///   3. mapped from the current skill profile's targetRole (optional).
+  ///
+  /// Returns null when no valid career id can be determined — callers MUST
+  /// treat null as "no structured evidence" (never invent a bucket).
+  String? _resolveActiveCareerId({bool fallbackToProfile = true}) {
+    if (_selectedCareerId != null && _selectedCareerId!.isNotEmpty) {
+      return _selectedCareerId;
+    }
+    if (fallbackToProfile) {
+      final profile = _state.skillProfile;
+      if (profile != null) {
+        return _careerIdForGoal(profile.targetRole);
+      }
+    }
+    return null;
+  }
+
+  // ── Career resolution ───────────────────────────────────────────────
   static List<_CareerSkill> _requiredSkillsFor(
     UserSkillProfile profile, {
     CopilotContext? context,
   }) {
     final careerId = context?.career?.careerId ?? '';
 
-    // Try to match by career id first.
     final byId = _careerSkillSpecs[careerId];
     if (byId != null) return byId;
 
-    // Then by the profile's target role.
     final byRole = _careerSkillSpecs[_careerIdForGoal(profile.targetRole)];
     if (byRole != null) return byRole;
 
-    // Safe default — the user still gets career-relevant guidance.
     return _careerSkillSpecs['ai_engineer']!;
   }
 
-  /// Maps a [CareerGoal] enum to the canonical career id used by the
-  /// skill and roadmap spec tables.
   static String _careerIdForGoal(CareerGoal goal) {
     switch (goal) {
       case CareerGoal.aiEngineer:       return 'ai_engineer';
@@ -347,21 +557,10 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       case CareerGoal.promptEngineer:   return 'prompt_engineer';
       case CareerGoal.aiResearcher:     return 'ai_researcher';
       case CareerGoal.aiProductManager: return 'ai_product_manager';
+      case CareerGoal.softwareEngineer: return 'software_engineer';
     }
   }
 
-  /// Career-specific required-skill table.
-  ///
-  /// Each entry uses:
-  ///   • name          — display name (also the matching key)
-  ///   • required      — the target [SkillLevel] for that career
-  ///   • priority      — 1=critical, 2=important, 3=nice-to-have
-  ///   • reason        — why it matters for this specific career
-  ///
-  /// The table covers, at minimum: AI Engineer, ML Engineer,
-  /// Data Scientist, LLM Engineer, Web Developer, Cyber Security,
-  /// UI/UX Designer, plus additional nearby roles used elsewhere in the
-  /// app.
   static final Map<String, List<_CareerSkill>> _careerSkillSpecs = {
     'ai_engineer': const [
       _CareerSkill('Python',            SkillLevel.advanced,     1, 'Core language for all AI/ML roles'),
@@ -410,6 +609,14 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       _CareerSkill('React',             SkillLevel.advanced,     1, 'Most in-demand frontend framework'),
       _CareerSkill('APIs',              SkillLevel.intermediate, 2, 'Consuming backend services'),
       _CareerSkill('Git',               SkillLevel.intermediate, 3, 'Daily version-control workflow'),
+    ],
+    'software_engineer': const [
+      _CareerSkill('Data Structures & Algorithms', SkillLevel.advanced, 1, 'Core skill for every software engineering interview'),
+      _CareerSkill('System Design',     SkillLevel.intermediate, 1, 'Designing scalable, maintainable systems'),
+      _CareerSkill('Git',               SkillLevel.advanced,     2, 'Version control on every project'),
+      _CareerSkill('Testing',           SkillLevel.intermediate, 2, 'Writing reliable, maintainable code'),
+      _CareerSkill('APIs',              SkillLevel.intermediate, 2, 'Building and consuming services'),
+      _CareerSkill('Databases',         SkillLevel.intermediate, 3, 'Persisting and querying data'),
     ],
     'cyber_security': const [
       _CareerSkill('Networking',        SkillLevel.advanced,     1, 'Every attack travels through a network'),
@@ -479,37 +686,36 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
 
   /// Builds the missing-skill list for the user's selected career.
   ///
-  /// Purely additive — if `context` is null (first run, older callers)
-  /// this resolves the career purely from the profile's targetRole,
-  /// which matches the old hard-coded default behaviour for AI Engineer
-  /// while remaining correct for every other career the user might have
-  /// picked.
-  List<SkillGap> _mockGapsFor(UserSkillProfile profile, {CopilotContext? context}) {
-    // NEW: use real lesson-completion progress when available to infer a
-    // rough level for skills the user hasn't explicitly rated. Same
-    // conservative mapping as before — never invents progress.
-    SkillLevel? inferredFallback(String skillName) {
-      final p = context?.learningProgress.progress ?? 0.0;
-      if (p <= 0) return null;
-      if (p >= 0.75) return SkillLevel.advanced;
-      if (p >= 0.4) return SkillLevel.intermediate;
-      return SkillLevel.beginner;
-    }
-
-    // Pick the required-skill spec for the user's actual career.
+  /// Priority order for a skill's current level:
+  ///   1. explicit UserSkillProfile level,
+  ///   2. per-topic evidence from CopilotContext.learningProgress,
+  ///   3. no evidence → null ("not demonstrated"), never invented.
+  List<SkillGap> _mockGapsFor(UserSkillProfile profile,
+      {CopilotContext? context}) {
     final requiredSkills = _requiredSkillsFor(profile, context: context);
 
-    // Only return the skills that are genuinely missing or below the
-    // career-specific required level. Never fabricate a completed skill.
+    SkillLevel? evidenceFallback(String skillName) {
+      final lp = context?.learningProgress;
+      if (lp == null) return null;
+      // The current LearningProgressContext model does not expose
+      // per-skill strong / weak evidence counts, and no existing field
+      // on it can be used to derive them without inventing data or
+      // changing another file. To keep gap reporting honest, treat the
+      // skill as "not demonstrated" and let the explicit
+      // UserSkillProfile level be the only source of truth.
+      return null;
+    }
+
     final gaps = <SkillGap>[];
     for (final req in requiredSkills) {
-      final current = _lvl(profile, req.name) ?? inferredFallback(req.name);
-      final cur = current?.value ?? 0;
+      final explicit = _lvl(profile, req.name);
+      final inferred = explicit ?? evidenceFallback(req.name);
+      final cur = inferred?.value ?? 0;
       if (cur < req.required.value) {
         gaps.add(SkillGap(
           skillName: req.name,
           requiredLevel: req.required,
-          currentLevel: current,
+          currentLevel: inferred,
           priority: req.priority,
           reason: req.reason,
         ));
@@ -530,36 +736,46 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     }
   }
 
-  /// Career-aware roadmap builder.
-  ///
-  /// Uses the same career resolution order as [_requiredSkillsFor] so the
-  /// roadmap always aligns with the career-specific skill table. The
-  /// per-career phase specs are declared below in [_careerRoadmapSpecs].
-  ///
-  /// Progress-based unlock/completion logic is preserved exactly:
-  ///   • progress 0.0 → phase 0 unlocked, nothing completed (old default)
-  ///   • progress increases → phases unlock and complete proportionally
-  /// Only the *content* of the roadmap now varies per career.
-  PersonalizedRoadmap _mockRoadmapFor(UserSkillProfile profile, {CopilotContext? context}) {
-    // Progress signal — unchanged from previous version.
-    final progress = context?.learningProgress.progress ?? 0.0;
+  /// Career-aware roadmap builder. Progress decision priority:
+  ///   1. live roadmap evidence from CopilotContext,
+  ///   2. local roadmap state,
+  ///   3. conservative learning-progress fallback (older users).
+  PersonalizedRoadmap _mockRoadmapFor(UserSkillProfile profile,
+      {CopilotContext? context}) {
+    final liveRoadmap = context?.state.roadmap;
+    final localRoadmap = _state.roadmap;
 
-    // Resolve the career id the same way the skill-gap table does.
+    final double progress;
+    final int currentPhaseIndexFromEvidence;
+    if (liveRoadmap != null) {
+      progress = liveRoadmap.overallProgress;
+      currentPhaseIndexFromEvidence = liveRoadmap.currentPhaseIndex;
+    } else if (localRoadmap != null) {
+      progress = localRoadmap.overallProgress;
+      currentPhaseIndexFromEvidence = localRoadmap.currentPhaseIndex;
+    } else {
+      progress = context?.learningProgress.progress ?? 0.0;
+      currentPhaseIndexFromEvidence = 0;
+    }
+
     final careerId = context?.career?.careerId ?? '';
     final spec = _careerRoadmapSpecs[careerId] ??
         _careerRoadmapSpecs[_careerIdForGoal(profile.targetRole)] ??
         _careerRoadmapSpecs['ai_engineer']!;
 
-    // Unlock/completion math — identical to the previous version.
     final totalPhases = spec.phases.length;
     bool phaseCompleted(int phaseNumber) =>
         totalPhases == 0 ? false : progress >= (phaseNumber + 1) / totalPhases;
     bool phaseUnlocked(int phaseNumber) =>
-        phaseNumber == 0 || (totalPhases > 0 && progress >= phaseNumber / totalPhases);
-    final currentPhaseIndex =
-        totalPhases == 0 ? 0 : min(totalPhases - 1, (progress * totalPhases).floor());
+        phaseNumber == 0 ||
+        (totalPhases > 0 && progress >= phaseNumber / totalPhases);
+    final computedIndex = totalPhases == 0
+        ? 0
+        : min(totalPhases - 1, (progress * totalPhases).floor());
+    final currentPhaseIndex = liveRoadmap != null || localRoadmap != null
+        ? currentPhaseIndexFromEvidence
+        : computedIndex;
 
-    // Build concrete RoadmapPhase objects from the career spec.
     final phases = <RoadmapPhase>[];
     for (var i = 0; i < spec.phases.length; i++) {
       final ps = spec.phases[i];
@@ -593,74 +809,17 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     );
   }
 
-  List<DailyGoal> _mockGoalsFor(UserSkillProfile profile) {
-    final today = DateTime.now();
-    final dateKey =
-        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final uid = profile.uid;
-
-    return [
-      DailyGoal(
-        id: '${uid}_${dateKey}_0',
-        uid: uid,
-        title: 'Complete 1 Python exercise on HackerRank',
-        category: GoalCategory.practice,
-        date: dateKey,
-        isCompleted: false,
-        xpReward: 25,
-        linkedSkill: 'Python',
-      ),
-      DailyGoal(
-        id: '${uid}_${dateKey}_1',
-        uid: uid,
-        title: 'Watch Andrew Ng ML lecture (30 min)',
-        category: GoalCategory.learning,
-        date: dateKey,
-        isCompleted: false,
-        xpReward: 30,
-        linkedSkill: 'Machine Learning',
-      ),
-      DailyGoal(
-        id: '${uid}_${dateKey}_2',
-        uid: uid,
-        title: 'Read 1 AI paper abstract on Arxiv',
-        category: GoalCategory.learning,
-        date: dateKey,
-        isCompleted: false,
-        xpReward: 15,
-        linkedSkill: 'LLMs',
-      ),
-      DailyGoal(
-        id: '${uid}_${dateKey}_3',
-        uid: uid,
-        title: 'Update LinkedIn with latest skills',
-        category: GoalCategory.networking,
-        date: dateKey,
-        isCompleted: false,
-        xpReward: 20,
-        linkedSkill: null,
-      ),
-    ];
-  }
-
   // ══════════════════════════════════════════════════════════════════════
-  // NEW: COPILOT INTELLIGENCE — deterministic, offline, rule-based.
-  //
-  // Uses ONLY data already aggregated by CopilotFirestoreService and the
-  // existing local CopilotState — no AI/API calls, no new databases.
-  // Every write below is append-only or a safe recompute of a derived
-  // value (readiness); nothing here ever deletes or resets history.
+  // COPILOT INTELLIGENCE
   // ══════════════════════════════════════════════════════════════════════
 
-  /// Loads the full [CopilotContext] (career + skills + current +
-  /// historical progress), recomputes [CareerReadiness] deterministically,
-  /// generates any genuinely-new [NextBestAction]s / [CopilotRecommendation]s
-  /// (skipping ones that already exist so nothing is duplicated or reset),
+  /// Loads the full [CopilotContext], recomputes readiness deterministically,
+  /// generates genuinely-new actions/recommendations (state-versioned IDs),
   /// persists the new pieces, and updates local state.
   ///
-  /// Safe to call as often as needed (init, after any progress change, or
-  /// manually) — it never throws; failures are logged and result in the
-  /// previous [copilotContext] being left untouched.
+  /// This method does NOT touch XP — it consumes whatever XP is already
+  /// present on the caller's state. XP reconciliation is owned by
+  /// [refreshAuthoritativeState] so there is exactly one XP source.
   Future<CopilotContext?> refreshIntelligence(String uid, {String? careerId}) async {
     try {
       final resolvedCareerId = careerId ?? _selectedCareerId;
@@ -682,9 +841,6 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
           .where((r) => !existingRecIds.contains(r.id))
           .toList();
 
-      // Persist: readiness is a derived snapshot (safe to overwrite on
-      // every recompute). Actions/recommendations are only ever ADDED —
-      // existing ones (including completed/dismissed ones) are left alone.
       await CopilotFirestoreService.saveCareerReadiness(uid, readiness);
       for (final action in newActions) {
         await CopilotFirestoreService.saveNextAction(uid, action);
@@ -708,11 +864,6 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     }
   }
 
-  /// Records the user's selected career (persisted, never overwrites past
-  /// career history since CareerContext itself is just "current
-  /// selection" — per-career learning progress keeps its own permanent
-  /// history in Firestore keyed by careerId regardless of which career is
-  /// currently selected), then recomputes intelligence for it.
   Future<void> selectCareer(String uid, CareerContext career) async {
     try {
       await CopilotFirestoreService.saveCareerContext(uid, career);
@@ -723,8 +874,6 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     }
   }
 
-  /// Appends one completed lesson to permanent per-career history, then
-  /// recomputes readiness/actions/recommendations.
   Future<void> recordLessonCompleted(
     String uid, {
     required String careerId,
@@ -741,54 +890,64 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
         currentLevelTitle: currentLevelTitle,
       );
       _selectedCareerId ??= careerId;
+      await refreshAuthoritativeState(uid);
       await refreshIntelligence(uid, careerId: careerId);
     } catch (e) {
       debugPrint('recordLessonCompleted error: $e');
     }
   }
 
-  /// Persists ONE course learning event (quiz answer / challenge answer /
-  /// project completion) with idempotent XP award, then refreshes Copilot
-  /// intelligence so Skill Gaps / Readiness / Next Best Actions reflect
-  /// the new evidence.
+  /// Records a single course event and reports whether this call was the
+  /// one that actually recorded it.
   ///
-  /// [eventId] must be stable and unique per event (e.g.
-  /// `quiz:{courseId}:{index}`). Repeated calls with the same eventId are
-  /// safe — the Firestore transaction awards XP at most once.
+  /// Returns:
+  ///   • `true`  — the event was newly recorded by this call
+  ///                (CopilotFirestoreService awarded XP inside its own
+  ///                transaction).
+  ///   • `false` — the event already existed (idempotent no-op), or the
+  ///                inputs were invalid (empty careerId / eventId), so
+  ///                nothing was recorded and nothing should be awarded.
   ///
-  /// The downstream evidence flow is:
-  ///   Course event → copilot_learning_progress (append-only event id +
-  ///   evidence trail + XP) → refreshIntelligence() → readiness recompute
-  ///   → next-best-action regeneration → recommendation regeneration.
+  /// XP authority is unchanged: Firestore remains the sole owner of the
+  /// XP award. This method never adds XP logic of its own.
   ///
-  /// Errors are logged and rethrown so the caller (the course screen) can
-  /// present a retryable failure state instead of a false success.
-  Future<void> recordCourseEvent(
+  /// Genuine Firestore errors are logged and rethrown so the caller can
+  /// surface them; they never collapse into a silent `false`.
+  Future<bool> recordCourseEvent(
     String uid, {
     required String careerId,
     required String eventId,
     required int xpReward,
+    String? eventType,
+    String? topic,
+    bool? correct,
   }) async {
-    final effectiveCareerId =
-        careerId.isNotEmpty ? careerId : (_selectedCareerId ?? '');
-    if (effectiveCareerId.isEmpty || eventId.isEmpty) return;
+    final effectiveCareerId = careerId.isNotEmpty
+        ? careerId
+        : (_selectedCareerId ?? _resolveActiveCareerId() ?? '');
+    if (effectiveCareerId.isEmpty || eventId.isEmpty) return false;
 
     try {
-      await CopilotFirestoreService.recordCourseEvent(
+      final wasNewlyRecorded =
+          await CopilotFirestoreService.recordCourseEvent(
         uid,
         careerId: effectiveCareerId,
         eventId: eventId,
         xpReward: xpReward,
+        eventType: eventType,
+        topic: topic,
+        correct: correct,
       );
       _selectedCareerId ??= effectiveCareerId;
+      await refreshAuthoritativeState(uid);
       await refreshIntelligence(uid, careerId: effectiveCareerId);
+      return wasNewlyRecorded;
     } catch (e) {
       debugPrint('recordCourseEvent error: $e');
       rethrow;
     }
   }
 
-  /// Appends one completed project to permanent history, then recomputes.
   Future<void> recordProjectCompleted(
     String uid,
     String projectId, {
@@ -796,49 +955,66 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     String? currentProjectId,
   }) async {
     try {
+      final resolvedCareerId = _resolveActiveCareerId();
       await CopilotFirestoreService.appendCompletedProject(
         uid,
         projectId,
         totalProjects: totalProjects,
         currentProjectId: currentProjectId,
+        careerId: resolvedCareerId,
       );
-      await refreshIntelligence(uid);
+      if (resolvedCareerId != null) _selectedCareerId ??= resolvedCareerId;
+      await refreshAuthoritativeState(uid);
+      await refreshIntelligence(
+        uid,
+        careerId: resolvedCareerId ?? _selectedCareerId,
+      );
     } catch (e) {
       debugPrint('recordProjectCompleted error: $e');
     }
   }
 
-  /// Appends one applied job to permanent history, then recomputes.
   Future<void> recordJobApplied(String uid, String jobId) async {
     try {
-      await CopilotFirestoreService.appendAppliedJob(uid, jobId);
-      await refreshIntelligence(uid);
+      final resolvedCareerId = _resolveActiveCareerId();
+      await CopilotFirestoreService.appendAppliedJob(
+        uid,
+        jobId,
+        careerId: resolvedCareerId,
+      );
+      if (resolvedCareerId != null) _selectedCareerId ??= resolvedCareerId;
+      await refreshIntelligence(
+        uid,
+        careerId: resolvedCareerId ?? _selectedCareerId,
+      );
     } catch (e) {
       debugPrint('recordJobApplied error: $e');
     }
   }
 
-  /// Appends one completed interview (with optional score) to permanent
-  /// history, then recomputes.
   Future<void> recordInterviewCompleted(
     String uid,
     String interviewId, {
     double? score,
   }) async {
     try {
+      final resolvedCareerId = _resolveActiveCareerId();
       await CopilotFirestoreService.appendCompletedInterview(
         uid,
         interviewId,
         score: score,
+        careerId: resolvedCareerId,
       );
-      await refreshIntelligence(uid);
+      if (resolvedCareerId != null) _selectedCareerId ??= resolvedCareerId;
+      await refreshIntelligence(
+        uid,
+        careerId: resolvedCareerId ?? _selectedCareerId,
+      );
     } catch (e) {
       debugPrint('recordInterviewCompleted error: $e');
     }
   }
 
-  /// Marks a Next Best Action as completed WITHOUT deleting it (it stays
-  /// in the user's action history) and updates local state optimistically.
   Future<void> completeNextAction(String uid, String actionId) async {
     try {
       await CopilotFirestoreService.completeNextAction(uid, actionId);
@@ -855,9 +1031,6 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     }
   }
 
-  /// Marks a recommendation as dismissed WITHOUT deleting it (it stays in
-  /// the user's recommendation history) and updates local state
-  /// optimistically.
   Future<void> dismissRecommendation(String uid, String recommendationId) async {
     try {
       await CopilotFirestoreService.dismissRecommendation(
@@ -876,11 +1049,8 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     }
   }
 
-  // ── Rule engine (private, deterministic, no AI) ──────────────────────
+  // ── Rule engine ─────────────────────────────────────────────────────
 
-  /// Deterministic readiness scoring from whatever progress data exists.
-  /// Every dimension defaults to 0 when its underlying data is empty, so
-  /// a brand-new user simply starts at 0 readiness rather than erroring.
   CareerReadiness _computeReadiness(CopilotContext context) {
     double skillReadiness;
     if (context.state.skillGaps.isEmpty) {
@@ -918,13 +1088,10 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     );
   }
 
-  /// Deterministic Next-Best-Action rules. IDs are stable/semantic (e.g.
-  /// `action_skill_python`) rather than random — this is the dedup
-  /// mechanism: [refreshIntelligence] only persists actions whose id
-  /// isn't already present in the user's action history, so calling this
-  /// repeatedly never creates duplicate rows, and an action the user
-  /// already completed under that id will not be silently resurrected
-  /// with isCompleted reset to false.
+  /// Deterministic Next-Best-Action rules with state-versioned IDs.
+  ///
+  /// ID versions reflect real state, so a completed action under one state
+  /// does not permanently block the same category at a later state.
   List<NextBestAction> _generateNextActions(
     CopilotContext context,
     CareerReadiness readiness,
@@ -935,14 +1102,17 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
         context.state.skillProfile?.targetRole.label ??
         'your career';
 
-    // Rule 1: a critical (priority 1) skill gap → recommend skill practice.
+    // Rule 1: critical skill gap → skill review, versioned by the
+    // current-to-required level delta.
     final criticalGaps =
         context.state.skillGaps.where((g) => g.priority == 1).toList();
     if (criticalGaps.isNotEmpty) {
       final gap = criticalGaps.first;
       final key = gap.skillName.toLowerCase().replaceAll(' ', '_');
+      final levelKey =
+          '${gap.currentLevel?.value ?? 0}_to_${gap.requiredLevel.value}';
       actions.add(NextBestAction(
-        id: 'action_skill_$key',
+        id: 'action_skill_${key}_$levelKey',
         type: NextActionType.skillReview,
         title: 'Strengthen ${gap.skillName}',
         description: gap.reason,
@@ -952,12 +1122,16 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
-    // Rule 2: learning not yet complete → recommend the next lesson.
+    // Rule 2: learning not yet complete → continue path, versioned by the
+    // completed-count frontier.
     if (readiness.learningReadiness < 1.0) {
       final careerKey =
-          context.learningProgress.careerId.isEmpty ? 'general' : context.learningProgress.careerId;
+          context.learningProgress.careerId.isEmpty
+              ? 'general'
+              : context.learningProgress.careerId;
+      final frontier = context.learningProgress.completedCount;
       actions.add(NextBestAction(
-        id: 'action_continue_learning_$careerKey',
+        id: 'action_continue_learning_${careerKey}_$frontier',
         type: NextActionType.lesson,
         title: context.learningProgress.completedCount == 0
             ? 'Start your $careerTitle path'
@@ -970,11 +1144,13 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
-    // Rule 3: decent learning progress but low project progress →
-    // recommend building a project.
+    // Rule 3: learning ≥ 0.4 and project < 0.6 → build project.
+    // Version = projectsCompleted so the ID changes as the user ships
+    // projects, releasing the action for the next project.
     if (readiness.learningReadiness >= 0.4 && readiness.projectReadiness < 0.6) {
+      final projectsCompleted = context.projectProgress.completedCount;
       actions.add(NextBestAction(
-        id: 'action_build_project',
+        id: 'action_build_project_$projectsCompleted',
         type: NextActionType.project,
         title: 'Build a portfolio project',
         description:
@@ -984,11 +1160,13 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
-    // Rule 4: reasonably learned but interview-unready → recommend a
-    // mock interview.
+    // Rule 4: learning ≥ 0.5 and interview < 0.5 → mock interview.
+    // Version = interview readiness bucket (0–10). Changes as interview
+    // evidence updates, releasing the action for the next attempt tier.
     if (readiness.learningReadiness >= 0.5 && readiness.interviewReadiness < 0.5) {
+      final interviewBucket = (readiness.interviewReadiness * 10).floor();
       actions.add(NextBestAction(
-        id: 'action_mock_interview',
+        id: 'action_mock_interview_$interviewBucket',
         type: NextActionType.interview,
         title: 'Practice a mock interview',
         description: 'Build interview confidence for $careerTitle roles.',
@@ -997,10 +1175,13 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
-    // Rule 5: job-ready → recommend applying.
+    // Rule 5: jobReady ≥ 0.6 → apply.
+    // Version = job readiness bucket (0–10). Changes as readiness evolves,
+    // releasing the action for the next application tier.
     if (readiness.jobReadiness >= 0.6) {
+      final jobBucket = (readiness.jobReadiness * 10).floor();
       actions.add(NextBestAction(
-        id: 'action_apply_jobs',
+        id: 'action_apply_jobs_$jobBucket',
         type: NextActionType.application,
         title: 'Apply to $careerTitle roles',
         description:
@@ -1010,10 +1191,12 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
-    // Rule 6: streak lost after prior activity → nudge to return.
+    // Rule 6: streak lost → resume. Version = number of progress days so
+    // it evolves with activity, without resurrecting a completed action.
     if (_state.currentStreak == 0 && context.state.progressHistory.isNotEmpty) {
+      final historyDays = context.state.progressHistory.length;
       actions.add(NextBestAction(
-        id: 'action_resume_streak',
+        id: 'action_resume_streak_$historyDays',
         type: NextActionType.skillReview,
         title: 'Jump back in',
         description:
@@ -1026,10 +1209,7 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
     return actions;
   }
 
-  /// Deterministic recommendation rules, mirroring the action rules above
-  /// but framed as higher-level guidance. Same stable-id dedup strategy:
-  /// [refreshIntelligence] never re-creates (and never un-dismisses) a
-  /// recommendation whose id already exists in history.
+  /// Deterministic recommendation rules with state-versioned IDs.
   List<CopilotRecommendation> _generateRecommendations(
     CopilotContext context,
     CareerReadiness readiness,
@@ -1040,14 +1220,17 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
         context.state.skillProfile?.targetRole.label ??
         'your career';
 
+    // Skill gap → versioned by current-to-required level delta.
     final criticalGaps =
         context.state.skillGaps.where((g) => g.priority == 1).toList();
     if (criticalGaps.isNotEmpty) {
       final first = criticalGaps.first;
       final names = criticalGaps.map((g) => g.skillName).join(', ');
       final key = first.skillName.toLowerCase().replaceAll(' ', '_');
+      final levelKey =
+          '${first.currentLevel?.value ?? 0}_to_${first.requiredLevel.value}';
       recs.add(CopilotRecommendation(
-        id: 'rec_skill_gap_$key',
+        id: 'rec_skill_gap_${key}_$levelKey',
         category: RecommendationCategory.skillGap,
         title: 'Close your biggest skill gaps',
         description: 'Focus on $names — these matter most for $careerTitle.',
@@ -1056,9 +1239,11 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
+    // Learning path → versioned by learning-readiness bucket.
     if (readiness.learningReadiness < 0.5) {
+      final learningBucket = (readiness.learningReadiness * 10).floor();
       recs.add(CopilotRecommendation(
-        id: 'rec_learning_path',
+        id: 'rec_learning_path_$learningBucket',
         category: RecommendationCategory.learningPath,
         title: 'Keep building your foundation',
         description:
@@ -1068,9 +1253,11 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
+    // Project → versioned by projects completed.
     if (readiness.learningReadiness >= 0.4 && readiness.projectReadiness < 0.5) {
+      final projectsCompleted = context.projectProgress.completedCount;
       recs.add(CopilotRecommendation(
-        id: 'rec_project',
+        id: 'rec_project_$projectsCompleted',
         category: RecommendationCategory.project,
         title: 'Start a hands-on project',
         description: 'Projects turn lessons into proof for recruiters.',
@@ -1079,9 +1266,11 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
+    // Interview prep → versioned by interview-readiness bucket.
     if (readiness.learningReadiness >= 0.5 && readiness.interviewReadiness < 0.5) {
+      final interviewBucket = (readiness.interviewReadiness * 10).floor();
       recs.add(CopilotRecommendation(
-        id: 'rec_interview_prep',
+        id: 'rec_interview_prep_$interviewBucket',
         category: RecommendationCategory.interviewPrep,
         title: 'Prepare for interviews',
         description: 'Try a mock interview to see where you stand.',
@@ -1090,9 +1279,11 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
+    // Job match → versioned by job-readiness bucket.
     if (readiness.jobReadiness >= 0.6) {
+      final jobBucket = (readiness.jobReadiness * 10).floor();
       recs.add(CopilotRecommendation(
-        id: 'rec_job_match',
+        id: 'rec_job_match_$jobBucket',
         category: RecommendationCategory.jobMatch,
         title: "You're looking job-ready",
         description:
@@ -1102,9 +1293,11 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
       ));
     }
 
+    // Streak nudge → versioned by progress-history length.
     if (_state.currentStreak == 0 && context.state.progressHistory.isNotEmpty) {
+      final historyDays = context.state.progressHistory.length;
       recs.add(CopilotRecommendation(
-        id: 'rec_streak_nudge',
+        id: 'rec_streak_nudge_$historyDays',
         category: RecommendationCategory.streakNudge,
         title: "Don't lose momentum",
         description: 'A short session today restarts your streak.',
@@ -1141,27 +1334,16 @@ static bool get _hasApiKey => false; // Disable real API calls for now (set to t
 }
 
 // ── Career-aware required-skill spec ───────────────────────────────────
-//
-// Tiny immutable value type used only inside CopilotController to
-// describe one required skill for a career. Kept private to this file so
-// it does not touch the public model layer.
-
 class _CareerSkill {
   final String name;
   final SkillLevel required;
-  final int priority; // 1 = critical, 2 = important, 3 = nice-to-have
+  final int priority;
   final String reason;
 
   const _CareerSkill(this.name, this.required, this.priority, this.reason);
 }
 
 // ── Career-aware roadmap spec ──────────────────────────────────────────
-//
-// Private, immutable content used only to build the mock roadmap. Each
-// entry describes the ordered phases for one career. Skills in each
-// phase align with the career-specific skill table above, so the roadmap
-// and the gap analysis always tell the user the same story.
-
 class _CareerRoadmapSpec {
   final List<_RoadmapPhaseSpec> phases;
   const _CareerRoadmapSpec(this.phases);
@@ -1199,9 +1381,7 @@ class _RoadmapResourceSpec {
   });
 }
 
-/// Career-specific roadmap table. Keyed by the same canonical career ids
-/// used by [_careerSkillSpecs]. Falls back to AI Engineer when the career
-/// is unknown so a brand-new user still gets a meaningful roadmap.
+/// Career-specific roadmap table.
 final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
   // ── AI Engineer ─────────────────────────────────────────────────────
   'ai_engineer': const _CareerRoadmapSpec([
@@ -1765,6 +1945,78 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         ),
       ],
       estimatedDuration: '6 weeks',
+    ),
+  ]),
+
+  // ── Software Engineer ──────────────────────────────────────────────
+  'software_engineer': const _CareerRoadmapSpec([
+    _RoadmapPhaseSpec(
+      title: 'Programming Foundations',
+      description:
+          'One language deeply, clean code habits, and version control.',
+      skills: ['Python', 'Git', 'Testing', 'Command Line'],
+      resources: [
+        _RoadmapResourceSpec(
+          title: 'CS50: Introduction to Computer Science',
+          platform: 'Harvard / edX',
+          url: 'https://cs50.harvard.edu/x/',
+          isFree: true,
+          duration: '10 weeks',
+          icon: '💻',
+        ),
+      ],
+      estimatedDuration: '6 weeks',
+    ),
+    _RoadmapPhaseSpec(
+      title: 'Data Structures & Algorithms',
+      description:
+          'The core toolkit for every technical interview.',
+      skills: ['Data Structures & Algorithms', 'Big-O', 'Problem Solving'],
+      resources: [
+        _RoadmapResourceSpec(
+          title: 'NeetCode 150',
+          platform: 'NeetCode',
+          url: 'https://neetcode.io/practice',
+          isFree: true,
+          duration: '8 weeks',
+          icon: '🧠',
+        ),
+      ],
+      estimatedDuration: '8 weeks',
+    ),
+    _RoadmapPhaseSpec(
+      title: 'System Design & Databases',
+      description:
+          'Design and reason about real, scalable systems.',
+      skills: ['System Design', 'Databases', 'APIs'],
+      resources: [
+        _RoadmapResourceSpec(
+          title: 'System Design Primer',
+          platform: 'GitHub',
+          url: 'https://github.com/donnemartin/system-design-primer',
+          isFree: true,
+          duration: '5 weeks',
+          icon: '🏗️',
+        ),
+      ],
+      estimatedDuration: '6 weeks',
+    ),
+    _RoadmapPhaseSpec(
+      title: 'Portfolio & Job Ready',
+      description:
+          'Ship real projects, prepare stories, and start applying.',
+      skills: ['Portfolio', 'Interview Prep', 'System Design'],
+      resources: [
+        _RoadmapResourceSpec(
+          title: 'Tech Interview Handbook',
+          platform: 'GitHub',
+          url: 'https://github.com/yangshun/tech-interview-handbook',
+          isFree: true,
+          duration: '4 weeks',
+          icon: '💼',
+        ),
+      ],
+      estimatedDuration: '4 weeks',
     ),
   ]),
 

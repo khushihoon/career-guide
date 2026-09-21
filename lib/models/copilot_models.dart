@@ -2,6 +2,16 @@
 // lib/models/copilot_models.dart
 // AI Career Copilot — all data models.
 // Null-safe. No changes required to existing models.dart.
+//
+// FINAL COMPATIBILITY PASS (this revision):
+//   • CareerGoal.softwareEngineer is now a first-class career value.
+//     Its label, emoji, and fromString() restore it correctly from both
+//     "Software Engineer" (canonical label) and "software_engineer"
+//     (canonical id used by CopilotController) so persisted data written
+//     by either form loads cleanly.
+//   • Every other enum value, field, constructor, and Firestore
+//     serialization method is byte-for-byte preserved, so old documents
+//     and existing callers keep working exactly as before.
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ─── Skill Level ──────────────────────────────────────────────────────────────
@@ -48,6 +58,7 @@ enum CareerGoal {
   promptEngineer,
   aiResearcher,
   aiProductManager,
+  softwareEngineer,
 }
 
 extension CareerGoalExt on CareerGoal {
@@ -61,6 +72,7 @@ extension CareerGoalExt on CareerGoal {
       case CareerGoal.promptEngineer:   return 'Prompt Engineer';
       case CareerGoal.aiResearcher:     return 'AI Researcher';
       case CareerGoal.aiProductManager: return 'AI Product Manager';
+      case CareerGoal.softwareEngineer: return 'Software Engineer';
     }
   }
 
@@ -74,14 +86,45 @@ extension CareerGoalExt on CareerGoal {
       case CareerGoal.promptEngineer:   return '✍️';
       case CareerGoal.aiResearcher:     return '🔬';
       case CareerGoal.aiProductManager: return '🚀';
+      case CareerGoal.softwareEngineer: return '💻';
     }
   }
 
+  /// Canonical career id used by the Copilot intelligence layer
+  /// (matches `CopilotController._careerIdForGoal`).
+  String get careerId {
+    switch (this) {
+      case CareerGoal.aiEngineer:       return 'ai_engineer';
+      case CareerGoal.mlEngineer:       return 'ml_engineer';
+      case CareerGoal.dataScientist:    return 'data_scientist';
+      case CareerGoal.nlpEngineer:      return 'llm_engineer';
+      case CareerGoal.cvEngineer:       return 'cv_engineer';
+      case CareerGoal.promptEngineer:   return 'prompt_engineer';
+      case CareerGoal.aiResearcher:     return 'ai_researcher';
+      case CareerGoal.aiProductManager: return 'ai_product_manager';
+      case CareerGoal.softwareEngineer: return 'software_engineer';
+    }
+  }
+
+  /// Tolerant parser for persisted career data.
+  ///
+  /// Accepts, in order of preference:
+  ///   • the canonical label ("Software Engineer"),
+  ///   • the canonical careerId ("software_engineer"),
+  ///   • the enum name ("softwareEngineer").
+  ///
+  /// Falls back to AI Engineer only when nothing matches — preserving the
+  /// previous behaviour for unknown values and old documents.
   static CareerGoal fromString(String s) {
-    return CareerGoal.values.firstWhere(
-      (g) => g.label == s,
-      orElse: () => CareerGoal.aiEngineer,
-    );
+    if (s.isEmpty) return CareerGoal.aiEngineer;
+    final needle = s.trim().toLowerCase();
+
+    for (final g in CareerGoal.values) {
+      if (g.label.toLowerCase() == needle) return g;
+      if (g.careerId.toLowerCase() == needle) return g;
+      if (g.name.toLowerCase() == needle) return g;
+    }
+    return CareerGoal.aiEngineer;
   }
 }
 
@@ -1183,19 +1226,9 @@ class CopilotRecommendation {
 }
 
 // ─── Copilot Context (aggregate) ───────────────────────────────────────────────
-// The single object the Copilot reasons over:
-//   Selected Career (CareerContext) + User Skills (from CopilotState.skillProfile)
-//   + Current Progress (learning/project/job/interview contexts)
-//   + Historical Progress (CopilotState.progressHistory, untouched).
-//
-// This wraps the EXISTING CopilotState by reference rather than editing its
-// class body, so CopilotState's constructor, fields, and copyWith are 100%
-// unchanged. Existing controllers/widgets that only know about CopilotState
-// keep compiling and behaving exactly as before; new Copilot features read
-// CopilotContext instead.
 
 class CopilotContext {
-  final CopilotState state; // existing skill profile + gaps + roadmap + goals + history
+  final CopilotState state;
   final CareerContext? career;
   final LearningProgressContext learningProgress;
   final ProjectProgressContext projectProgress;
@@ -1243,10 +1276,6 @@ class CopilotContext {
   }
 
   Map<String, dynamic> toFirestore() => {
-        // Existing state serialized via its own untouched toFirestore-style
-        // fields, reconstructed manually here since CopilotState itself has
-        // no toFirestore (it's runtime-only state); persist the pieces it
-        // wraps that already have serialization:
         'skillProfile': state.skillProfile?.toFirestore(),
         'skillGaps': state.skillGaps.map((g) => g.toFirestore()).toList(),
         'roadmap': state.roadmap?.toFirestore(),
@@ -1330,12 +1359,6 @@ class CopilotContext {
   factory CopilotContext.fromMap(Map<String, dynamic> map) =>
       CopilotContext.fromFirestore(map);
 
-  /// Returns a NEW CopilotContext. `state.progressHistory` and every
-  /// append-only history list (completedLessonIds, completedProjectIds,
-  /// appliedJobIds, completedInterviewIds, recommendations, nextActions)
-  /// are carried forward unless an explicit replacement is passed in —
-  /// callers should pass already-appended lists, never truncated ones, to
-  /// honor "never overwrite or reset historical data".
   CopilotContext copyWith({
     CopilotState? state,
     CareerContext? career,

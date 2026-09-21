@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════
-// lib/features/copilot/screens/skill_gap_screen.dart
+// lib/screens/skill_gap_screen.dart
 //
 // Skill Gap Analysis — reads real SkillGap data from CopilotController.
 //
@@ -8,10 +8,16 @@
 //    and CopilotController.copilotContext — nothing is computed here.
 //  • "Fix this gap" opens a real actionable sheet. The primary CTA
 //    resolves a real TopicCourse for the SELECTED skill, in this order:
-//      1) CourseContentData.findByTopic(skillName) — real authored course
-//      2) AiCourseService.generateCourse(...) — deterministic generated
+//      1) career-scoped match against CourseContentData — the user's
+//         selected career first, so the same skill name cannot resolve
+//         to a course that belongs to a different career.
+//           a) exact topic match within the selected career,
+//           b) safe partial topic match within the selected career,
+//      2) legacy global CourseContentData.findByTopic(skillName) — only
+//         used when no career-scoped match exists,
+//      3) AiCourseService.generateCourse(...) — deterministic generated
 //         course, used ONLY when a real authored course isn't available
-//         AND the selected career context is known
+//         AND the selected career context is known.
 //    Then opens the existing CourseEngineScreen with that course.
 //  • When neither path can safely resolve a course, the sheet shows a
 //    clear fallback with a "Refresh Copilot" action — it never silently
@@ -443,7 +449,7 @@ class SkillGapScreen extends StatelessWidget {
     String uid,
   ) async {
     final ctx = ctrl.copilotContext;
-    final pending = ctx?.pendingActions ?? const <NextBestAction>[];
+    final pending = ctx?.nextActions ?? const <NextBestAction>[];
 
     NextBestAction? matched;
     for (final action in pending) {
@@ -455,14 +461,19 @@ class SkillGapScreen extends StatelessWidget {
     }
 
     // Snapshot the real career context before opening the sheet. This
-    // may be null — the real-course path (CourseContentData.findByTopic)
-    // works without it, so a missing career context no longer blocks the
-    // primary CTA.
+    // may be null — the real-course path (career-scoped CourseContentData
+    // lookup) works without it, so a missing career context no longer
+    // blocks the primary CTA.
     final careerContext = ctx?.career;
 
     // Resolve a real authored course for this skill once, up front, so
     // the sheet can immediately show whether a ready-made course exists.
-    final realCourse = _resolveRealCourse(gap.skillName);
+    // The selected career is preferred so the same skill name never
+    // resolves to a course belonging to a different career.
+    final realCourse = _resolveRealCourse(
+      gap.skillName,
+      careerId: careerContext?.careerId,
+    );
 
     if (!context.mounted) return;
 
@@ -557,12 +568,63 @@ class SkillGapScreen extends StatelessWidget {
   }
 
   /// Looks up a real authored course for [skillName] using the existing
-  /// course content database. Returns null when nothing matches — the
-  /// caller then decides whether to fall back to generated content or to
-  /// the Refresh Copilot path.
-  static TopicCourse? _resolveRealCourse(String skillName) {
-    if (skillName.trim().isEmpty) return null;
-    return CourseContentData.findByTopic(skillName);
+  /// course content database.
+  ///
+  /// Resolution order:
+  ///   1. Career-scoped match within the caller's selected [careerId]:
+  ///        a) exact topic match,
+  ///        b) safe partial topic match.
+  ///   2. Legacy global CourseContentData.findByTopic(skillName) — used
+  ///      ONLY when no career-scoped match exists, so a stale or missing
+  ///      career context can never silently open an unrelated course.
+  ///
+  /// Returns null when nothing matches — the caller then decides whether
+  /// to fall back to generated content or to the Refresh Copilot path.
+  static TopicCourse? _resolveRealCourse(
+    String skillName, {
+    String? careerId,
+  }) {
+    final skill = skillName.trim();
+    if (skill.isEmpty) return null;
+
+    // 1. Career-scoped match (exact, then partial).
+    if (careerId != null && careerId.isNotEmpty) {
+      final careerCourses = CourseContentData.forCareer(careerId);
+      if (careerCourses.isNotEmpty) {
+        final exact = _findInList(careerCourses, skill, exactOnly: true);
+        if (exact != null) return exact;
+
+        final partial = _findInList(careerCourses, skill, exactOnly: false);
+        if (partial != null) return partial;
+      }
+    }
+
+    // 2. Legacy global lookup — only when no career-scoped match exists.
+    return CourseContentData.findByTopic(skill);
+  }
+
+  /// Returns the first course in [courses] whose topicTitle matches
+  /// [skill] (case-insensitive). When [exactOnly] is true, only an
+  /// exact match is accepted; otherwise a containment match is allowed.
+  static TopicCourse? _findInList(
+    List<TopicCourse> courses,
+    String skill, {
+    required bool exactOnly,
+  }) {
+    final needle = skill.toLowerCase();
+
+    if (exactOnly) {
+      for (final c in courses) {
+        if (c.topicTitle.toLowerCase() == needle) return c;
+      }
+      return null;
+    }
+
+    for (final c in courses) {
+      final hay = c.topicTitle.toLowerCase();
+      if (hay.contains(needle) || needle.contains(hay)) return c;
+    }
+    return null;
   }
 }
 
@@ -687,8 +749,8 @@ class _FixGapSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: const [
+                      const Row(
+                        children: [
                           Icon(Icons.bolt, color: _secondary, size: 16),
                           SizedBox(width: 6),
                           Text('Your Copilot\'s next action',
@@ -1010,7 +1072,10 @@ class _MasteredGapCard extends StatelessWidget {
               border: Border.all(color: _green.withOpacity(0.3)),
             ),
             child: const Text('Closed',
-                style: TextStyle(color: _green, fontSize: 10, fontWeight: FontWeight.w700)),
+                style: TextStyle(
+                    color: _green,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700)),
           ),
         ],
       ),
