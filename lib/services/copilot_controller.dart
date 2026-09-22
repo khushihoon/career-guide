@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════════════
 // lib/services/copilot_controller.dart
 //
-// FINAL integration pass — CopilotController as the intelligence /
+// ARCHITECTURE-ALIGNED integration pass — CopilotController as the intelligence /
 // orchestration layer.
 //
 // Behaviour contract:
@@ -61,24 +61,15 @@
 // todayGoals and to feed syncTodayProgress(). The caller's UI
 // `goal.isCompleted` snapshot is never consulted.
 //
-// AUTHORITATIVE COURSE-EVENT RESULT
-// ─────────────────────────────────
-// CopilotFirestoreService.recordCourseEvent() returns
-// `Future<bool>`: true when THIS call newly recorded the event (and
-// therefore awarded XP inside the Firestore transaction), false when
-// the event already existed and the call was a no-op.
-//
-// The Controller forwards that result to the caller so a UI layer can
-// distinguish a genuine first-time completion from an idempotent
-// re-submission — WITHOUT adding any XP logic here. Firestore remains
-// the sole authority for whether XP was awarded.
-//
-// FINAL PASS NOTES (preserved, unchanged):
+// ARCHITECTURE ALIGNMENT NOTES:
 //   • Software Engineer is a first-class Copilot career.
 //   • State-versioned NextBestAction IDs for project / interview / apply.
 //   • State-versioned Recommendation IDs.
 //   • Career-aware skill gaps and roadmaps.
 //   • Deterministic/offline fallback behaviour.
+//   • Career-scoped gap/action/recommendation IDs and context isolation.
+//   • Career switches rebuild the career-aware profile/roadmap before readiness.
+//   • Project milestone and job-offer evidence hooks are exposed without adding XP here.
 // ══════════════════════════════════════════════════════════════════════
 
 import 'dart:async';
@@ -124,6 +115,13 @@ class CopilotController extends ChangeNotifier {
   String? _selectedCareerId;
   String? get selectedCareerId => _selectedCareerId;
 
+  /// Invalidates stale async work when the user switches careers quickly.
+  int _careerSwitchToken = 0;
+
+  /// Prevents the global skill-profile stream from starting a second
+  /// analysis while an explicit career switch is rebuilding context.
+  bool _careerSwitchInProgress = false;
+
   final RewardService _rewardService = RewardService();
 
   static bool get _hasApiKey => false;
@@ -160,20 +158,29 @@ class CopilotController extends ChangeNotifier {
 
       if (p != null) {
         final existingGoals =
-            await CopilotFirestoreService.getTodayGoals(uid);
+            await CopilotFirestoreService.getTodayGoals(
+              uid,
+              careerId: _selectedCareerId,
+            );
         if (existingGoals.isEmpty) {
-          await _runAnalysis(p);
+          await _runAnalysis(p, careerId: _selectedCareerId ?? _careerIdForGoal(p.targetRole));
         }
       }
 
       unawaited(refreshIntelligence(uid));
     });
 
-    _roadmapSub = CopilotFirestoreService.roadmapStream(uid).listen((r) {
+    _roadmapSub = CopilotFirestoreService.roadmapStream(
+        uid,
+        careerId: _selectedCareerId,
+      ).listen((r) {
       _set(_state.copyWith(roadmap: r));
     });
 
-    _goalsSub = CopilotFirestoreService.todayGoalsStream(uid).listen((g) {
+    _goalsSub = CopilotFirestoreService.todayGoalsStream(
+        uid,
+        careerId: _selectedCareerId,
+      ).listen((g) {
       _set(_state.copyWith(todayGoals: g));
     });
 
@@ -182,7 +189,10 @@ class CopilotController extends ChangeNotifier {
     });
 
     try {
-      final gaps = await CopilotFirestoreService.getSkillGaps(uid);
+      final gaps = await CopilotFirestoreService.getSkillGaps(
+        uid,
+        careerId: _selectedCareerId,
+      );
       _set(_state.copyWith(skillGaps: gaps, isLoading: false));
     } catch (e) {
       _set(_state.copyWith(isLoading: false, error: e.toString()));
@@ -252,10 +262,43 @@ class CopilotController extends ChangeNotifier {
   Future<void> saveSkillProfile(UserSkillProfile profile) async {
     _set(_state.copyWith(isLoading: true, error: null));
     try {
+      final previousProfile = _state.skillProfile;
+      final previousCareerId = _selectedCareerId ??
+          (previousProfile == null
+              ? null
+              : _careerIdForGoal(previousProfile.targetRole));
+      final nextCareerId = _careerIdForGoal(profile.targetRole);
+
+      // Preserve the previous career's editable profile before the global
+      // active profile is replaced. This is NOT a duplicate progress DB:
+      // it is a small career-scoped snapshot used only to restore the
+      // correct profile when the user switches back.
+      if (previousProfile != null &&
+          previousCareerId != null &&
+          previousCareerId.isNotEmpty) {
+        await CopilotFirestoreService.saveCareerSkillProfile(
+          previousProfile,
+          previousCareerId,
+        );
+      }
+
       await CopilotFirestoreService.saveSkillProfile(profile);
       _set(_state.copyWith(skillProfile: profile));
-      await _runAnalysis(profile);
-      await refreshAuthoritativeState(profile.uid);
+
+      if (previousCareerId != nextCareerId) {
+        await selectCareer(
+          profile.uid,
+          _careerContextForGoal(profile.targetRole),
+        );
+      } else {
+        await _runAnalysis(
+          profile,
+          careerId: nextCareerId,
+          preserveExisting: true,
+        );
+        await refreshAuthoritativeState(profile.uid);
+        await refreshIntelligence(profile.uid, careerId: nextCareerId);
+      }
     } catch (e) {
       _set(_state.copyWith(isLoading: false, error: 'Save failed: $e'));
     }
@@ -298,7 +341,7 @@ class CopilotController extends ChangeNotifier {
         _state.todayGoals.isEmpty;
 
     if (needsFullAnalysis && profile != null) {
-      await _runAnalysis(profile);
+      await _runAnalysis(profile, careerId: _selectedCareerId ?? _careerIdForGoal(profile.targetRole));
     }
 
     // 3. Always refresh the intelligence pipeline (readiness / actions /
@@ -360,7 +403,10 @@ class CopilotController extends ChangeNotifier {
       // downstream listener sees the newly-awarded XP immediately.
       await refreshAuthoritativeState(uid);
 
-      unawaited(refreshIntelligence(uid));
+      unawaited(refreshIntelligence(
+        uid,
+        careerId: _selectedCareerId,
+      ));
 
       // Surprise reward only on a genuine, first-time completion.
       if (result.becameCompleted) {
@@ -385,8 +431,15 @@ class CopilotController extends ChangeNotifier {
   // ── Mark a roadmap phase complete ───────────────────────────────────
   Future<void> completePhase(String uid, int phaseIndex) async {
     try {
-      await CopilotFirestoreService.completeRoadmapPhase(uid, phaseIndex);
-      unawaited(refreshIntelligence(uid));
+      await CopilotFirestoreService.completeRoadmapPhase(
+        uid,
+        phaseIndex,
+        careerId: _selectedCareerId,
+      );
+      unawaited(refreshIntelligence(
+        uid,
+        careerId: _selectedCareerId,
+      ));
     } catch (e) {
       debugPrint('completePhase error: $e');
     }
@@ -395,9 +448,23 @@ class CopilotController extends ChangeNotifier {
   // ══════════════════════════════════════════════════════════════════════
   // INTERNAL: Full analysis pipeline
   // ══════════════════════════════════════════════════════════════════════
-  Future<void> _runAnalysis(UserSkillProfile profile) async {
+  Future<void> _runAnalysis(
+    UserSkillProfile profile, {
+    String? careerId,
+    bool preserveExisting = false,
+  }) async {
     _set(_state.copyWith(isLoading: true, error: null));
     try {
+      final activeCareerId =
+          careerId ?? _selectedCareerId ?? _careerIdForGoal(profile.targetRole);
+      final existingContext = _copilotContext;
+      final canReuseExisting = preserveExisting &&
+          existingContext != null &&
+          existingContext.career?.careerId == activeCareerId &&
+          (existingContext.state.skillGaps.isNotEmpty ||
+              existingContext.state.roadmap != null ||
+              existingContext.state.todayGoals.isNotEmpty);
+
       List<SkillGap> gaps;
       PersonalizedRoadmap roadmap;
       List<DailyGoal> goals;
@@ -405,36 +472,74 @@ class CopilotController extends ChangeNotifier {
       if (_hasApiKey) {
         debugPrint('🤖 CopilotController: Using real Claude API');
 
-        gaps = await CopilotAIService.analyseSkillGaps(profile);
-        await CopilotFirestoreService.saveSkillGaps(profile.uid, gaps);
+        gaps = canReuseExisting
+            ? existingContext.state.skillGaps
+            : await CopilotAIService.analyseSkillGaps(profile);
+        if (!canReuseExisting) {
+          await CopilotFirestoreService.saveSkillGaps(
+            profile.uid,
+            gaps,
+            careerId: activeCareerId,
+          );
+        }
         _set(_state.copyWith(skillGaps: gaps));
 
-        roadmap = await CopilotAIService.generateRoadmap(profile, gaps);
-        await CopilotFirestoreService.saveRoadmap(roadmap);
+        roadmap = canReuseExisting && existingContext.state.roadmap != null
+            ? existingContext.state.roadmap!
+            : await CopilotAIService.generateRoadmap(profile, gaps);
+        if (!canReuseExisting) {
+          await CopilotFirestoreService.saveRoadmap(roadmap);
+        }
         _set(_state.copyWith(roadmap: roadmap));
-
         final existingGoals =
-            await CopilotFirestoreService.getTodayGoals(profile.uid);
+            await CopilotFirestoreService.getTodayGoals(
+              profile.uid,
+              careerId: activeCareerId,
+            );
         if (existingGoals.isEmpty) {
           goals = await CopilotAIService.generateDailyGoals(
               profile, roadmap, gaps);
-          await CopilotFirestoreService.saveDailyGoals(profile.uid, goals);
+          await CopilotFirestoreService.saveDailyGoals(
+              profile.uid,
+              goals,
+              careerId: activeCareerId,
+            );
           _set(_state.copyWith(todayGoals: goals));
         }
       } else {
         debugPrint('⚠️  CopilotController: No API key — using mock data');
 
-        gaps = _mockGapsFor(profile, context: _copilotContext);
-        await CopilotFirestoreService.saveSkillGaps(profile.uid, gaps);
+        gaps = canReuseExisting
+            ? existingContext.state.skillGaps
+            : _mockGapsFor(profile, context: _copilotContext);
+        if (!canReuseExisting) {
+          await CopilotFirestoreService.saveSkillGaps(
+            profile.uid,
+            gaps,
+            careerId: activeCareerId,
+          );
+        }
         _set(_state.copyWith(skillGaps: gaps));
 
-        roadmap = _mockRoadmapFor(profile, context: _copilotContext);
-        await CopilotFirestoreService.saveRoadmap(roadmap);
+        roadmap = canReuseExisting && existingContext.state.roadmap != null
+            ? existingContext.state.roadmap!
+            : _mockRoadmapFor(profile, context: _copilotContext);
+        if (!canReuseExisting) {
+          await CopilotFirestoreService.saveRoadmap(roadmap);
+        }
         _set(_state.copyWith(roadmap: roadmap));
-
         final existingGoals =
-            await CopilotFirestoreService.getTodayGoals(profile.uid);
-        if (existingGoals.isEmpty) {
+            await CopilotFirestoreService.getTodayGoals(
+              profile.uid,
+              careerId: activeCareerId,
+            );
+
+        // Always hydrate the active career's existing goals first.
+        // This prevents the UI from showing "No goals yet" while the
+        // intelligence refresh is still completing.
+        if (existingGoals.isNotEmpty) {
+          _set(_state.copyWith(todayGoals: existingGoals));
+        } else {
           final realStreak = _state.currentStreak;
           final realTotalXp = await _resolveAuthoritativeTotalXp();
           final realLevel = LevelSystem.levelFor(realTotalXp);
@@ -443,13 +548,18 @@ class CopilotController extends ChangeNotifier {
           goals = await LocalGoalGeneratorService().generateAndSaveDailyGoals(
             uid: profile.uid,
             targetRole: profile.targetRole.label,
+            careerId: activeCareerId,
             currentSkills: profile.skills.map((s) => s.name).toList(),
             currentStreak: realStreak,
             currentLevel: realLevel,
             roadmapPhase: realPhase,
             existingGoals: existingGoals,
           );
-          await CopilotFirestoreService.saveDailyGoals(profile.uid, goals);
+          await CopilotFirestoreService.saveDailyGoals(
+              profile.uid,
+              goals,
+              careerId: activeCareerId,
+            );
           _set(_state.copyWith(todayGoals: goals));
         }
       }
@@ -558,6 +668,21 @@ class CopilotController extends ChangeNotifier {
       case CareerGoal.aiResearcher:     return 'ai_researcher';
       case CareerGoal.aiProductManager: return 'ai_product_manager';
       case CareerGoal.softwareEngineer: return 'software_engineer';
+    }
+  }
+
+  static CareerGoal? _careerGoalForId(String careerId) {
+    switch (careerId) {
+      case 'ai_engineer':       return CareerGoal.aiEngineer;
+      case 'ml_engineer':       return CareerGoal.mlEngineer;
+      case 'data_scientist':    return CareerGoal.dataScientist;
+      case 'llm_engineer':      return CareerGoal.nlpEngineer;
+      case 'cv_engineer':       return CareerGoal.cvEngineer;
+      case 'prompt_engineer':   return CareerGoal.promptEngineer;
+      case 'ai_researcher':     return CareerGoal.aiResearcher;
+      case 'ai_product_manager':return CareerGoal.aiProductManager;
+      case 'software_engineer': return CareerGoal.softwareEngineer;
+      default: return null;
     }
   }
 
@@ -718,6 +843,9 @@ class CopilotController extends ChangeNotifier {
           currentLevel: inferred,
           priority: req.priority,
           reason: req.reason,
+          careerId: context?.career?.careerId ??
+              _careerIdForGoal(profile.targetRole),
+          status: SkillGapStatus.open,
         ));
       }
     }
@@ -821,12 +949,23 @@ class CopilotController extends ChangeNotifier {
   /// present on the caller's state. XP reconciliation is owned by
   /// [refreshAuthoritativeState] so there is exactly one XP source.
   Future<CopilotContext?> refreshIntelligence(String uid, {String? careerId}) async {
+    final switchToken = _careerSwitchToken;
     try {
       final resolvedCareerId = careerId ?? _selectedCareerId;
-      final context = await CopilotFirestoreService.getCopilotContext(
+      final rawContext = await CopilotFirestoreService.getCopilotContext(
         uid,
         careerId: resolvedCareerId,
       );
+
+      final context = _scopeContextToCareer(
+        rawContext,
+        resolvedCareerId,
+      );
+
+      if (switchToken != _careerSwitchToken ||
+          (resolvedCareerId != null && resolvedCareerId != _selectedCareerId)) {
+        return null;
+      }
 
       final readiness = _computeReadiness(context);
 
@@ -855,6 +994,10 @@ class CopilotController extends ChangeNotifier {
         recommendations: [...context.recommendations, ...newRecs],
       );
 
+      if (switchToken != _careerSwitchToken ||
+          (resolvedCareerId != null && resolvedCareerId != _selectedCareerId)) {
+        return null;
+      }
       _copilotContext = updatedContext;
       notifyListeners();
       return updatedContext;
@@ -865,14 +1008,144 @@ class CopilotController extends ChangeNotifier {
   }
 
   Future<void> selectCareer(String uid, CareerContext career) async {
+    if (uid.isEmpty || career.careerId.isEmpty) return;
+
+    final token = ++_careerSwitchToken;
+    _careerSwitchInProgress = true;
+
     try {
+      // Save the selected career first so every subsequent read resolves
+      // against the new intelligence context.
       await CopilotFirestoreService.saveCareerContext(uid, career);
+      if (token != _careerSwitchToken) return;
+
       _selectedCareerId = career.careerId;
-      await refreshIntelligence(uid, careerId: career.careerId);
+
+      // Restore this career's previous editable skill profile if one exists.
+      // If this is the first visit to the career, keep the current profile
+      // but align its targetRole with the selected career.
+      var activeProfile =
+          await CopilotFirestoreService.getCareerSkillProfile(
+        uid,
+        career.careerId,
+      );
+
+      activeProfile ??= _state.skillProfile;
+
+      final mappedGoal = _careerGoalForId(career.careerId);
+      if (activeProfile != null && mappedGoal != null &&
+          activeProfile.targetRole != mappedGoal) {
+        activeProfile = activeProfile.copyWith(targetRole: mappedGoal);
+      }
+
+      if (activeProfile != null) {
+        // The global skill profile is the ACTIVE profile. The career-scoped
+        // snapshot above is the historical restore point.
+        await CopilotFirestoreService.saveSkillProfile(activeProfile);
+        if (token != _careerSwitchToken) return;
+        await CopilotFirestoreService.saveCareerSkillProfile(
+          activeProfile,
+          career.careerId,
+        );
+        _set(_state.copyWith(skillProfile: activeProfile));
+      }
+
+      // Rebind current-state streams to the NEW career. Old career streams
+      // are cancelled before the new career can paint stale data.
+      await _bindCareerStreams(uid, career.careerId, token);
+      if (token != _careerSwitchToken) return;
+
+      // Hydrate the NEW career before running any rule engine.
+      final rawContext = await CopilotFirestoreService.getCopilotContext(
+        uid,
+        careerId: career.careerId,
+      );
+      if (token != _careerSwitchToken) return;
+
+      final scoped = _scopeContextToCareer(
+        rawContext,
+        career.careerId,
+      ).copyWith(career: career);
+
+      _copilotContext = scoped;
+      _set(_state.copyWith(
+        skillGaps: scoped.state.skillGaps,
+        roadmap: scoped.state.roadmap,
+        todayGoals: scoped.state.todayGoals,
+        isLoading: true,
+        error: null,
+      ));
+
+      // First visit to a career: generate its gaps/roadmap/goals.
+      // Returning to a career: preserve the existing career-scoped state.
+      if (activeProfile != null) {
+        await _runAnalysis(
+          activeProfile,
+          careerId: career.careerId,
+          preserveExisting: true,
+        );
+      }
+      if (token != _careerSwitchToken) return;
+
+      // Re-read everything after generation/preservation so the UI and
+      // Next-Best-Action engine use exactly the active career's data.
+      await refreshIntelligence(
+        uid,
+        careerId: career.careerId,
+      );
+      if (token != _careerSwitchToken) return;
+
+      _set(_state.copyWith(isLoading: false, error: null));
     } catch (e) {
-      debugPrint('selectCareer error: $e');
+      if (token == _careerSwitchToken) {
+        debugPrint('selectCareer error: $e');
+        _set(_state.copyWith(
+          isLoading: false,
+          error: 'Career switch failed: $e',
+        ));
+      }
+    } finally {
+      if (token == _careerSwitchToken) {
+        _careerSwitchInProgress = false;
+      }
     }
   }
+
+  Future<void> _bindCareerStreams(
+    String uid,
+    String careerId,
+    int token,
+  ) async {
+    await _roadmapSub?.cancel();
+    await _goalsSub?.cancel();
+    if (token != _careerSwitchToken) return;
+
+    _roadmapSub = CopilotFirestoreService.roadmapStream(
+      uid,
+      careerId: careerId,
+    ).listen((roadmap) {
+      if (token != _careerSwitchToken) return;
+      _set(_state.copyWith(roadmap: roadmap));
+    });
+
+    _goalsSub = CopilotFirestoreService.todayGoalsStream(
+      uid,
+      careerId: careerId,
+    ).listen((goals) {
+      if (token != _careerSwitchToken) return;
+      _set(_state.copyWith(todayGoals: goals));
+    });
+  }
+
+  static CareerContext _careerContextForGoal(CareerGoal goal) =>
+      CareerContext(
+        careerId: goal.careerId,
+        careerTitle: goal.label,
+        categoryId: 'ai',
+        emoji: goal.emoji,
+        isStaticCareer: true,
+        selectedAt: DateTime.now(),
+      );
 
   Future<void> recordLessonCompleted(
     String uid, {
@@ -897,22 +1170,6 @@ class CopilotController extends ChangeNotifier {
     }
   }
 
-  /// Records a single course event and reports whether this call was the
-  /// one that actually recorded it.
-  ///
-  /// Returns:
-  ///   • `true`  — the event was newly recorded by this call
-  ///                (CopilotFirestoreService awarded XP inside its own
-  ///                transaction).
-  ///   • `false` — the event already existed (idempotent no-op), or the
-  ///                inputs were invalid (empty careerId / eventId), so
-  ///                nothing was recorded and nothing should be awarded.
-  ///
-  /// XP authority is unchanged: Firestore remains the sole owner of the
-  /// XP award. This method never adds XP logic of its own.
-  ///
-  /// Genuine Firestore errors are logged and rethrown so the caller can
-  /// surface them; they never collapse into a silent `false`.
   Future<bool> recordCourseEvent(
     String uid, {
     required String careerId,
@@ -928,8 +1185,7 @@ class CopilotController extends ChangeNotifier {
     if (effectiveCareerId.isEmpty || eventId.isEmpty) return false;
 
     try {
-      final wasNewlyRecorded =
-          await CopilotFirestoreService.recordCourseEvent(
+      final wasNewlyRecorded = await CopilotFirestoreService.recordCourseEvent(
         uid,
         careerId: effectiveCareerId,
         eventId: eventId,
@@ -971,6 +1227,52 @@ class CopilotController extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('recordProjectCompleted error: $e');
+    }
+  }
+
+  Future<void> recordProjectMilestone(
+    String uid,
+    String projectId,
+    String milestoneId,
+  ) async {
+    if (projectId.isEmpty || milestoneId.isEmpty) return;
+    try {
+      final resolvedCareerId = _resolveActiveCareerId();
+      await CopilotFirestoreService.appendCompletedProjectMilestone(
+        uid,
+        projectId,
+        milestoneId,
+        careerId: resolvedCareerId,
+      );
+      await refreshIntelligence(
+        uid,
+        careerId: resolvedCareerId ?? _selectedCareerId,
+      );
+    } catch (e) {
+      debugPrint('recordProjectMilestone error: $e');
+    }
+  }
+
+  Future<void> recordJobOffer(
+    String uid,
+    String offerId, {
+    String? jobId,
+  }) async {
+    if (offerId.isEmpty) return;
+    try {
+      final resolvedCareerId = _resolveActiveCareerId();
+      await CopilotFirestoreService.recordJobOffer(
+        uid,
+        offerId: offerId,
+        jobId: jobId,
+        careerId: resolvedCareerId,
+      );
+      await refreshIntelligence(
+        uid,
+        careerId: resolvedCareerId ?? _selectedCareerId,
+      );
+    } catch (e) {
+      debugPrint('recordJobOffer error: $e');
     }
   }
 
@@ -1051,6 +1353,90 @@ class CopilotController extends ChangeNotifier {
 
   // ── Rule engine ─────────────────────────────────────────────────────
 
+  CopilotContext _scopeContextToCareer(
+    CopilotContext context,
+    String? careerId,
+  ) {
+    if (careerId == null || careerId.isEmpty) return context;
+
+    final gaps = _scopeListByCareer(
+      context.state.skillGaps,
+      (g) => g.careerId,
+      careerId,
+    );
+    final actions = _scopeListByCareer(
+      context.nextActions,
+      (a) => a.careerId,
+      careerId,
+    );
+    final recs = _scopeListByCareer(
+      context.recommendations,
+      (r) => r.careerId,
+      careerId,
+    );
+
+    final project = context.projectProgress.careerId != null &&
+            context.projectProgress.careerId != careerId
+        ? ProjectProgressContext(updatedAt: DateTime.now(), careerId: careerId)
+        : context.projectProgress;
+    final job = context.jobProgress.careerId != null &&
+            context.jobProgress.careerId != careerId
+        ? JobProgressContext(updatedAt: DateTime.now(), careerId: careerId)
+        : context.jobProgress;
+    final interview = context.interviewProgress.careerId != null &&
+            context.interviewProgress.careerId != careerId
+        ? InterviewProgressContext(updatedAt: DateTime.now(), careerId: careerId)
+        : context.interviewProgress;
+
+    final readiness = context.readiness.careerId != null &&
+            context.readiness.careerId != careerId
+        ? CareerReadiness.empty()
+        : context.readiness;
+
+    final expectedGoal = _careerGoalForId(careerId);
+    final roadmap = context.state.roadmap != null &&
+            expectedGoal != null &&
+            context.state.roadmap!.targetRole == expectedGoal
+        ? context.state.roadmap
+        : null;
+
+    return CopilotContext(
+      state: context.state.copyWith(skillGaps: gaps, roadmap: roadmap),
+      career: context.career,
+      learningProgress: context.learningProgress.careerId == careerId
+          ? context.learningProgress
+          : LearningProgressContext(
+              careerId: careerId,
+              totalLessons: 0,
+              updatedAt: DateTime.now(),
+            ),
+      projectProgress: project,
+      jobProgress: job,
+      interviewProgress: interview,
+      readiness: readiness,
+      nextActions: actions,
+      recommendations: recs,
+      blueprint: context.blueprint,
+      currentStage: context.currentStage,
+    );
+  }
+
+  List<T> _scopeListByCareer<T>(
+    List<T> items,
+    String? Function(T item) careerOf,
+    String careerId,
+  ) {
+    if (items.isEmpty) return const [];
+    final hasScoped = items.any((item) {
+      final id = careerOf(item);
+      return id != null && id.isNotEmpty;
+    });
+    if (!hasScoped) return items;
+    return items
+        .where((item) => careerOf(item) == careerId)
+        .toList();
+  }
+
   CareerReadiness _computeReadiness(CopilotContext context) {
     double skillReadiness;
     if (context.state.skillGaps.isEmpty) {
@@ -1078,6 +1464,34 @@ class CopilotController extends ChangeNotifier {
             (interviewReadiness * 0.2))
         .clamp(0.0, 1.0);
 
+    final careerId = context.career?.careerId ??
+        (context.learningProgress.careerId.isEmpty
+            ? null
+            : context.learningProgress.careerId);
+
+    final blockers = <String>[];
+    final missingRequirements = <String>[];
+    final criticalGaps = context.state.skillGaps
+        .where((g) => g.priority == 1)
+        .toList();
+
+    for (final gap in criticalGaps.take(5)) {
+      blockers.add('${gap.skillName}: ${gap.reason}');
+      missingRequirements.add('skill:${gap.skillName}');
+    }
+    if (learningReadiness < 1.0) {
+      blockers.add('Learning path is not complete.');
+      missingRequirements.add('learning');
+    }
+    if (projectReadiness < 0.6) {
+      blockers.add('Build more portfolio evidence through projects.');
+      missingRequirements.add('project');
+    }
+    if (interviewReadiness < 0.5) {
+      blockers.add('Complete scored mock-interview practice.');
+      missingRequirements.add('interview');
+    }
+
     return CareerReadiness(
       skillReadiness: skillReadiness,
       learningReadiness: learningReadiness,
@@ -1085,6 +1499,10 @@ class CopilotController extends ChangeNotifier {
       interviewReadiness: interviewReadiness,
       jobReadiness: jobReadiness,
       computedAt: DateTime.now(),
+      careerId: careerId,
+      blockers: blockers,
+      missingRequirements: missingRequirements,
+      engineVersion: 'copilot-compat-readiness-v2',
     );
   }
 
@@ -1102,28 +1520,54 @@ class CopilotController extends ChangeNotifier {
         context.state.skillProfile?.targetRole.label ??
         'your career';
 
-    // Rule 1: critical skill gap → skill review, versioned by the
-    // current-to-required level delta.
-    final criticalGaps =
-        context.state.skillGaps.where((g) => g.priority == 1).toList();
-    if (criticalGaps.isNotEmpty) {
-      final gap = criticalGaps.first;
+    // Rule 1: ANY open skill gap → skill review.
+    //
+    // This is intentionally NOT limited to priority == 1.
+    // Every active career must behave the same way:
+    //
+    //   open gap → Start Fixing Now → SkillGapScreen
+    //             → Fix This Gap → skill-specific course/lesson
+    //
+    // Priority still controls which gap is selected first; it does NOT
+    // control whether the user gets a real fix action. This prevents
+    // careers whose first remaining gap is priority 2/3 from falling
+    // through to the generic lesson action ("Open" → Roadmap).
+    final openGaps = List<SkillGap>.from(context.state.skillGaps)
+      ..sort((a, b) {
+        final byPriority = a.priority.compareTo(b.priority);
+        if (byPriority != 0) return byPriority;
+        return b.gapScore.compareTo(a.gapScore);
+      });
+
+    if (openGaps.isNotEmpty) {
+      final gap = openGaps.first;
       final key = gap.skillName.toLowerCase().replaceAll(' ', '_');
       final levelKey =
           '${gap.currentLevel?.value ?? 0}_to_${gap.requiredLevel.value}';
       actions.add(NextBestAction(
-        id: 'action_skill_${key}_$levelKey',
+        id: 'action_${context.career?.careerId ?? 'general'}_skill_${key}_$levelKey',
         type: NextActionType.skillReview,
         title: 'Strengthen ${gap.skillName}',
         description: gap.reason,
         priority: 1,
         relatedSkill: gap.skillName,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Strengthen ${gap.skillName}.',
+        why: gap.reason,
+        how: 'Use the current career roadmap and complete evidence-backed practice for this skill.',
+        expectedOutcome: 'Reduce the ${gap.skillName} skill gap.',
+        relatedRequirement: 'skill:${gap.skillName}',
+        stateVersion: levelKey,
       ));
     }
 
     // Rule 2: learning not yet complete → continue path, versioned by the
     // completed-count frontier.
+    //
+    // This is intentionally lower priority than an open skill gap. The
+    // Hub will therefore show "Start Fixing Now" whenever the active
+    // career still has something concrete to fix.
     if (readiness.learningReadiness < 1.0) {
       final careerKey =
           context.learningProgress.careerId.isEmpty
@@ -1131,7 +1575,7 @@ class CopilotController extends ChangeNotifier {
               : context.learningProgress.careerId;
       final frontier = context.learningProgress.completedCount;
       actions.add(NextBestAction(
-        id: 'action_continue_learning_${careerKey}_$frontier',
+        id: 'action_${careerKey}_continue_learning_$frontier',
         type: NextActionType.lesson,
         title: context.learningProgress.completedCount == 0
             ? 'Start your $careerTitle path'
@@ -1141,6 +1585,13 @@ class CopilotController extends ChangeNotifier {
             : 'Pick up where you left off in $careerTitle.',
         priority: 2,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Continue the learning path.',
+        why: 'Learning evidence is still incomplete.',
+        how: 'Complete the next lesson in the active career path.',
+        expectedOutcome: 'Increase verified learning progress.',
+        relatedRequirement: 'learning',
+        stateVersion: 'frontier_$frontier',
       ));
     }
 
@@ -1150,13 +1601,20 @@ class CopilotController extends ChangeNotifier {
     if (readiness.learningReadiness >= 0.4 && readiness.projectReadiness < 0.6) {
       final projectsCompleted = context.projectProgress.completedCount;
       actions.add(NextBestAction(
-        id: 'action_build_project_$projectsCompleted',
+        id: 'action_${context.career?.careerId ?? 'general'}_build_project_$projectsCompleted',
         type: NextActionType.project,
         title: 'Build a portfolio project',
         description:
             "Apply what you've learned in $careerTitle to a real project.",
         priority: 2,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Build a real portfolio project.',
+        why: 'Project evidence is still below the current progression target.',
+        how: 'Ship a project using skills from the active career path.',
+        expectedOutcome: 'Add concrete project evidence.',
+        relatedRequirement: 'project',
+        stateVersion: 'projects_$projectsCompleted',
       ));
     }
 
@@ -1166,12 +1624,19 @@ class CopilotController extends ChangeNotifier {
     if (readiness.learningReadiness >= 0.5 && readiness.interviewReadiness < 0.5) {
       final interviewBucket = (readiness.interviewReadiness * 10).floor();
       actions.add(NextBestAction(
-        id: 'action_mock_interview_$interviewBucket',
+        id: 'action_${context.career?.careerId ?? 'general'}_mock_interview_$interviewBucket',
         type: NextActionType.interview,
         title: 'Practice a mock interview',
         description: 'Build interview confidence for $careerTitle roles.',
         priority: 2,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Complete a scored mock interview.',
+        why: 'Interview evidence is still below the current progression target.',
+        how: 'Run a mock interview and review the scored result.',
+        expectedOutcome: 'Increase interview readiness with real attempt evidence.',
+        relatedRequirement: 'interview',
+        stateVersion: 'bucket_$interviewBucket',
       ));
     }
 
@@ -1181,13 +1646,20 @@ class CopilotController extends ChangeNotifier {
     if (readiness.jobReadiness >= 0.6) {
       final jobBucket = (readiness.jobReadiness * 10).floor();
       actions.add(NextBestAction(
-        id: 'action_apply_jobs_$jobBucket',
+        id: 'action_${context.career?.careerId ?? 'general'}_apply_jobs_$jobBucket',
         type: NextActionType.application,
         title: 'Apply to $careerTitle roles',
         description:
             "Your readiness score suggests you're ready to start applying.",
         priority: 1,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Apply to matching roles.',
+        why: 'The deterministic compatibility readiness score has reached the application threshold.',
+        how: 'Choose roles matching the active career and apply with verified evidence.',
+        expectedOutcome: 'Create real job-application evidence.',
+        relatedRequirement: 'job',
+        stateVersion: 'bucket_$jobBucket',
       ));
     }
 
@@ -1196,13 +1668,20 @@ class CopilotController extends ChangeNotifier {
     if (_state.currentStreak == 0 && context.state.progressHistory.isNotEmpty) {
       final historyDays = context.state.progressHistory.length;
       actions.add(NextBestAction(
-        id: 'action_resume_streak_$historyDays',
+        id: 'action_${context.career?.careerId ?? 'general'}_resume_streak_$historyDays',
         type: NextActionType.skillReview,
         title: 'Jump back in',
         description:
             "You've lost your streak — a few minutes today keeps you moving.",
         priority: 3,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Resume one meaningful career action.',
+        why: 'There is historical progress but no current streak.',
+        how: 'Complete a small lesson, practice task, project milestone, or interview action today.',
+        expectedOutcome: 'Restore meaningful activity momentum without changing historical progress.',
+        relatedRequirement: 'activity',
+        stateVersion: 'history_$historyDays',
       ));
     }
 
@@ -1230,12 +1709,19 @@ class CopilotController extends ChangeNotifier {
       final levelKey =
           '${first.currentLevel?.value ?? 0}_to_${first.requiredLevel.value}';
       recs.add(CopilotRecommendation(
-        id: 'rec_skill_gap_${key}_$levelKey',
+        id: 'rec_${context.career?.careerId ?? 'general'}_skill_gap_${key}_$levelKey',
         category: RecommendationCategory.skillGap,
         title: 'Close your biggest skill gaps',
         description: 'Focus on $names — these matter most for $careerTitle.',
         priority: 1,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Focus on the highest-priority skill gaps.',
+        why: 'These gaps are currently the most important missing requirements.',
+        how: 'Follow the active career roadmap and complete evidence-backed practice.',
+        expectedOutcome: 'Reduce the highest-priority skill gaps.',
+        relatedRequirement: 'skill',
+        stateVersion: levelKey,
       ));
     }
 
@@ -1243,13 +1729,20 @@ class CopilotController extends ChangeNotifier {
     if (readiness.learningReadiness < 0.5) {
       final learningBucket = (readiness.learningReadiness * 10).floor();
       recs.add(CopilotRecommendation(
-        id: 'rec_learning_path_$learningBucket',
+        id: 'rec_${context.career?.careerId ?? 'general'}_learning_path_$learningBucket',
         category: RecommendationCategory.learningPath,
         title: 'Keep building your foundation',
         description:
             "You're ${(readiness.learningReadiness * 100).round()}% through the $careerTitle path.",
         priority: 2,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Continue learning in the active career path.',
+        why: 'Learning progress is still below the foundation threshold.',
+        how: 'Complete the next verified lesson.',
+        expectedOutcome: 'Increase learning evidence.',
+        relatedRequirement: 'learning',
+        stateVersion: 'bucket_$learningBucket',
       ));
     }
 
@@ -1257,12 +1750,19 @@ class CopilotController extends ChangeNotifier {
     if (readiness.learningReadiness >= 0.4 && readiness.projectReadiness < 0.5) {
       final projectsCompleted = context.projectProgress.completedCount;
       recs.add(CopilotRecommendation(
-        id: 'rec_project_$projectsCompleted',
+        id: 'rec_${context.career?.careerId ?? 'general'}_project_$projectsCompleted',
         category: RecommendationCategory.project,
         title: 'Start a hands-on project',
         description: 'Projects turn lessons into proof for recruiters.',
         priority: 2,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Ship a hands-on project.',
+        why: 'Project evidence is still below the current threshold.',
+        how: 'Build and complete a project tied to the active career skills.',
+        expectedOutcome: 'Add portfolio-grade project evidence.',
+        relatedRequirement: 'project',
+        stateVersion: 'projects_$projectsCompleted',
       ));
     }
 
@@ -1270,12 +1770,19 @@ class CopilotController extends ChangeNotifier {
     if (readiness.learningReadiness >= 0.5 && readiness.interviewReadiness < 0.5) {
       final interviewBucket = (readiness.interviewReadiness * 10).floor();
       recs.add(CopilotRecommendation(
-        id: 'rec_interview_prep_$interviewBucket',
+        id: 'rec_${context.career?.careerId ?? 'general'}_interview_prep_$interviewBucket',
         category: RecommendationCategory.interviewPrep,
         title: 'Prepare for interviews',
         description: 'Try a mock interview to see where you stand.',
         priority: 2,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Practice a scored mock interview.',
+        why: 'Interview evidence is still below the current threshold.',
+        how: 'Complete an interview attempt and review the score.',
+        expectedOutcome: 'Improve interview readiness with real attempt evidence.',
+        relatedRequirement: 'interview',
+        stateVersion: 'bucket_$interviewBucket',
       ));
     }
 
@@ -1283,13 +1790,20 @@ class CopilotController extends ChangeNotifier {
     if (readiness.jobReadiness >= 0.6) {
       final jobBucket = (readiness.jobReadiness * 10).floor();
       recs.add(CopilotRecommendation(
-        id: 'rec_job_match_$jobBucket',
+        id: 'rec_${context.career?.careerId ?? 'general'}_job_match_$jobBucket',
         category: RecommendationCategory.jobMatch,
-        title: "You're looking job-ready",
+        title: "Application readiness reached",
         description:
             'Consider applying to $careerTitle openings that match your skills.',
         priority: 1,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Consider matching job openings.',
+        why: 'The deterministic compatibility readiness score has reached the application threshold.',
+        how: 'Match roles to the active career and your verified skills.',
+        expectedOutcome: 'Create relevant application evidence.',
+        relatedRequirement: 'job',
+        stateVersion: 'bucket_$jobBucket',
       ));
     }
 
@@ -1297,12 +1811,19 @@ class CopilotController extends ChangeNotifier {
     if (_state.currentStreak == 0 && context.state.progressHistory.isNotEmpty) {
       final historyDays = context.state.progressHistory.length;
       recs.add(CopilotRecommendation(
-        id: 'rec_streak_nudge_$historyDays',
+        id: 'rec_${context.career?.careerId ?? 'general'}_streak_nudge_$historyDays',
         category: RecommendationCategory.streakNudge,
         title: "Don't lose momentum",
         description: 'A short session today restarts your streak.',
         priority: 3,
         createdAt: now,
+        careerId: context.career?.careerId,
+        what: 'Resume one meaningful career action.',
+        why: 'Historical progress exists but current meaningful activity is inactive.',
+        how: 'Complete one small career task today.',
+        expectedOutcome: 'Restore momentum without changing historical progress.',
+        relatedRequirement: 'activity',
+        stateVersion: 'history_$historyDays',
       ));
     }
 
@@ -1328,7 +1849,8 @@ class CopilotController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _cancelStreams();
+    _authoritativeRefreshToken++;
+    unawaited(_cancelStreams());
     super.dispose();
   }
 }

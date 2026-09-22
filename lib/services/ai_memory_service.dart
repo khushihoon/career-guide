@@ -82,17 +82,28 @@ class AiMemoryService {
 
   // ── Persist updated memory ─────────────────────────────────────────
   Future<void> saveMemory(String uid, AiMemory memory) async {
-    await _db
-        .collection('ai_memory')
-        .doc(uid)
-        .set(memory.toMap(), SetOptions(merge: true));
+    try {
+      await _db
+          .collection('ai_memory')
+          .doc(uid)
+          .set(memory.toMap(), SetOptions(merge: true));
+    } catch (_) {
+      // AI memory is non-authoritative; persistence failure must not break UI.
+    }
   }
 
   // ── Record an achievement for AI context ──────────────────────────
   Future<void> recordAchievement(String uid, String achievement) async {
-    await _db.collection('ai_memory').doc(uid).set({
-      'recentAchievements': FieldValue.arrayUnion([achievement]),
-    }, SetOptions(merge: true));
+    final value = achievement.trim();
+    if (value.isEmpty) return;
+
+    try {
+      await _db.collection('ai_memory').doc(uid).set({
+        'recentAchievements': FieldValue.arrayUnion([value]),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // Best-effort enrichment only.
+    }
   }
 
   // ── Authoritative stats — cached read ──────────────────────────────
@@ -444,7 +455,17 @@ class AiMemoryService {
     final topRecId = context.activeRecommendations.isNotEmpty
         ? context.activeRecommendations.first.id
         : '';
-    return '${topActionId}_$topRecId'.hashCode.toString();
+    return _stableSignatureHash('$topActionId|$topRecId');
+  }
+
+  /// Stable deterministic hash used only for local cache-key generation.
+  static String _stableSignatureHash(String value) {
+    var hash = 0x811c9dc5;
+    for (final codeUnit in value.codeUnits) {
+      hash ^= codeUnit;
+      hash = (hash * 0x01000193) & 0x7fffffff;
+    }
+    return hash.toRadixString(16);
   }
 
   String _todayKey() {
@@ -469,10 +490,16 @@ class AiMemoryService {
         .map((g) => g.skillName)
         .toList();
 
-    await _db.collection('ai_memory').doc(uid).set({
-      'goals': goals,
-      'interests': interests,
-    }, SetOptions(merge: true));
+    if (goals.isEmpty && interests.isEmpty) return;
+
+    try {
+      await _db.collection('ai_memory').doc(uid).set({
+        if (goals.isNotEmpty) 'goals': goals,
+        if (interests.isNotEmpty) 'interests': interests,
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // Best-effort memory enrichment.
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -600,34 +627,40 @@ class AiMemoryService {
   /// When the caller supplies no real careerId, only the top-level
   /// summary is updated — a per-career doc is NEVER written under an
   /// invented bucket.
-  Future<void> syncFromCopilotContext(String uid, CopilotContext context) async {
-    // Authoritative XP/streak — cached, best-effort, never throws.
-    // The cache means a normal Copilot refresh does not pay the cost of
-    // reading users/{uid} or ai_memory/{uid} on every call.
-    final authoritative = await _resolveAuthoritativeStats(uid);
+  Future<void> syncFromCopilotContext(
+    String uid,
+    CopilotContext context,
+  ) async {
+    // AI Memory is enrichment only. A Firestore/memory failure must never
+    // break the authoritative Copilot refresh pipeline.
+    try {
+      final authoritative = await _resolveAuthoritativeStats(uid);
 
-    final summary = _summaryFromContext(
-      context,
-      authoritative: authoritative,
-    );
-    final careerId = context.career?.careerId;
+      final summary = _summaryFromContext(
+        context,
+        authoritative: authoritative,
+      );
+      final careerId = context.career?.careerId;
 
-    await _db.collection('ai_memory').doc(uid).set({
-      ...summary,
-      if (careerId != null && careerId.isNotEmpty)
-        'careerHistoryIds': FieldValue.arrayUnion([careerId]),
-    }, SetOptions(merge: true));
+      await _db.collection('ai_memory').doc(uid).set({
+        ...summary,
+        if (careerId != null && careerId.isNotEmpty)
+          'careerHistoryIds': FieldValue.arrayUnion([careerId]),
+      }, SetOptions(merge: true));
 
-    if (careerId != null && careerId.isNotEmpty) {
-      final careerDocId = _safeCareerDocId(careerId);
-      if (careerDocId.isNotEmpty) {
-        await _db
-            .collection('ai_memory')
-            .doc(uid)
-            .collection('careers')
-            .doc(careerDocId)
-            .set(summary, SetOptions(merge: true));
+      if (careerId != null && careerId.isNotEmpty) {
+        final careerDocId = _safeCareerDocId(careerId);
+        if (careerDocId.isNotEmpty) {
+          await _db
+              .collection('ai_memory')
+              .doc(uid)
+              .collection('careers')
+              .doc(careerDocId)
+              .set(summary, SetOptions(merge: true));
+        }
       }
+    } catch (_) {
+      // Best-effort only. Existing memory remains untouched.
     }
   }
 
@@ -664,14 +697,24 @@ class AiMemoryService {
     required String careerId,
     required String careerTitle,
   }) async {
-    await _db.collection('ai_memory').doc(uid).set({
-      'currentCareerId': careerId,
-      'currentCareerTitle': careerTitle,
-      'careerHistoryIds': FieldValue.arrayUnion([careerId]),
-      'careerSwitchLog': FieldValue.arrayUnion(
-        ['$careerId@${DateTime.now().toIso8601String()}'],
-      ),
-    }, SetOptions(merge: true));
+    final safeCareerId = careerId.trim();
+    final safeCareerTitle = careerTitle.trim();
+    if (safeCareerId.isEmpty) return;
+
+    try {
+      await _db.collection('ai_memory').doc(uid).set({
+        'currentCareerId': safeCareerId,
+        if (safeCareerTitle.isNotEmpty)
+          'currentCareerTitle': safeCareerTitle,
+        'careerHistoryIds': FieldValue.arrayUnion([safeCareerId]),
+        'careerSwitchLog': FieldValue.arrayUnion(
+          ['$safeCareerId@${DateTime.now().toIso8601String()}'],
+        ),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // Best-effort memory enrichment. The authoritative career selection
+      // remains owned by the existing career/Copilot data layer.
+    }
   }
 
   /// Reads the permanent, career-scoped memory snapshot for [careerId] —

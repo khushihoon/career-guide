@@ -714,6 +714,59 @@ bool _looksHandsOn(String topic) {
   return handsOnHints.any((h) => t.contains(h));
 }
 
+
+  // ============================================================
+  // QUIZ OPTION ORDERING
+  // ============================================================
+  // The correct answer is deliberately NOT kept at index 0.
+  //
+  // This is deterministic rather than random:
+  // - the same course inputs produce the same option order
+  // - no network/API is required
+  // - the answer position cannot be gamed by always tapping option 1
+  // - future app rebuilds do not create unstable quiz content
+  //
+  // A stable hash is used so the ordering is reproducible forever for
+  // the same course/question identity.
+int _stableHash(String value) {
+    var hash = 17;
+    for (final codeUnit in value.codeUnits) {
+      hash = (hash * 31 + codeUnit) & 0x7fffffff;
+    }
+    return hash;
+  }
+
+QuizQuestion _repositionCorrectOption(
+    QuizQuestion question, {
+    required String seed,
+  }) {
+    final original = List<String>.from(question.options);
+    if (original.length <= 1) {
+      return question;
+    }
+
+    final correctIndex = question.correctIndex.clamp(0, original.length - 1).toInt();
+    // Force a non-zero rotation whenever there is more than one option.
+    // This guarantees the original correct position is not preserved simply
+    // because the hash happened to produce zero.
+    final shift = 1 + (_stableHash(seed) % (original.length - 1));
+
+    final rotated = List<String>.generate(
+      original.length,
+      (newIndex) => original[(newIndex - shift + original.length) % original.length],
+    );
+
+    final newCorrectIndex = (correctIndex + shift) % original.length;
+
+    return QuizQuestion(
+      question: question.question,
+      options: rotated,
+      correctIndex: newCorrectIndex,
+      explanation: question.explanation,
+      xpReward: question.xpReward,
+    );
+  }
+
 class AiCourseService {
   // ============================================================
   // MOCK MODE
@@ -1052,6 +1105,21 @@ class AiCourseService {
     // RETURN TOPIC COURSE
     // ============================================================
 
+    // Reposition quiz answers only after all questions have been built.
+    // This keeps the knowledge base readable (index 0 remains the source
+    // answer there) while the actual course presented to the user has
+    // non-predictable answer positions.
+    final randomizedQuiz = <QuizQuestion>[];
+    for (int i = 0; i < quiz.length; i++) {
+      randomizedQuiz.add(
+        _repositionCorrectOption(
+          quiz[i],
+          seed:
+              '$careerId|$categoryId|$level|$levelTitle|$i|${topicsForContent[i % topicsForContent.length]}',
+        ),
+      );
+    }
+
     return TopicCourse(
       id: '${careerId}_level_$level',
       topicTitle: levelTitle,
@@ -1065,7 +1133,7 @@ class AiCourseService {
           : 'Learn $levelTitle step by step and build practical $careerTitle skills you can actually use.',
       emoji: '📚',
       concepts: concepts,
-      quiz: quiz,
+      quiz: randomizedQuiz,
       challenges: challenges,
       finalProject: project,
     );

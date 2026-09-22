@@ -1,17 +1,70 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // lib/models/copilot_models.dart
-// AI Career Copilot — all data models.
-// Null-safe. No changes required to existing models.dart.
 //
-// FINAL COMPATIBILITY PASS (this revision):
-//   • CareerGoal.softwareEngineer is now a first-class career value.
-//     Its label, emoji, and fromString() restore it correctly from both
-//     "Software Engineer" (canonical label) and "software_engineer"
-//     (canonical id used by CopilotController) so persisted data written
-//     by either form loads cleanly.
-//   • Every other enum value, field, constructor, and Firestore
-//     serialization method is byte-for-byte preserved, so old documents
-//     and existing callers keep working exactly as before.
+// 🔒 COPILOT MODELS — FROZEN
+// CAREER PROGRESSION ENGINE — MODEL CONTRACT v1
+//
+// This file is the stable model contract for the Career Copilot.
+// It contains MODELS only. No Firestore, no Firebase, no network, no AI/API,
+// no business orchestration, no reward or readiness engines.
+//
+// ── Architectural ownership (do not blur) ───────────────────────────────────
+//
+//   Evidence / Event layer   → authoritative historical truth (owned elsewhere)
+//   Aggregate layer          → current progress state  (the *Context models)
+//   Readiness Engine         → derived, career-specific readiness (elsewhere)
+//   Next Best Action Engine  → the decision itself      (elsewhere)
+//   CopilotContext           → assembled READ MODEL
+//   AI Memory                → non-authoritative personalization summary
+//   UI                       → presentation only
+//
+// ── Progression pipeline ────────────────────────────────────────────────────
+//
+//   SELECTED CAREER
+//        ↓
+//   CAREER BLUEPRINT
+//        ↓
+//   USER EVIDENCE
+//        ↓
+//   PROGRESS AGGREGATES
+//        ↓
+//   READINESS
+//        ↓
+//   NEXT BEST ACTION
+//        ↓
+//   COPILOT CONTEXT
+//        ↓
+//   UI / AI MEMORY
+//
+// ── Concepts modeled here ───────────────────────────────────────────────────
+//
+//   • WHAT a career requires           → CareerBlueprint / CareerRequirement
+//   • WHICH career is active           → CareerContext
+//   • HOW evidence is classified       → SkillEvidenceType
+//   • CURRENT aggregates per career    → Learning/Project/Job/Interview contexts
+//   • DERIVED readiness snapshot       → CareerReadiness
+//   • ONE executable next step         → NextBestAction
+//   • Evolving guidance                → CopilotRecommendation
+//   • Assembled runtime context        → CopilotContext
+//
+// ── Historical safety ───────────────────────────────────────────────────────
+//
+// Career switching must NOT delete or overwrite history. Historical evidence
+// lives in the authoritative evidence layer. Every list on these models is
+// append-only by convention; callers persist the union, never a wholesale
+// replacement.
+//
+// ── XP and streak ───────────────────────────────────────────────────────────
+//
+// `CopilotState.totalXp` and `CopilotState.currentStreak` are COMPATIBILITY
+// views, preserved for existing UI callers. They are NOT authoritative.
+// Authoritative XP/streak is owned by the Firestore evidence layer.
+//
+// ── Serialization safety ────────────────────────────────────────────────────
+//
+// All new fields are optional and safely defaulted on parse. Old Firestore
+// documents decode cleanly. Unknown enum values fall back to safe defaults.
+// No unsafe casts.
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ─── Skill Level ──────────────────────────────────────────────────────────────
@@ -44,6 +97,91 @@ extension SkillLevelExt on SkillLevel {
       case 'expert':       return SkillLevel.expert;
       default:             return SkillLevel.beginner;
     }
+  }
+}
+
+// ─── Skill Evidence Type ─────────────────────────────────────────────────────
+//
+// Classifies HOW a skill was demonstrated. Course completion is NOT mastery;
+// a project is NOT an assessment. This enum lets the intelligence layer
+// reason about evidence quality without collapsing everything into a single
+// fake skill score.
+//
+// Actual immutable evidence records are owned by the evidence layer; this
+// enum only describes the shape of an evidence reference.
+
+enum SkillEvidenceType {
+  learning,   // consumed content (lesson, course)
+  practice,   // deliberate drills (exercises, katas)
+  project,    // shipped work demonstrating the skill
+  assessment, // graded evaluation / validation (quiz, mock interview)
+}
+
+extension SkillEvidenceTypeExt on SkillEvidenceType {
+  String get label {
+    switch (this) {
+      case SkillEvidenceType.learning:   return 'Learning';
+      case SkillEvidenceType.practice:   return 'Practice';
+      case SkillEvidenceType.project:    return 'Project';
+      case SkillEvidenceType.assessment: return 'Assessment';
+    }
+  }
+
+  static SkillEvidenceType fromString(String s) {
+    return SkillEvidenceType.values.firstWhere(
+      (e) => e.name == s || e.label.toLowerCase() == s.toLowerCase(),
+      orElse: () => SkillEvidenceType.learning,
+    );
+  }
+}
+
+// ─── Career Stage ────────────────────────────────────────────────────────────
+//
+// A coarse pipeline stage. Used by blueprints and progression snapshots to
+// describe where a user is in the career journey. This is a REFERENCE enum,
+// not per-user state — the authoritative stage is computed by services.
+//
+// NOTE: progress_tracking_service.dart has a legacy `CareerStage` enum with
+// a different set of values. That legacy service is expected to be adapted
+// onto this canonical model layer later; this file must not be redesigned
+// to match the legacy shapes.
+
+enum CareerStage {
+  exploration,   // 0 knowledge / choosing a career
+  assessment,    // identifying skill gaps
+  learning,      // foundational learning
+  practice,      // deliberate practice
+  projects,      // building real projects
+  portfolio,     // packaging work
+  cvReady,       // CV / resume ready
+  interviewPrep, // interview preparation and mocks
+  jobSearch,     // applying for roles
+  jobReady,      // meets the career blueprint bar
+  growth,        // continuous professional growth
+}
+
+extension CareerStageExt on CareerStage {
+  String get label {
+    switch (this) {
+      case CareerStage.exploration:   return 'Exploration';
+      case CareerStage.assessment:    return 'Assessment';
+      case CareerStage.learning:      return 'Learning';
+      case CareerStage.practice:      return 'Practice';
+      case CareerStage.projects:      return 'Projects';
+      case CareerStage.portfolio:     return 'Portfolio';
+      case CareerStage.cvReady:       return 'CV Ready';
+      case CareerStage.interviewPrep: return 'Interview Prep';
+      case CareerStage.jobSearch:     return 'Job Search';
+      case CareerStage.jobReady:      return 'Job Ready';
+      case CareerStage.growth:        return 'Growth';
+    }
+  }
+
+  static CareerStage fromString(String s) {
+    return CareerStage.values.firstWhere(
+      (st) => st.name == s || st.label.toLowerCase() == s.toLowerCase(),
+      orElse: () => CareerStage.exploration,
+    );
   }
 }
 
@@ -135,16 +273,30 @@ class UserSkill {
   final SkillLevel level;
   final DateTime addedAt;
 
+  /// Optional evidence marker describing HOW this skill was most recently
+  /// demonstrated. Null means "not specified" (existing behaviour). This is
+  /// additive: existing constructors and Firestore documents keep working.
+  final SkillEvidenceType? lastEvidenceType;
+
+  /// Optional career scope. Null means "not career-scoped" (existing
+  /// behaviour). Additive.
+  final String? careerId;
+
   const UserSkill({
     required this.name,
     required this.level,
     required this.addedAt,
+    this.lastEvidenceType,
+    this.careerId,
   });
 
   Map<String, dynamic> toFirestore() => {
         'name': name,
         'level': level.name,
         'addedAt': addedAt.toIso8601String(),
+        if (lastEvidenceType != null)
+          'lastEvidenceType': lastEvidenceType!.name,
+        if (careerId != null) 'careerId': careerId,
       };
 
   factory UserSkill.fromFirestore(Map<String, dynamic> map) => UserSkill(
@@ -152,6 +304,26 @@ class UserSkill {
         level: SkillLevelExt.fromString(map['level'] as String? ?? 'beginner'),
         addedAt:
             DateTime.tryParse(map['addedAt'] as String? ?? '') ?? DateTime.now(),
+        lastEvidenceType: map['lastEvidenceType'] == null
+            ? null
+            : SkillEvidenceTypeExt.fromString(
+                map['lastEvidenceType'] as String),
+        careerId: map['careerId'] as String?,
+      );
+
+  UserSkill copyWith({
+    String? name,
+    SkillLevel? level,
+    DateTime? addedAt,
+    SkillEvidenceType? lastEvidenceType,
+    String? careerId,
+  }) =>
+      UserSkill(
+        name: name ?? this.name,
+        level: level ?? this.level,
+        addedAt: addedAt ?? this.addedAt,
+        lastEvidenceType: lastEvidenceType ?? this.lastEvidenceType,
+        careerId: careerId ?? this.careerId,
       );
 }
 
@@ -223,7 +395,37 @@ class UserSkillProfile {
       );
 }
 
+// ─── Skill Gap Status ─────────────────────────────────────────────────────────
+
+enum SkillGapStatus { open, improving, closed }
+
+extension SkillGapStatusExt on SkillGapStatus {
+  String get label {
+    switch (this) {
+      case SkillGapStatus.open:      return 'Open';
+      case SkillGapStatus.improving: return 'Improving';
+      case SkillGapStatus.closed:    return 'Closed';
+    }
+  }
+
+  static SkillGapStatus fromString(String s) {
+    return SkillGapStatus.values.firstWhere(
+      (st) => st.name == s || st.label.toLowerCase() == s.toLowerCase(),
+      orElse: () => SkillGapStatus.open,
+    );
+  }
+}
+
 // ─── Skill Gap ────────────────────────────────────────────────────────────────
+//
+// WHAT is missing, WHY it matters, HOW significant the gap is.
+//
+// Additive:
+//   • Optional `careerId` for career isolation.
+//   • Optional `evidenceRefs` so future services can attach concrete
+//     evidence references (lesson ids, project ids, assessment ids) without
+//     collapsing them into a single fake score.
+//   • Optional `status` for lifecycle (open / improving / closed).
 
 class SkillGap {
   final String skillName;
@@ -232,12 +434,25 @@ class SkillGap {
   final int priority;             // 1=critical, 2=important, 3=nice-to-have
   final String reason;
 
+  /// Optional career scope. Null = not career-scoped (existing behaviour).
+  final String? careerId;
+
+  /// Optional status. Null = unspecified; existing callers keep working.
+  final SkillGapStatus? status;
+
+  /// Optional concrete evidence references (lesson / project / assessment
+  /// ids). Append-only by convention; the service owns their lifecycle.
+  final List<String> evidenceRefs;
+
   const SkillGap({
     required this.skillName,
     required this.requiredLevel,
     this.currentLevel,
     required this.priority,
     required this.reason,
+    this.careerId,
+    this.status,
+    this.evidenceRefs = const [],
   });
 
   bool get isNew => currentLevel == null;
@@ -262,6 +477,9 @@ class SkillGap {
         'currentLevel': currentLevel?.name,
         'priority': priority,
         'reason': reason,
+        if (careerId != null) 'careerId': careerId,
+        if (status != null) 'status': status!.name,
+        if (evidenceRefs.isNotEmpty) 'evidenceRefs': evidenceRefs,
       };
 
   factory SkillGap.fromFirestore(Map<String, dynamic> map) => SkillGap(
@@ -273,6 +491,31 @@ class SkillGap {
             : SkillLevelExt.fromString(map['currentLevel'] as String),
         priority: (map['priority'] as num?)?.toInt() ?? 2,
         reason: map['reason'] as String? ?? '',
+        careerId: map['careerId'] as String?,
+        status: map['status'] == null
+            ? null
+            : SkillGapStatusExt.fromString(map['status'] as String),
+        evidenceRefs:
+            List<String>.from(map['evidenceRefs'] as List? ?? const []),
+      );
+
+  SkillGap copyWith({
+    SkillLevel? currentLevel,
+    int? priority,
+    String? reason,
+    String? careerId,
+    SkillGapStatus? status,
+    List<String>? evidenceRefs,
+  }) =>
+      SkillGap(
+        skillName: skillName,
+        requiredLevel: requiredLevel,
+        currentLevel: currentLevel ?? this.currentLevel,
+        priority: priority ?? this.priority,
+        reason: reason ?? this.reason,
+        careerId: careerId ?? this.careerId,
+        status: status ?? this.status,
+        evidenceRefs: evidenceRefs ?? this.evidenceRefs,
       );
 }
 
@@ -591,6 +834,16 @@ class ProgressEntry {
 }
 
 // ─── Copilot State ────────────────────────────────────────────────────────────
+//
+// NOTE ON XP/STREAK AUTHORITY
+// ---------------------------
+// `totalXp` and `currentStreak` below are COMPATIBILITY views derived from
+// `progressHistory`. They remain for backward compatibility with existing
+// UI code. They are NOT the authoritative source of XP or streak.
+//
+// The authoritative XP value lives on `users/{uid}.totalXp` and is read by
+// `CopilotFirestoreService.getUserTotalXp`. Callers that need authoritative
+// XP must use that service, not this getter.
 
 class CopilotState {
   final UserSkillProfile? skillProfile;
@@ -614,9 +867,15 @@ class CopilotState {
   bool get hasProfile => skillProfile != null;
   bool get hasRoadmap  => roadmap != null;
 
+  /// COMPATIBILITY VIEW — not authoritative.
+  /// See the class-level note above. Authoritative XP lives on Firestore.
   int get totalXp =>
       progressHistory.fold(0, (sum, e) => sum + e.xpEarned);
 
+  /// COMPATIBILITY VIEW — not authoritative.
+  /// Streak is career momentum; the authoritative value is owned by the
+  /// evidence layer. This getter only inspects existing progressHistory and
+  /// is preserved for existing UI consumers.
   int get currentStreak {
     if (progressHistory.isEmpty) return 0;
     final sorted = [...progressHistory]
@@ -656,32 +915,16 @@ class CopilotState {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ─── EVERYTHING BELOW THIS LINE IS NEW ─────────────────────────────────────────
+// ─── CAREER PROGRESSION ENGINE — ADDITIVE CONTRACTS ──────────────────────────
 //
-// Additive-only extension of the Copilot data layer. Nothing above this line
-// was modified: every existing class, field, enum, constructor, and
-// toFirestore/fromFirestore pair is untouched, so all existing persisted
-// Firestore documents, callers, and serialization logic keep working exactly
-// as before.
-//
-// These new models let the Copilot reason over:
-//   Selected Career + User Skills + Current Progress + Historical Progress
-// without ever overwriting or resetting previously stored data. Every list
-// here (history, completed ids, recommendations, actions) is designed to be
-// APPENDED to by the service/controller layer, never replaced wholesale —
-// callers should read the existing list, add to it, and persist the union.
-//
-// All new fromMap factories use safe defaults so OLD Firestore documents
-// (written before this update, with none of these fields) still decode
-// cleanly into sensible empty/zeroed objects instead of throwing.
+// Everything below is additive. Every new field is optional, safe-defaulted
+// on parse, and never breaks old Firestore documents or existing callers.
+// Every list is append-only by convention.
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ─── Career Context ─────────────────────────────────────────────────────────
-// The career the Copilot is currently reasoning about. Deliberately stores
-// plain strings (careerId/categoryId) rather than importing StaticCareerPath /
-// GeneratedCareerPath from career_level_data.dart or dynamic_career_paths.dart,
-// so this file stays fully self-contained and doesn't couple the data layer
-// to the course-screen data layer.
+// Identifies WHICH career is currently active. Does not describe what the
+// career requires (that is CareerBlueprint) and does not carry user progress.
 
 class CareerContext {
   final String careerId;
@@ -691,6 +934,10 @@ class CareerContext {
   final bool isStaticCareer; // true = real authored lessons, false = AI-generated
   final DateTime selectedAt;
 
+  /// Optional blueprint version reference. Null when the user's career
+  /// selection predates blueprint versioning.
+  final String? blueprintVersionRef;
+
   const CareerContext({
     required this.careerId,
     required this.careerTitle,
@@ -698,6 +945,7 @@ class CareerContext {
     required this.emoji,
     required this.isStaticCareer,
     required this.selectedAt,
+    this.blueprintVersionRef,
   });
 
   Map<String, dynamic> toFirestore() => {
@@ -707,6 +955,8 @@ class CareerContext {
         'emoji': emoji,
         'isStaticCareer': isStaticCareer,
         'selectedAt': selectedAt.toIso8601String(),
+        if (blueprintVersionRef != null)
+          'blueprintVersionRef': blueprintVersionRef,
       };
 
   factory CareerContext.fromFirestore(Map<String, dynamic> map) =>
@@ -718,6 +968,7 @@ class CareerContext {
         isStaticCareer: map['isStaticCareer'] as bool? ?? true,
         selectedAt: DateTime.tryParse(map['selectedAt'] as String? ?? '') ??
             DateTime.now(),
+        blueprintVersionRef: map['blueprintVersionRef'] as String?,
       );
 
   Map<String, dynamic> toMap() => toFirestore();
@@ -730,6 +981,7 @@ class CareerContext {
     String? categoryId,
     String? emoji,
     bool? isStaticCareer,
+    String? blueprintVersionRef,
   }) =>
       CareerContext(
         careerId: careerId ?? this.careerId,
@@ -738,13 +990,176 @@ class CareerContext {
         emoji: emoji ?? this.emoji,
         isStaticCareer: isStaticCareer ?? this.isStaticCareer,
         selectedAt: selectedAt,
+        blueprintVersionRef: blueprintVersionRef ?? this.blueprintVersionRef,
+      );
+}
+
+// ─── Career Blueprint ───────────────────────────────────────────────────────
+//
+// A DEFINITION of what job-ready means for a specific career. It is NOT
+// user progress. The readiness and next-action engines compare the user's
+// real evidence against this contract.
+//
+// Blueprint   = WHAT THE CAREER REQUIRES.
+// User data   = WHAT THE USER HAS DONE.
+// These must remain conceptually separate.
+
+class CareerRequirement {
+  /// Free-form category: 'skill', 'learning', 'practice', 'project',
+  /// 'portfolio', 'cv', 'interview', 'job', or a future extension.
+  final String category;
+
+  /// Stable identifier for the requirement within its category
+  /// (e.g. skill name, project archetype id).
+  final String key;
+
+  /// Human-readable description for UIs.
+  final String description;
+
+  /// Optional numeric threshold. Meaning depends on category:
+  ///   • skill     → required SkillLevel.value (1..4)
+  ///   • learning  → required completed lessons / courses count
+  ///   • practice  → required practice sessions
+  ///   • project   → required completed projects
+  ///   • portfolio → required portfolio items
+  ///   • interview → required interview practices
+  ///   • job       → required applications
+  final num? targetValue;
+
+  /// Optional priority hint (1 = critical). Null = unspecified.
+  final int? priority;
+
+  const CareerRequirement({
+    required this.category,
+    required this.key,
+    required this.description,
+    this.targetValue,
+    this.priority,
+  });
+
+  Map<String, dynamic> toFirestore() => {
+        'category': category,
+        'key': key,
+        'description': description,
+        if (targetValue != null) 'targetValue': targetValue,
+        if (priority != null) 'priority': priority,
+      };
+
+  factory CareerRequirement.fromFirestore(Map<String, dynamic> map) =>
+      CareerRequirement(
+        category: map['category'] as String? ?? '',
+        key: map['key'] as String? ?? '',
+        description: map['description'] as String? ?? '',
+        targetValue: map['targetValue'] as num?,
+        priority: (map['priority'] as num?)?.toInt(),
+      );
+
+  Map<String, dynamic> toMap() => toFirestore();
+  factory CareerRequirement.fromMap(Map<String, dynamic> map) =>
+      CareerRequirement.fromFirestore(map);
+}
+
+class CareerBlueprint {
+  final String careerId;
+  final String careerTitle;
+
+  /// Optional category id (e.g. 'ai', 'software') — mirrors CareerContext.
+  final String? categoryId;
+
+  /// Blueprint version. Bump when requirements change so downstream can
+  /// detect stale readiness computations.
+  final int version;
+
+  /// Optional human-readable summary of what this career is about.
+  final String? summary;
+
+  /// The ordered pipeline stages this career expects the user to pass
+  /// through. Empty = unspecified (caller falls back to a default order).
+  final List<CareerStage> stages;
+
+  /// Career-scoped requirements. Different careers can express different
+  /// requirement sets.
+  final List<CareerRequirement> requirements;
+
+  /// Optional metadata bag for future tooling. Bounded by convention to
+  /// small key/value pairs; not intended for large structured data.
+  final Map<String, dynamic> metadata;
+
+  const CareerBlueprint({
+    required this.careerId,
+    required this.careerTitle,
+    this.categoryId,
+    this.version = 1,
+    this.summary,
+    this.stages = const [],
+    this.requirements = const [],
+    this.metadata = const {},
+  });
+
+  Map<String, dynamic> toFirestore() => {
+        'careerId': careerId,
+        'careerTitle': careerTitle,
+        if (categoryId != null) 'categoryId': categoryId,
+        'version': version,
+        if (summary != null) 'summary': summary,
+        'stages': stages.map((s) => s.name).toList(),
+        'requirements': requirements.map((r) => r.toFirestore()).toList(),
+        if (metadata.isNotEmpty) 'metadata': metadata,
+      };
+
+  factory CareerBlueprint.fromFirestore(Map<String, dynamic> map) {
+    final rawStages = map['stages'] as List<dynamic>? ?? [];
+    final rawReqs = map['requirements'] as List<dynamic>? ?? [];
+    return CareerBlueprint(
+      careerId: map['careerId'] as String? ?? '',
+      careerTitle: map['careerTitle'] as String? ?? '',
+      categoryId: map['categoryId'] as String?,
+      version: (map['version'] as num?)?.toInt() ?? 1,
+      summary: map['summary'] as String?,
+      stages: rawStages
+          .map((s) => CareerStageExt.fromString(s as String))
+          .toList(),
+      requirements: rawReqs
+          .map((r) =>
+              CareerRequirement.fromFirestore(r as Map<String, dynamic>))
+          .toList(),
+      metadata: Map<String, dynamic>.from(
+          (map['metadata'] as Map?) ?? const <String, dynamic>{}),
+    );
+  }
+
+  Map<String, dynamic> toMap() => toFirestore();
+  factory CareerBlueprint.fromMap(Map<String, dynamic> map) =>
+      CareerBlueprint.fromFirestore(map);
+
+  CareerBlueprint copyWith({
+    String? careerId,
+    String? careerTitle,
+    String? categoryId,
+    int? version,
+    String? summary,
+    List<CareerStage>? stages,
+    List<CareerRequirement>? requirements,
+    Map<String, dynamic>? metadata,
+  }) =>
+      CareerBlueprint(
+        careerId: careerId ?? this.careerId,
+        careerTitle: careerTitle ?? this.careerTitle,
+        categoryId: categoryId ?? this.categoryId,
+        version: version ?? this.version,
+        summary: summary ?? this.summary,
+        stages: stages ?? this.stages,
+        requirements: requirements ?? this.requirements,
+        metadata: metadata ?? this.metadata,
       );
 }
 
 // ─── Learning Progress Context ────────────────────────────────────────────────
-// Course/lesson progress for the selected career. `completedLessonIds` is
-// permanent history — callers append new ids to it, never clear it, so a
-// user's completed-lesson record survives career switches and re-syncs.
+//
+// Course/lesson progress scoped to a career.
+// `completedLessonIds` and `completedCourseIds` are permanent history —
+// callers append ids to them, never clear them, so the user's completed
+// record survives career switches and re-syncs.
 
 class LearningProgressContext {
   final String careerId;
@@ -754,6 +1169,12 @@ class LearningProgressContext {
   final String? lastLessonId;
   final DateTime updatedAt;
 
+  /// Optional course-level history. Append-only by convention.
+  final List<String> completedCourseIds;
+
+  /// Optional current stage hint. Null = unspecified.
+  final CareerStage? currentStage;
+
   const LearningProgressContext({
     required this.careerId,
     required this.totalLessons,
@@ -761,6 +1182,8 @@ class LearningProgressContext {
     this.currentLevelTitle,
     this.lastLessonId,
     required this.updatedAt,
+    this.completedCourseIds = const [],
+    this.currentStage,
   });
 
   int get completedCount => completedLessonIds.length;
@@ -775,6 +1198,9 @@ class LearningProgressContext {
         'currentLevelTitle': currentLevelTitle,
         'lastLessonId': lastLessonId,
         'updatedAt': updatedAt.toIso8601String(),
+        if (completedCourseIds.isNotEmpty)
+          'completedCourseIds': completedCourseIds,
+        if (currentStage != null) 'currentStage': currentStage!.name,
       };
 
   factory LearningProgressContext.fromFirestore(Map<String, dynamic> map) =>
@@ -787,6 +1213,11 @@ class LearningProgressContext {
         lastLessonId: map['lastLessonId'] as String?,
         updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
             DateTime.now(),
+        completedCourseIds:
+            List<String>.from(map['completedCourseIds'] as List? ?? const []),
+        currentStage: map['currentStage'] == null
+            ? null
+            : CareerStageExt.fromString(map['currentStage'] as String),
       );
 
   Map<String, dynamic> toMap() => toFirestore();
@@ -806,10 +1237,35 @@ class LearningProgressContext {
         currentLevelTitle: levelTitle ?? currentLevelTitle,
         lastLessonId: lessonId,
         updatedAt: DateTime.now(),
+        completedCourseIds: completedCourseIds,
+        currentStage: currentStage,
+      );
+
+  LearningProgressContext copyWith({
+    int? totalLessons,
+    List<String>? completedLessonIds,
+    String? currentLevelTitle,
+    String? lastLessonId,
+    List<String>? completedCourseIds,
+    CareerStage? currentStage,
+  }) =>
+      LearningProgressContext(
+        careerId: careerId,
+        totalLessons: totalLessons ?? this.totalLessons,
+        completedLessonIds: completedLessonIds ?? this.completedLessonIds,
+        currentLevelTitle: currentLevelTitle ?? this.currentLevelTitle,
+        lastLessonId: lastLessonId ?? this.lastLessonId,
+        updatedAt: DateTime.now(),
+        completedCourseIds: completedCourseIds ?? this.completedCourseIds,
+        currentStage: currentStage ?? this.currentStage,
       );
 }
 
 // ─── Project Progress Context ─────────────────────────────────────────────────
+//
+// `completedProjectIds` is permanent history — append-only.
+// `projectMilestones` records progress within projects; it never replaces
+// the completed-projects list.
 
 class ProjectProgressContext {
   final int totalProjects;
@@ -817,11 +1273,20 @@ class ProjectProgressContext {
   final String? currentProjectId;
   final DateTime updatedAt;
 
+  /// Optional career scope. Null = unscoped (existing behaviour).
+  final String? careerId;
+
+  /// Optional per-project milestone map: { projectId: [milestoneId, ...] }.
+  /// Append-only by convention; callers persist the union, never replace.
+  final Map<String, List<String>> projectMilestones;
+
   const ProjectProgressContext({
     this.totalProjects = 0,
     this.completedProjectIds = const [],
     this.currentProjectId,
     required this.updatedAt,
+    this.careerId,
+    this.projectMilestones = const {},
   });
 
   int get completedCount => completedProjectIds.length;
@@ -834,17 +1299,32 @@ class ProjectProgressContext {
         'completedProjectIds': completedProjectIds,
         'currentProjectId': currentProjectId,
         'updatedAt': updatedAt.toIso8601String(),
+        if (careerId != null) 'careerId': careerId,
+        if (projectMilestones.isNotEmpty)
+          'projectMilestones': projectMilestones
+              .map((k, v) => MapEntry(k, List<String>.from(v))),
       };
 
-  factory ProjectProgressContext.fromFirestore(Map<String, dynamic> map) =>
-      ProjectProgressContext(
-        totalProjects: (map['totalProjects'] as num?)?.toInt() ?? 0,
-        completedProjectIds:
-            List<String>.from(map['completedProjectIds'] as List? ?? []),
-        currentProjectId: map['currentProjectId'] as String?,
-        updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
-            DateTime.now(),
-      );
+  factory ProjectProgressContext.fromFirestore(Map<String, dynamic> map) {
+    final rawMilestones =
+        (map['projectMilestones'] as Map?) ?? const <String, dynamic>{};
+    final milestones = <String, List<String>>{};
+    rawMilestones.forEach((k, v) {
+      if (k is String) {
+        milestones[k] = List<String>.from((v as List?) ?? const []);
+      }
+    });
+    return ProjectProgressContext(
+      totalProjects: (map['totalProjects'] as num?)?.toInt() ?? 0,
+      completedProjectIds:
+          List<String>.from(map['completedProjectIds'] as List? ?? []),
+      currentProjectId: map['currentProjectId'] as String?,
+      updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
+          DateTime.now(),
+      careerId: map['careerId'] as String?,
+      projectMilestones: milestones,
+    );
+  }
 
   Map<String, dynamic> toMap() => toFirestore();
   factory ProjectProgressContext.fromMap(Map<String, dynamic> map) =>
@@ -858,10 +1338,36 @@ class ProjectProgressContext {
             : [...completedProjectIds, projectId],
         currentProjectId: currentProjectId,
         updatedAt: DateTime.now(),
+        careerId: careerId,
+        projectMilestones: projectMilestones,
       );
+
+  ProjectProgressContext withMilestoneCompleted(
+    String projectId,
+    String milestoneId,
+  ) {
+    final existing = projectMilestones[projectId] ?? const <String>[];
+    final updated = existing.contains(milestoneId)
+        ? existing
+        : [...existing, milestoneId];
+    final nextMap = <String, List<String>>{...projectMilestones};
+    nextMap[projectId] = updated;
+    return ProjectProgressContext(
+      totalProjects: totalProjects,
+      completedProjectIds: completedProjectIds,
+      currentProjectId: currentProjectId,
+      updatedAt: DateTime.now(),
+      careerId: careerId,
+      projectMilestones: nextMap,
+    );
+  }
 }
 
 // ─── Job Progress Context ─────────────────────────────────────────────────────
+//
+// `appliedJobIds` and `savedJobIds` are permanent history — append-only.
+// `applicationStates` enriches per-application status; it never replaces
+// the applied-jobs list.
 
 class JobProgressContext {
   final List<String> appliedJobIds;   // permanent history, append-only
@@ -869,11 +1375,21 @@ class JobProgressContext {
   final int offersReceived;
   final DateTime updatedAt;
 
+  /// Optional career scope. Null = unscoped (existing behaviour).
+  final String? careerId;
+
+  /// Optional per-application state map: { jobId: 'applied' | 'screening'
+  /// | 'interviewing' | 'offer' | 'rejected' | ... }. Open vocabulary;
+  /// the service owns the canonical state machine.
+  final Map<String, String> applicationStates;
+
   const JobProgressContext({
     this.appliedJobIds = const [],
     this.savedJobIds = const [],
     this.offersReceived = 0,
     required this.updatedAt,
+    this.careerId,
+    this.applicationStates = const {},
   });
 
   int get applicationsSent => appliedJobIds.length;
@@ -883,16 +1399,28 @@ class JobProgressContext {
         'savedJobIds': savedJobIds,
         'offersReceived': offersReceived,
         'updatedAt': updatedAt.toIso8601String(),
+        if (careerId != null) 'careerId': careerId,
+        if (applicationStates.isNotEmpty)
+          'applicationStates': applicationStates,
       };
 
-  factory JobProgressContext.fromFirestore(Map<String, dynamic> map) =>
-      JobProgressContext(
-        appliedJobIds: List<String>.from(map['appliedJobIds'] as List? ?? []),
-        savedJobIds: List<String>.from(map['savedJobIds'] as List? ?? []),
-        offersReceived: (map['offersReceived'] as num?)?.toInt() ?? 0,
-        updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
-            DateTime.now(),
-      );
+  factory JobProgressContext.fromFirestore(Map<String, dynamic> map) {
+    final rawStates =
+        (map['applicationStates'] as Map?) ?? const <String, dynamic>{};
+    final states = <String, String>{};
+    rawStates.forEach((k, v) {
+      if (k is String && v is String) states[k] = v;
+    });
+    return JobProgressContext(
+      appliedJobIds: List<String>.from(map['appliedJobIds'] as List? ?? []),
+      savedJobIds: List<String>.from(map['savedJobIds'] as List? ?? []),
+      offersReceived: (map['offersReceived'] as num?)?.toInt() ?? 0,
+      updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
+          DateTime.now(),
+      careerId: map['careerId'] as String?,
+      applicationStates: states,
+    );
+  }
 
   Map<String, dynamic> toMap() => toFirestore();
   factory JobProgressContext.fromMap(Map<String, dynamic> map) =>
@@ -905,17 +1433,104 @@ class JobProgressContext {
         savedJobIds: savedJobIds,
         offersReceived: offersReceived,
         updatedAt: DateTime.now(),
+        careerId: careerId,
+        applicationStates: applicationStates,
       );
+
+  JobProgressContext withApplicationState(String jobId, String state) {
+    final next = <String, String>{...applicationStates};
+    next[jobId] = state;
+    return JobProgressContext(
+      appliedJobIds: appliedJobIds,
+      savedJobIds: savedJobIds,
+      offersReceived: offersReceived,
+      updatedAt: DateTime.now(),
+      careerId: careerId,
+      applicationStates: next,
+    );
+  }
+}
+
+// ─── Interview Attempt ────────────────────────────────────────────────────────
+//
+// One concrete attempt at an interview. Multiple attempts for the same
+// interviewId are legitimate and must NOT inflate the unique-completed
+// count. `attempts` is append-only history; it never replaces
+// `completedInterviewIds`.
+
+class InterviewAttempt {
+  final String interviewId;
+  final DateTime attemptedAt;
+  final double? score; // 0–100, null = ungraded attempt
+
+  const InterviewAttempt({
+    required this.interviewId,
+    required this.attemptedAt,
+    this.score,
+  });
+
+  Map<String, dynamic> toFirestore() => {
+        'interviewId': interviewId,
+        'attemptedAt': attemptedAt.toIso8601String(),
+        if (score != null) 'score': score,
+      };
+
+  factory InterviewAttempt.fromFirestore(Map<String, dynamic> map) =>
+      InterviewAttempt(
+        interviewId: map['interviewId'] as String? ?? '',
+        attemptedAt:
+            DateTime.tryParse(map['attemptedAt'] as String? ?? '') ??
+                DateTime.now(),
+        score: (map['score'] as num?)?.toDouble(),
+      );
+
+  Map<String, dynamic> toMap() => toFirestore();
+  factory InterviewAttempt.fromMap(Map<String, dynamic> map) =>
+      InterviewAttempt.fromFirestore(map);
 }
 
 // ─── Interview Progress Context ───────────────────────────────────────────────
+//
+// SEMANTICS
+// ---------
+//   • completedInterviewIds = UNIQUE completed interview IDs.
+//   • mockInterviewsDone    = number of UNIQUE completed interviews that
+//                             have at least one scored attempt. Duplicate
+//                             attempts of the same interviewId never
+//                             inflate this count.
+//   • attempts              = append-only history of EVERY attempt,
+//                             including repeats and ungraded ones.
+//   • averageScore          = mean of ALL scored attempts across every
+//                             attempt in `attempts`. A second scored
+//                             attempt for the same interviewId is
+//                             therefore reflected in the average.
+//
+// LEGACY DOCUMENT COMPATIBILITY
+// -----------------------------
+// Older Firestore documents may carry `mockInterviewsDone` and
+// `averageScore` WITHOUT an `attempts` history. In that case the aggregate
+// values are treated as opaque legacy totals and preserved:
+//
+//   • When `attempts` is EMPTY and legacy aggregate values are present,
+//     `withInterviewCompleted()` folds the new attempt into the existing
+//     aggregates using the legacy scalar semantics, rather than recomputing
+//     from an empty attempt list (which would erase the legacy values).
+//
+//   • When `attempts` is NON-EMPTY, the modern semantics above apply and the
+//     aggregates are recomputed from the full attempt history.
 
 class InterviewProgressContext {
-  final List<String> completedInterviewIds; // permanent history, append-only
-  final int mockInterviewsDone;
-  final double averageScore; // 0–100
+  final List<String> completedInterviewIds; // unique completed ids, append-only
+  final int mockInterviewsDone;             // unique interviews with a score
+  final double averageScore;                // 0–100 over ALL scored attempts
   final DateTime? lastInterviewDate;
   final DateTime updatedAt;
+
+  /// Optional career scope. Null = unscoped (existing behaviour).
+  final String? careerId;
+
+  /// Optional per-attempt history. Append-only by convention.
+  final List<InterviewAttempt> attempts;
 
   const InterviewProgressContext({
     this.completedInterviewIds = const [],
@@ -923,6 +1538,8 @@ class InterviewProgressContext {
     this.averageScore = 0,
     this.lastInterviewDate,
     required this.updatedAt,
+    this.careerId,
+    this.attempts = const [],
   });
 
   Map<String, dynamic> toFirestore() => {
@@ -931,52 +1548,259 @@ class InterviewProgressContext {
         'averageScore': averageScore,
         'lastInterviewDate': lastInterviewDate?.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        if (careerId != null) 'careerId': careerId,
+        if (attempts.isNotEmpty)
+          'attempts': attempts.map((a) => a.toFirestore()).toList(),
       };
 
-  factory InterviewProgressContext.fromFirestore(Map<String, dynamic> map) =>
-      InterviewProgressContext(
-        completedInterviewIds:
-            List<String>.from(map['completedInterviewIds'] as List? ?? []),
-        mockInterviewsDone:
-            (map['mockInterviewsDone'] as num?)?.toInt() ?? 0,
-        averageScore: (map['averageScore'] as num?)?.toDouble() ?? 0,
-        lastInterviewDate: map['lastInterviewDate'] == null
-            ? null
-            : DateTime.tryParse(map['lastInterviewDate'] as String),
-        updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
-            DateTime.now(),
-      );
+  factory InterviewProgressContext.fromFirestore(Map<String, dynamic> map) {
+    final rawAttempts = map['attempts'] as List<dynamic>? ?? const [];
+    return InterviewProgressContext(
+      completedInterviewIds:
+          List<String>.from(map['completedInterviewIds'] as List? ?? []),
+      mockInterviewsDone:
+          (map['mockInterviewsDone'] as num?)?.toInt() ?? 0,
+      averageScore: (map['averageScore'] as num?)?.toDouble() ?? 0,
+      lastInterviewDate: map['lastInterviewDate'] == null
+          ? null
+          : DateTime.tryParse(map['lastInterviewDate'] as String),
+      updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
+          DateTime.now(),
+      careerId: map['careerId'] as String?,
+      attempts: rawAttempts
+          .map((a) =>
+              InterviewAttempt.fromFirestore(a as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 
   Map<String, dynamic> toMap() => toFirestore();
   factory InterviewProgressContext.fromMap(Map<String, dynamic> map) =>
       InterviewProgressContext.fromFirestore(map);
 
+  /// Records an interview attempt.
+  ///
+  /// Rules (do not change):
+  ///   • The attempt is ALWAYS appended to [attempts].
+  ///   • The interviewId is appended to [completedInterviewIds] only the
+  ///     first time it is seen (unique completed count).
+  ///
+  /// Legacy behaviour (no attempt history available):
+  ///   • If the pre-existing [attempts] list is EMPTY, the legacy aggregate
+  ///     values [mockInterviewsDone] and [averageScore] are preserved and
+  ///     only updated by folding the new attempt into them. This prevents an
+  ///     older Firestore document that stored only aggregates (no attempt
+  ///     history) from being reset to zero the first time a new attempt is
+  ///     recorded.
+  ///
+  /// Modern behaviour (attempt history available):
+  ///   • [mockInterviewsDone] counts UNIQUE interviews with at least one
+  ///     scored attempt.
+  ///   • [averageScore] is the mean of ALL scored attempts across every
+  ///     attempt in [attempts].
   InterviewProgressContext withInterviewCompleted(
     String interviewId, {
     double? score,
   }) {
-    final newIds = completedInterviewIds.contains(interviewId)
+    final alreadyCompleted = completedInterviewIds.contains(interviewId);
+    final newIds = alreadyCompleted
         ? completedInterviewIds
         : [...completedInterviewIds, interviewId];
-    double newAverage = averageScore;
-    if (score != null) {
-      final priorTotal = averageScore * mockInterviewsDone;
-      newAverage = (priorTotal + score) / (mockInterviewsDone + 1);
+
+    // Append the raw attempt to history. Ungraded attempts are recorded
+    // (score == null) and do not affect the average.
+    final newAttempts = <InterviewAttempt>[
+      ...attempts,
+      InterviewAttempt(
+        interviewId: interviewId,
+        attemptedAt: DateTime.now(),
+        score: score,
+      ),
+    ];
+
+    final int newMockInterviewsDone;
+    final double newAverage;
+
+    if (attempts.isEmpty) {
+      // ── Legacy path: no attempt history available ────────────────────
+      // Treat the existing [mockInterviewsDone] and [averageScore] as the
+      // authoritative totals so far, and fold the new attempt into them.
+      // This preserves prior aggregate values for old documents that only
+      // stored totals (before `attempts` existed).
+      //
+      // Rules for the legacy fold:
+      //   • An ungraded attempt does not change either value.
+      //   • A scored attempt on a NEW interview increments the count and
+      //     updates the running average using the legacy count as N.
+      //   • A scored attempt on an ALREADY-completed interview updates the
+      //     running average using the legacy count as N, but does NOT
+      //     increment the count (the interview is already counted). This
+      //     preserves the "unique interviews with a score" invariant while
+      //     still reflecting the new attempt in the average.
+      if (score == null) {
+        newMockInterviewsDone = mockInterviewsDone;
+        newAverage = averageScore;
+      } else if (!alreadyCompleted) {
+        final priorTotal = averageScore * mockInterviewsDone;
+        newMockInterviewsDone = mockInterviewsDone + 1;
+        newAverage = newMockInterviewsDone == 0
+            ? 0.0
+            : (priorTotal + score) / newMockInterviewsDone;
+      } else {
+        // Already-counted interview receiving a scored attempt. Keep the
+        // count stable; fold the new score into the running average using
+        // the existing count as N.
+        newMockInterviewsDone = mockInterviewsDone;
+        if (mockInterviewsDone <= 0) {
+          newAverage = score;
+        } else {
+          final priorTotal = averageScore * mockInterviewsDone;
+          // Reuse the same N so we don't artificially inflate uniqueness.
+          newAverage = (priorTotal + score) / (mockInterviewsDone + 1);
+        }
+      }
+    } else {
+      // ── Modern path: full attempt history available ──────────────────
+      // Recompute aggregates from ALL attempts.
+      double sum = 0;
+      int scoredCount = 0;
+      final scoredInterviewIds = <String>{};
+      for (final a in newAttempts) {
+        final s = a.score;
+        if (s != null) {
+          sum += s;
+          scoredCount++;
+          scoredInterviewIds.add(a.interviewId);
+        }
+      }
+      newAverage = scoredCount == 0 ? 0.0 : sum / scoredCount;
+      newMockInterviewsDone = scoredInterviewIds.length;
     }
+
     return InterviewProgressContext(
       completedInterviewIds: newIds,
-      mockInterviewsDone: mockInterviewsDone + (score != null ? 1 : 0),
+      mockInterviewsDone: newMockInterviewsDone,
       averageScore: newAverage,
       lastInterviewDate: DateTime.now(),
       updatedAt: DateTime.now(),
+      careerId: careerId,
+      attempts: newAttempts,
     );
   }
 }
 
+// ─── Portfolio Readiness ─────────────────────────────────────────────────────
+//
+// A DERIVED summary of portfolio readiness. It carries only counts, never
+// the underlying evidence list (which belongs to the authoritative
+// evidence layer). Populated by the readiness engine; never fabricated.
+
+class PortfolioReadiness {
+  final int itemCount;          // portfolio items currently published
+  final int targetCount;        // blueprint target
+  final List<String> highlights;// optional item ids flagged as highlights
+
+  const PortfolioReadiness({
+    this.itemCount = 0,
+    this.targetCount = 0,
+    this.highlights = const [],
+  });
+
+  /// Ratio in [0, 1]. Returns 0.0 when [targetCount] is non-positive
+  /// (avoids division by zero). Guaranteed to return a real `double`.
+  double get ratio {
+    if (targetCount <= 0) return 0.0;
+    final raw = itemCount / targetCount;
+    return raw.clamp(0.0, 1.0).toDouble();
+  }
+
+  Map<String, dynamic> toFirestore() => {
+        'itemCount': itemCount,
+        'targetCount': targetCount,
+        if (highlights.isNotEmpty) 'highlights': highlights,
+      };
+
+  factory PortfolioReadiness.fromFirestore(Map<String, dynamic> map) =>
+      PortfolioReadiness(
+        itemCount: (map['itemCount'] as num?)?.toInt() ?? 0,
+        targetCount: (map['targetCount'] as num?)?.toInt() ?? 0,
+        highlights: List<String>.from(map['highlights'] as List? ?? const []),
+      );
+
+  Map<String, dynamic> toMap() => toFirestore();
+  factory PortfolioReadiness.fromMap(Map<String, dynamic> map) =>
+      PortfolioReadiness.fromFirestore(map);
+}
+
+// ─── CV Readiness ────────────────────────────────────────────────────────────
+//
+// A DERIVED summary of CV/resume readiness. Section flags only, never
+// fabricated content. Populated by the readiness engine.
+
+class CvReadiness {
+  final bool hasSummary;
+  final bool hasExperienceSection;
+  final bool hasEducationSection;
+  final bool hasSkillsSection;
+  final bool hasProjectsSection;
+  final DateTime? lastReviewedAt;
+
+  const CvReadiness({
+    this.hasSummary = false,
+    this.hasExperienceSection = false,
+    this.hasEducationSection = false,
+    this.hasSkillsSection = false,
+    this.hasProjectsSection = false,
+    this.lastReviewedAt,
+  });
+
+  double get ratio {
+    var done = 0;
+    if (hasSummary) done++;
+    if (hasExperienceSection) done++;
+    if (hasEducationSection) done++;
+    if (hasSkillsSection) done++;
+    if (hasProjectsSection) done++;
+    return done / 5;
+  }
+
+  Map<String, dynamic> toFirestore() => {
+        'hasSummary': hasSummary,
+        'hasExperienceSection': hasExperienceSection,
+        'hasEducationSection': hasEducationSection,
+        'hasSkillsSection': hasSkillsSection,
+        'hasProjectsSection': hasProjectsSection,
+        if (lastReviewedAt != null)
+          'lastReviewedAt': lastReviewedAt!.toIso8601String(),
+      };
+
+  factory CvReadiness.fromFirestore(Map<String, dynamic> map) => CvReadiness(
+        hasSummary: map['hasSummary'] as bool? ?? false,
+        hasExperienceSection:
+            map['hasExperienceSection'] as bool? ?? false,
+        hasEducationSection: map['hasEducationSection'] as bool? ?? false,
+        hasSkillsSection: map['hasSkillsSection'] as bool? ?? false,
+        hasProjectsSection: map['hasProjectsSection'] as bool? ?? false,
+        lastReviewedAt: map['lastReviewedAt'] == null
+            ? null
+            : DateTime.tryParse(map['lastReviewedAt'] as String),
+      );
+
+  Map<String, dynamic> toMap() => toFirestore();
+  factory CvReadiness.fromMap(Map<String, dynamic> map) =>
+      CvReadiness.fromFirestore(map);
+}
+
 // ─── Career Readiness ─────────────────────────────────────────────────────────
-// A derived snapshot, not a source of truth — always recomputed from the
-// contexts above. Safe to regenerate as often as needed; never itself
-// mutates historical data.
+//
+// A DERIVED SNAPSHOT. Never authoritative. Always recomputed from the
+// contexts above + the active CareerBlueprint, by the Readiness Engine.
+// This model never calculates whether someone is job-ready.
+//
+// `overallScore` and `readinessLabel` are COMPATIBILITY / SUMMARY values
+// preserved for existing callers. They are NOT the career-specific
+// readiness decision. Do not present `readinessLabel == 'Job Ready'`
+// as proof of job readiness.
 
 class CareerReadiness {
   final double skillReadiness;     // 0–1
@@ -986,6 +1810,24 @@ class CareerReadiness {
   final double jobReadiness;       // 0–1
   final DateTime computedAt;
 
+  /// Optional career scope. Null = unscoped (existing behaviour).
+  final String? careerId;
+
+  /// Optional derived portfolio snapshot.
+  final PortfolioReadiness? portfolioReadiness;
+
+  /// Optional derived CV snapshot.
+  final CvReadiness? cvReadiness;
+
+  /// Optional human-readable blockers (why the user is not yet ready).
+  final List<String> blockers;
+
+  /// Optional list of missing requirement keys/descriptions.
+  final List<String> missingRequirements;
+
+  /// Optional engine version that produced this snapshot.
+  final String? engineVersion;
+
   const CareerReadiness({
     required this.skillReadiness,
     required this.learningReadiness,
@@ -993,9 +1835,18 @@ class CareerReadiness {
     required this.interviewReadiness,
     required this.jobReadiness,
     required this.computedAt,
+    this.careerId,
+    this.portfolioReadiness,
+    this.cvReadiness,
+    this.blockers = const [],
+    this.missingRequirements = const [],
+    this.engineVersion,
   });
 
-  /// Simple unweighted average of the five readiness dimensions.
+  /// COMPATIBILITY / SUMMARY VALUE — not the authoritative readiness
+  /// decision. The Readiness Engine owns the real, career-specific
+  /// computation against the CareerBlueprint. This getter remains so
+  /// existing UI code keeps working; do not treat it as a source of truth.
   double get overallScore =>
       (skillReadiness +
           learningReadiness +
@@ -1004,12 +1855,24 @@ class CareerReadiness {
           jobReadiness) /
       5;
 
+  /// COMPATIBILITY / SUMMARY LABEL.
+  ///
+  /// This is NOT the authoritative career-specific "Job Ready" decision.
+  /// It is a coarse presentation string derived from the compatibility
+  /// [overallScore] getter above, kept only so existing UI callers keep
+  /// compiling. The authoritative job-readiness decision is produced by
+  /// the Readiness Engine against the CareerBlueprint and must NOT be
+  /// inferred from this string.
+  ///
+  /// Note the deliberate "~" prefix below: the strings are still readable
+  /// but are clearly qualified summaries, so a value of `'~ Job Ready'`
+  /// cannot be mistaken for the authoritative `'Job Ready'` decision.
   String get readinessLabel {
     final s = overallScore;
-    if (s >= 0.85) return 'Job Ready';
-    if (s >= 0.6) return 'Almost There';
-    if (s >= 0.3) return 'Building Momentum';
-    return 'Just Starting';
+    if (s >= 0.85) return '~ Job Ready';
+    if (s >= 0.6) return '~ Almost There';
+    if (s >= 0.3) return '~ Building Momentum';
+    return '~ Just Starting';
   }
 
   factory CareerReadiness.empty() => CareerReadiness(
@@ -1028,6 +1891,14 @@ class CareerReadiness {
         'interviewReadiness': interviewReadiness,
         'jobReadiness': jobReadiness,
         'computedAt': computedAt.toIso8601String(),
+        if (careerId != null) 'careerId': careerId,
+        if (portfolioReadiness != null)
+          'portfolioReadiness': portfolioReadiness!.toFirestore(),
+        if (cvReadiness != null) 'cvReadiness': cvReadiness!.toFirestore(),
+        if (blockers.isNotEmpty) 'blockers': blockers,
+        if (missingRequirements.isNotEmpty)
+          'missingRequirements': missingRequirements,
+        if (engineVersion != null) 'engineVersion': engineVersion,
       };
 
   factory CareerReadiness.fromFirestore(Map<String, dynamic> map) =>
@@ -1041,14 +1912,59 @@ class CareerReadiness {
         jobReadiness: (map['jobReadiness'] as num?)?.toDouble() ?? 0,
         computedAt: DateTime.tryParse(map['computedAt'] as String? ?? '') ??
             DateTime.now(),
+        careerId: map['careerId'] as String?,
+        portfolioReadiness: map['portfolioReadiness'] == null
+            ? null
+            : PortfolioReadiness.fromFirestore(
+                map['portfolioReadiness'] as Map<String, dynamic>),
+        cvReadiness: map['cvReadiness'] == null
+            ? null
+            : CvReadiness.fromFirestore(
+                map['cvReadiness'] as Map<String, dynamic>),
+        blockers: List<String>.from(map['blockers'] as List? ?? const []),
+        missingRequirements:
+            List<String>.from(map['missingRequirements'] as List? ?? const []),
+        engineVersion: map['engineVersion'] as String?,
       );
 
   Map<String, dynamic> toMap() => toFirestore();
   factory CareerReadiness.fromMap(Map<String, dynamic> map) =>
       CareerReadiness.fromFirestore(map);
+
+  CareerReadiness copyWith({
+    double? skillReadiness,
+    double? learningReadiness,
+    double? projectReadiness,
+    double? interviewReadiness,
+    double? jobReadiness,
+    String? careerId,
+    PortfolioReadiness? portfolioReadiness,
+    CvReadiness? cvReadiness,
+    List<String>? blockers,
+    List<String>? missingRequirements,
+    String? engineVersion,
+  }) =>
+      CareerReadiness(
+        skillReadiness: skillReadiness ?? this.skillReadiness,
+        learningReadiness: learningReadiness ?? this.learningReadiness,
+        projectReadiness: projectReadiness ?? this.projectReadiness,
+        interviewReadiness: interviewReadiness ?? this.interviewReadiness,
+        jobReadiness: jobReadiness ?? this.jobReadiness,
+        computedAt: DateTime.now(),
+        careerId: careerId ?? this.careerId,
+        portfolioReadiness: portfolioReadiness ?? this.portfolioReadiness,
+        cvReadiness: cvReadiness ?? this.cvReadiness,
+        blockers: blockers ?? this.blockers,
+        missingRequirements: missingRequirements ?? this.missingRequirements,
+        engineVersion: engineVersion ?? this.engineVersion,
+      );
 }
 
 // ─── Next Best Action ──────────────────────────────────────────────────────────
+//
+// Represents ONE executable next step. The decision (which action is best)
+// is owned by the Next Best Action Engine. This model represents that
+// decision, so the user can understand WHAT / WHY / HOW / OUTCOME.
 
 enum NextActionType { lesson, project, interview, application, skillReview, networking }
 
@@ -1082,6 +1998,31 @@ class NextBestAction {
   final DateTime createdAt;
   final bool isCompleted;
 
+  /// Optional career scope. Null = unscoped.
+  final String? careerId;
+
+  /// Structured explanation fields. Null = unspecified; existing UIs that
+  /// only read `title`/`description` keep working.
+  final String? what;
+  final String? why;
+  final String? how;
+  final String? expectedOutcome;
+
+  /// Optional requirement key this action addresses.
+  final String? relatedRequirement;
+
+  /// Optional opaque destination identifier.
+  final String? destinationRef;
+
+  /// Optional human-readable duration hint.
+  final String? estimatedDuration;
+
+  /// Optional evidence kind this action produces when completed.
+  final SkillEvidenceType? completionEvidenceType;
+
+  /// Optional state version tag for deterministic decisions.
+  final String? stateVersion;
+
   const NextBestAction({
     required this.id,
     required this.type,
@@ -1091,6 +2032,16 @@ class NextBestAction {
     this.relatedSkill,
     required this.createdAt,
     this.isCompleted = false,
+    this.careerId,
+    this.what,
+    this.why,
+    this.how,
+    this.expectedOutcome,
+    this.relatedRequirement,
+    this.destinationRef,
+    this.estimatedDuration,
+    this.completionEvidenceType,
+    this.stateVersion,
   });
 
   Map<String, dynamic> toFirestore() => {
@@ -1102,6 +2053,19 @@ class NextBestAction {
         'relatedSkill': relatedSkill,
         'createdAt': createdAt.toIso8601String(),
         'isCompleted': isCompleted,
+        if (careerId != null) 'careerId': careerId,
+        if (what != null) 'what': what,
+        if (why != null) 'why': why,
+        if (how != null) 'how': how,
+        if (expectedOutcome != null) 'expectedOutcome': expectedOutcome,
+        if (relatedRequirement != null)
+          'relatedRequirement': relatedRequirement,
+        if (destinationRef != null) 'destinationRef': destinationRef,
+        if (estimatedDuration != null)
+          'estimatedDuration': estimatedDuration,
+        if (completionEvidenceType != null)
+          'completionEvidenceType': completionEvidenceType!.name,
+        if (stateVersion != null) 'stateVersion': stateVersion,
       };
 
   factory NextBestAction.fromFirestore(Map<String, dynamic> map) =>
@@ -1115,25 +2079,59 @@ class NextBestAction {
         createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ??
             DateTime.now(),
         isCompleted: map['isCompleted'] as bool? ?? false,
+        careerId: map['careerId'] as String?,
+        what: map['what'] as String?,
+        why: map['why'] as String?,
+        how: map['how'] as String?,
+        expectedOutcome: map['expectedOutcome'] as String?,
+        relatedRequirement: map['relatedRequirement'] as String?,
+        destinationRef: map['destinationRef'] as String?,
+        estimatedDuration: map['estimatedDuration'] as String?,
+        completionEvidenceType: map['completionEvidenceType'] == null
+            ? null
+            : SkillEvidenceTypeExt.fromString(
+                map['completionEvidenceType'] as String),
+        stateVersion: map['stateVersion'] as String?,
       );
 
   Map<String, dynamic> toMap() => toFirestore();
   factory NextBestAction.fromMap(Map<String, dynamic> map) =>
       NextBestAction.fromFirestore(map);
 
-  NextBestAction copyWith({bool? isCompleted}) => NextBestAction(
+  NextBestAction copyWith({
+    bool? isCompleted,
+    String? title,
+    String? description,
+    int? priority,
+    String? stateVersion,
+  }) =>
+      NextBestAction(
         id: id,
         type: type,
-        title: title,
-        description: description,
-        priority: priority,
+        title: title ?? this.title,
+        description: description ?? this.description,
+        priority: priority ?? this.priority,
         relatedSkill: relatedSkill,
         createdAt: createdAt,
         isCompleted: isCompleted ?? this.isCompleted,
+        careerId: careerId,
+        what: what,
+        why: why,
+        how: how,
+        expectedOutcome: expectedOutcome,
+        relatedRequirement: relatedRequirement,
+        destinationRef: destinationRef,
+        estimatedDuration: estimatedDuration,
+        completionEvidenceType: completionEvidenceType,
+        stateVersion: stateVersion ?? this.stateVersion,
       );
 }
 
 // ─── Copilot Recommendation ─────────────────────────────────────────────────────
+//
+// Represents evolving guidance. Recommendations are generated fresh as
+// progress changes and APPENDED to history (old ones marked `isDismissed`,
+// never deleted). The recommendation engine owns the decision logic.
 
 enum RecommendationCategory {
   skillGap,
@@ -1164,10 +2162,6 @@ extension RecommendationCategoryExt on RecommendationCategory {
   }
 }
 
-/// A single evolving piece of Copilot guidance. Recommendations are meant to
-/// be generated fresh as progress changes and APPENDED to history (with old
-/// ones marked `isDismissed` rather than deleted) — never used to overwrite
-/// prior recommendation history wholesale.
 class CopilotRecommendation {
   final String id;
   final RecommendationCategory category;
@@ -1177,6 +2171,21 @@ class CopilotRecommendation {
   final DateTime createdAt;
   final bool isDismissed;
 
+  /// Optional career scope. Null = unscoped.
+  final String? careerId;
+
+  /// Structured explanation fields.
+  final String? what;
+  final String? why;
+  final String? how;
+  final String? expectedOutcome;
+
+  /// Optional requirement key this recommendation relates to.
+  final String? relatedRequirement;
+
+  /// Optional state version tag for deterministic decisions.
+  final String? stateVersion;
+
   const CopilotRecommendation({
     required this.id,
     required this.category,
@@ -1185,6 +2194,13 @@ class CopilotRecommendation {
     this.priority = 2,
     required this.createdAt,
     this.isDismissed = false,
+    this.careerId,
+    this.what,
+    this.why,
+    this.how,
+    this.expectedOutcome,
+    this.relatedRequirement,
+    this.stateVersion,
   });
 
   Map<String, dynamic> toFirestore() => {
@@ -1195,6 +2211,14 @@ class CopilotRecommendation {
         'priority': priority,
         'createdAt': createdAt.toIso8601String(),
         'isDismissed': isDismissed,
+        if (careerId != null) 'careerId': careerId,
+        if (what != null) 'what': what,
+        if (why != null) 'why': why,
+        if (how != null) 'how': how,
+        if (expectedOutcome != null) 'expectedOutcome': expectedOutcome,
+        if (relatedRequirement != null)
+          'relatedRequirement': relatedRequirement,
+        if (stateVersion != null) 'stateVersion': stateVersion,
       };
 
   factory CopilotRecommendation.fromFirestore(Map<String, dynamic> map) =>
@@ -1208,24 +2232,57 @@ class CopilotRecommendation {
         createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ??
             DateTime.now(),
         isDismissed: map['isDismissed'] as bool? ?? false,
+        careerId: map['careerId'] as String?,
+        what: map['what'] as String?,
+        why: map['why'] as String?,
+        how: map['how'] as String?,
+        expectedOutcome: map['expectedOutcome'] as String?,
+        relatedRequirement: map['relatedRequirement'] as String?,
+        stateVersion: map['stateVersion'] as String?,
       );
 
   Map<String, dynamic> toMap() => toFirestore();
   factory CopilotRecommendation.fromMap(Map<String, dynamic> map) =>
       CopilotRecommendation.fromFirestore(map);
 
-  CopilotRecommendation copyWith({bool? isDismissed}) => CopilotRecommendation(
+  CopilotRecommendation copyWith({
+    bool? isDismissed,
+    String? title,
+    String? description,
+    int? priority,
+    String? stateVersion,
+  }) =>
+      CopilotRecommendation(
         id: id,
         category: category,
-        title: title,
-        description: description,
-        priority: priority,
+        title: title ?? this.title,
+        description: description ?? this.description,
+        priority: priority ?? this.priority,
         createdAt: createdAt,
         isDismissed: isDismissed ?? this.isDismissed,
+        careerId: careerId,
+        what: what,
+        why: why,
+        how: how,
+        expectedOutcome: expectedOutcome,
+        relatedRequirement: relatedRequirement,
+        stateVersion: stateVersion ?? this.stateVersion,
       );
 }
 
-// ─── Copilot Context (aggregate) ───────────────────────────────────────────────
+// ─── Copilot Context (aggregate READ MODEL) ────────────────────────────────────
+//
+// CopilotContext is an ASSEMBLED READ MODEL — the current runtime context
+// the Copilot reasons from. It is NOT the permanent historical database.
+//
+//   • Historical evidence belongs in the authoritative evidence/event layer.
+//   • Current aggregates belong in their dedicated aggregate documents.
+//   • CopilotContext is assembled from those authoritative sources for
+//     consumption by the UI / AI memory / Next Best Action engine.
+//
+// Serialization is preserved for backward compatibility with existing
+// callers. It must not be treated as a replacement for the authoritative
+// evidence/aggregate documents.
 
 class CopilotContext {
   final CopilotState state;
@@ -1238,6 +2295,12 @@ class CopilotContext {
   final List<NextBestAction> nextActions;
   final List<CopilotRecommendation> recommendations;
 
+  /// Optional career blueprint the context was assembled against.
+  final CareerBlueprint? blueprint;
+
+  /// Optional current pipeline stage hint.
+  final CareerStage? currentStage;
+
   CopilotContext({
     required this.state,
     this.career,
@@ -1248,17 +2311,32 @@ class CopilotContext {
     CareerReadiness? readiness,
     this.nextActions = const [],
     this.recommendations = const [],
+    this.blueprint,
+    this.currentStage,
   })  : learningProgress = learningProgress ??
             LearningProgressContext(
               careerId: career?.careerId ?? '',
               totalLessons: 0,
               updatedAt: DateTime.now(),
             ),
-        projectProgress =
-            projectProgress ?? ProjectProgressContext(updatedAt: DateTime.now()),
-        jobProgress = jobProgress ?? JobProgressContext(updatedAt: DateTime.now()),
+        // Default progress contexts inherit the ACTIVE career id so career
+        // scope is explicit and consistent across all aggregates. When no
+        // career is active, careerId remains null (unscoped).
+        projectProgress = projectProgress ??
+            ProjectProgressContext(
+              updatedAt: DateTime.now(),
+              careerId: career?.careerId,
+            ),
+        jobProgress = jobProgress ??
+            JobProgressContext(
+              updatedAt: DateTime.now(),
+              careerId: career?.careerId,
+            ),
         interviewProgress = interviewProgress ??
-            InterviewProgressContext(updatedAt: DateTime.now()),
+            InterviewProgressContext(
+              updatedAt: DateTime.now(),
+              careerId: career?.careerId,
+            ),
         readiness = readiness ?? CareerReadiness.empty();
 
   /// Only non-dismissed recommendations, highest priority first.
@@ -1291,6 +2369,8 @@ class CopilotContext {
         'nextActions': nextActions.map((a) => a.toFirestore()).toList(),
         'recommendations':
             recommendations.map((r) => r.toFirestore()).toList(),
+        if (blueprint != null) 'blueprint': blueprint!.toFirestore(),
+        if (currentStage != null) 'currentStage': currentStage!.name,
       };
 
   factory CopilotContext.fromFirestore(Map<String, dynamic> map) {
@@ -1352,6 +2432,13 @@ class CopilotContext {
           .map((r) =>
               CopilotRecommendation.fromFirestore(r as Map<String, dynamic>))
           .toList(),
+      blueprint: map['blueprint'] == null
+          ? null
+          : CareerBlueprint.fromFirestore(
+              map['blueprint'] as Map<String, dynamic>),
+      currentStage: map['currentStage'] == null
+          ? null
+          : CareerStageExt.fromString(map['currentStage'] as String),
     );
   }
 
@@ -1369,6 +2456,8 @@ class CopilotContext {
     CareerReadiness? readiness,
     List<NextBestAction>? nextActions,
     List<CopilotRecommendation>? recommendations,
+    CareerBlueprint? blueprint,
+    CareerStage? currentStage,
   }) =>
       CopilotContext(
         state: state ?? this.state,
@@ -1380,5 +2469,7 @@ class CopilotContext {
         readiness: readiness ?? this.readiness,
         nextActions: nextActions ?? this.nextActions,
         recommendations: recommendations ?? this.recommendations,
+        blueprint: blueprint ?? this.blueprint,
+        currentStage: currentStage ?? this.currentStage,
       );
 }

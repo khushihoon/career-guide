@@ -902,8 +902,14 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
   // contextual, but the routing here is unchanged.
   void _onOpenNextMove(NextBestAction? action) {
     if (!mounted) return;
+
     if (action == null) {
-      _go(const PersonalizedRoadmapScreen());
+      final ctrl = CopilotProvider.maybeOf(context);
+      if (ctrl?.state.skillGaps.isNotEmpty ?? false) {
+        _go(const SkillGapScreen());
+      } else {
+        _go(const PersonalizedRoadmapScreen());
+      }
       return;
     }
     switch (action.type) {
@@ -1138,12 +1144,29 @@ class _NextMoveCard extends StatelessWidget {
 
   NextBestAction? get _bestAction {
     final ctx = copilotContext;
-    if (ctx == null || ctx.nextActions.isEmpty) return null;
+    if (ctx == null) return null;
 
     final incomplete = ctx.nextActions
         .where((a) => !a.isCompleted)
         .toList()
       ..sort((a, b) => a.priority.compareTo(b.priority));
+
+    // If this career still has an open skill gap, a skill-review action
+    // must win over a generic lesson/roadmap action. This is a defensive
+    // UI-side compatibility guard for older persisted action records;
+    // the Controller is the primary source that generates this action.
+    if (ctx.state.skillGaps.isNotEmpty) {
+      NextBestAction? skillAction;
+      for (final candidate in incomplete) {
+        if (candidate.type == NextActionType.skillReview) {
+          skillAction = candidate;
+          break;
+        }
+      }
+      if (skillAction != null) return skillAction;
+      return null;
+    }
+
     if (incomplete.isNotEmpty) return incomplete.first;
 
     final all = List<NextBestAction>.from(ctx.nextActions)
@@ -1252,8 +1275,11 @@ class _NextMoveCard extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Open Roadmap',
-                    style: TextStyle(
+                child: Text(
+                    (copilotContext?.state.skillGaps.isNotEmpty ?? false)
+                        ? 'Start Fixing Now'
+                        : 'Open Roadmap',
+                    style: const TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w600)),
               ),
             ),

@@ -696,4 +696,4 @@ class _CareerDashboardScreenState extends State<CareerDashboardScreen> {
       ],
     );
   }
-}
+} 

@@ -1,81 +1,74 @@
 // ══════════════════════════════════════════════════════════════════════
 // lib/screens/progress_screen.dart
 //
-// Career Progress Dashboard — UI layer only. Reads real data exposed by
-// CopilotController (state, XP, streak, history, skill profile, roadmap)
-// and delegates ALL progress math to ProgressTrackingService.
+// CAREER PROGRESS DASHBOARD
 //
-// ARCHITECTURE RULES OBSERVED HERE
-//   • No Firestore / no API / no SharedPreferences access.
-//   • No use of ctrl.copilotContext — the current CopilotController does
-//     not expose it. Only ctrl.state and its fields are used.
-//   • No progress formulas are re-implemented in this screen.
-//   • No milestone-threshold decision logic is duplicated here; the
-//     next-milestone string comes from ProgressTrackingService.
-//   • No DSA / portfolio / interview / project / application progress is
-//     invented. Fields without a real controller-side signal are left
-//     null so ProgressTrackingService's own conservative default applies.
-//   • Readiness scores are shown only when they can be computed from the
-//     same real data used for the snapshot; otherwise the tile shows an
-//     "Insufficient data" state instead of a fake number.
+// UI ONLY.
+// • Reads the current CopilotContext from CopilotController.
+// • Uses ProgressTrackingService only for presentation snapshots.
+// • Does not access Firestore/API/SharedPreferences.
+// • Does not calculate readiness or progression rules itself.
+// • Uses the canonical CareerStage from copilot_models.dart.
+// • Falls back to a safe loading/insufficient-data state when the richer
+//   CopilotContext is not available yet.
+//
+// CURRENT PIPELINE
+// Exploration → Assessment → Learning → Practice → Projects →
+// Portfolio → CV Ready → Interview Prep → Job Search → Job Ready → Growth
+//
 // ══════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+
 import '../models/copilot_models.dart';
-import '../models/user_profile.dart';
 import '../services/copilot_provider.dart';
 import '../services/progress_tracking_service.dart';
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
 
-  static const _bg        = Color(0xFF0F0F1A);
-  static const _surface   = Color(0xFF1A1A2E);
-  static const _border    = Color(0xFF2A2A40);
-  static const _primary   = Color(0xFF7C3AED);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
   static const _secondary = Color(0xFFA78BFA);
-  static const _muted     = Color(0xFF888899);
+  static const _muted = Color(0xFF888899);
+  static const _green = Color(0xFF4ADE80);
 
   @override
   Widget build(BuildContext context) {
     final ctrl = CopilotProvider.maybeOf(context);
 
     if (ctrl == null) {
-      return Scaffold(
-        backgroundColor: _bg,
-        body: const Center(
-          child: CircularProgressIndicator(color: _primary),
-        ),
-      );
+      return const _LoadingScreen();
     }
 
     final state = ctrl.state;
-    final history = state.progressHistory;
+    final copilotContext = ctrl.copilotContext;
+
+    final history = [...state.progressHistory]
+      ..sort((a, b) => a.date.compareTo(b.date));
 
     final chartData = history.length > 7
         ? history.sublist(history.length - 7)
-        : [...history];
+        : history;
 
-    final maxXp = chartData.isEmpty
-        ? 1
-        : chartData.fold(0, (m, e) => e.xpEarned > m ? e.xpEarned : m);
+    final maxXp = chartData.fold<int>(
+      0,
+      (maxValue, entry) =>
+          entry.xpEarned > maxValue ? entry.xpEarned : maxValue,
+    );
 
-    // Build a UserProfile from real controller data only.
-    // ProgressTrackingService is the single source of truth for
-    // calculations and for what counts as "next milestone".
-    final userProfile = _buildProfileFromController(state);
-    final snapshot = ProgressTrackingService.getProgressSnapshot(userProfile);
+    // The richer canonical read model is the preferred source.
+    final snapshot = copilotContext == null
+        ? _emptySnapshot()
+        : ProgressTrackingService.getCopilotProgressSnapshot(copilotContext!);
 
-    // Readiness is only meaningful when the underlying stages were
-    // computed from real data. Interview readiness needs real interview
-    // practice; job readiness needs several preparation stages. Since
-    // CopilotState exposes no dedicated interview-history or
-    // interview-score signal, and no signal that specifically proves job
-    // readiness, both tiles must fall back to "Insufficient data" rather
-    // than inventing a number from unrelated signals.
-    const hasRealInterviewData = false;
-    const hasRealJobReadinessBasis = false;
+    final hasCanonicalData = copilotContext != null;
+    final currentStage = hasCanonicalData
+        ? ProgressTrackingService.currentCanonicalStage(copilotContext!)
+        : null;
 
     return Scaffold(
       backgroundColor: _bg,
@@ -84,63 +77,102 @@ class ProgressScreen extends StatelessWidget {
         elevation: 0,
         title: const Text(
           'Progress',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              color: Colors.white, size: 18),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Colors.white,
+            size: 18,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _StatsStrip(state: state).animate().fadeIn(),
+            if (!hasCanonicalData)
+              const _ContextLoadingBanner()
+            else ...[
+              _CareerHeader(contextData: copilotContext!)
+                  .animate()
+                  .fadeIn(),
 
-            const SizedBox(height: 20),
-            _OverallProgressCard(snapshot: snapshot)
-                .animate()
-                .fadeIn(delay: 80.ms),
+              const SizedBox(height: 16),
 
-            const SizedBox(height: 16),
-            _CareerJourneyCard(snapshot: snapshot)
-                .animate()
-                .fadeIn(delay: 140.ms),
+              _StatsStrip(state: state)
+                  .animate()
+                  .fadeIn(delay: 50.ms),
 
-            const SizedBox(height: 16),
-            _ReadinessCard(
-              snapshot: snapshot,
-              showInterview: hasRealInterviewData,
-              showJob: hasRealJobReadinessBasis,
-            ).animate().fadeIn(delay: 200.ms),
+              const SizedBox(height: 20),
+
+              _OverallProgressCard(
+                snapshot: snapshot,
+                currentStage: currentStage,
+              ).animate().fadeIn(delay: 90.ms),
+
+              const SizedBox(height: 16),
+
+              _CareerJourneyCard(snapshot: snapshot)
+                  .animate()
+                  .fadeIn(delay: 130.ms),
+
+              const SizedBox(height: 16),
+
+              _ReadinessCard(
+                snapshot: snapshot,
+                available: true,
+              ).animate().fadeIn(delay: 170.ms),
+            ],
 
             const SizedBox(height: 24),
-            const Text('7-Day XP',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15)),
+
+            const Text(
+              '7-Day XP',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+
             const SizedBox(height: 12),
-            _XpChart(chartData: chartData, maxXp: maxXp)
-                .animate()
-                .fadeIn(delay: 260.ms),
+
+            _XpChart(
+              chartData: chartData,
+              maxXp: maxXp,
+            ).animate().fadeIn(delay: 220.ms),
 
             const SizedBox(height: 24),
+
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('History',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15)),
-                Text('${history.length} days',
-                    style: const TextStyle(color: _muted, fontSize: 12)),
+                const Text(
+                  'History',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+                Text(
+                  '${history.length} days',
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
+
             const SizedBox(height: 12),
+
             if (history.isEmpty)
               Container(
                 padding: const EdgeInsets.all(20),
@@ -150,8 +182,14 @@ class ProgressScreen extends StatelessWidget {
                   border: Border.all(color: _border),
                 ),
                 child: const Center(
-                  child: Text('Complete today\'s goals to start tracking',
-                      style: TextStyle(color: _muted, fontSize: 13)),
+                  child: Text(
+                    'Complete a meaningful career action to start tracking.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _muted,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               )
             else
@@ -159,7 +197,10 @@ class ProgressScreen extends StatelessWidget {
                     (entry) => _HistoryRow(entry: entry.value)
                         .animate()
                         .fadeIn(
-                            delay: Duration(milliseconds: 320 + entry.key * 40)),
+                          delay: Duration(
+                            milliseconds: 280 + entry.key * 35,
+                          ),
+                        ),
                   ),
           ],
         ),
@@ -167,50 +208,163 @@ class ProgressScreen extends StatelessWidget {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════
-  // BEST-EFFORT PROFILE FROM CONTROLLER DATA
-  // ══════════════════════════════════════════════════════════════════
-  //
-  // Only real signals currently exposed by CopilotState are used. Fields
-  // the controller has no signal for are left null so
-  // ProgressTrackingService uses its own conservative default (0 for
-  // DSA, portfolio, etc.) — this screen never invents progress.
-  static UserProfile _buildProfileFromController(CopilotState state) {
-    // Real skills from the skill profile (empty when unavailable).
-    final skills = state.skillProfile?.skillNames ?? const <String>[];
+  static CareerProgressSnapshot _emptySnapshot() {
+    return CareerProgressSnapshot(
+      stageProgress: {
+        for (final stage in ProgressTrackingService.canonicalStageOrder)
+          stage: 0,
+      },
+      overallProgress: 0,
+      jobReadinessScore: 0,
+      interviewReadinessScore: 0,
+      nextMilestone: null,
+      motivationalMessage: 'Loading your career progress...',
+    );
+  }
+}
 
-    // Real roadmap signal: completed phases / total phases.
-    final roadmap = state.roadmap;
-    final currentRoadmapStep = roadmap?.currentPhaseIndex;
-    final totalRoadmapSteps = (roadmap?.phases.isNotEmpty ?? false)
-        ? roadmap!.phases.length
-        : null;
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
 
-    // Learning signal: no dedicated lesson counter is exposed by the
-    // current CopilotController, so leave it null and let
-    // ProgressTrackingService fall back to roadmap progress (which is
-    // its documented behaviour for profiles without lesson data).
+  static const _bg = Color(0xFF0F0F1A);
+  static const _primary = Color(0xFF7C3AED);
 
-    // DSA / Portfolio: no real signal exposed — leave null.
-    // Projects / Interviews / Applications: no real signal exposed —
-    // leave null.
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: _bg,
+      body: Center(
+        child: CircularProgressIndicator(color: _primary),
+      ),
+    );
+  }
+}
 
-    return UserProfile(
-      skills: skills,
-      currentRoadmapStep: currentRoadmapStep,
-      totalRoadmapSteps: totalRoadmapSteps,
-      // Everything else intentionally omitted so the service falls back
-      // to its safe defaults rather than fabricated numbers.
+class _ContextLoadingBanner extends StatelessWidget {
+  const _ContextLoadingBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A2A40)),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFFA78BFA),
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Syncing your career progress…',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// STATS STRIP — streak / XP / active days (preserved from original)
+// CAREER HEADER
+// ══════════════════════════════════════════════════════════════════════
+
+class _CareerHeader extends StatelessWidget {
+  final CopilotContext contextData;
+
+  const _CareerHeader({required this.contextData});
+
+  @override
+  Widget build(BuildContext context) {
+    final career = contextData.career;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF7C3AED).withOpacity(0.22),
+            const Color(0xFFA78BFA).withOpacity(0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF7C3AED).withOpacity(0.30),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0xFF7C3AED).withOpacity(0.18),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              career?.emoji.isNotEmpty == true ? career!.emoji : '🎯',
+              style: const TextStyle(fontSize: 24),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Current Career',
+                  style: TextStyle(
+                    color: Color(0xFF888899),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  career?.careerTitle.isNotEmpty == true
+                      ? career!.careerTitle
+                      : 'Career not selected',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// STATS STRIP
 // ══════════════════════════════════════════════════════════════════════
 
 class _StatsStrip extends StatelessWidget {
   final CopilotState state;
+
   const _StatsStrip({required this.state});
 
   @override
@@ -219,9 +373,9 @@ class _StatsStrip extends StatelessWidget {
       children: [
         _tile('🔥', '${state.currentStreak}', 'Day Streak'),
         const SizedBox(width: 10),
-        _tile('⚡', '${state.totalXp}', 'Total XP'),
+        _tile('⚡', '${state.totalXp}', 'XP'),
         const SizedBox(width: 10),
-        _tile('📅', '${state.progressHistory.length}', 'Days Active'),
+        _tile('📅', '${state.progressHistory.length}', 'Active Days'),
       ],
     );
   }
@@ -239,15 +393,22 @@ class _StatsStrip extends StatelessWidget {
           children: [
             Text(emoji, style: const TextStyle(fontSize: 20)),
             const SizedBox(height: 4),
-            Text(value,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(label,
-                style:
-                    const TextStyle(color: Color(0xFF888899), fontSize: 11)),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF888899),
+                fontSize: 11,
+              ),
+            ),
           ],
         ),
       ),
@@ -256,21 +417,24 @@ class _StatsStrip extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// OVERALL PROGRESS CARD — overall %, next milestone
+// OVERALL PROGRESS
 // ══════════════════════════════════════════════════════════════════════
-//
-// "You are here" and "Next milestone" both come from the snapshot the
-// service produced — no threshold or ordering logic is repeated here.
 
 class _OverallProgressCard extends StatelessWidget {
   final CareerProgressSnapshot snapshot;
-  const _OverallProgressCard({required this.snapshot});
+  final CareerStage? currentStage;
+
+  const _OverallProgressCard({
+    required this.snapshot,
+    required this.currentStage,
+  });
 
   @override
   Widget build(BuildContext context) {
     final overall = snapshot.overallProgress.clamp(0.0, 100.0);
-    final milestone = snapshot.nextMilestone ?? 'Keep going';
-    final currentStageLabel = _stageLabelForOverall(snapshot, overall);
+    final milestone = snapshot.nextMilestone ?? 'Keep moving forward.';
+    final stageLabel =
+        currentStage?.label ?? 'Career progress';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -284,30 +448,38 @@ class _OverallProgressCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.4)),
+        border: Border.all(
+          color: const Color(0xFF7C3AED).withOpacity(0.4),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.insights, color: Color(0xFFA78BFA), size: 20),
+              const Icon(
+                Icons.insights,
+                color: Color(0xFFA78BFA),
+                size: 20,
+              ),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
                   'Overall Career Progress',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14),
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
               ),
               Text(
                 '${overall.round()}%',
                 style: const TextStyle(
-                    color: Color(0xFFA78BFA),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20),
+                  color: Color(0xFFA78BFA),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
               ),
             ],
           ),
@@ -325,8 +497,8 @@ class _OverallProgressCard extends StatelessWidget {
           const SizedBox(height: 14),
           _infoRow(
             emoji: '📍',
-            label: 'You are here',
-            value: currentStageLabel,
+            label: 'Current stage',
+            value: stageLabel,
             accent: const Color(0xFFA78BFA),
           ),
           const SizedBox(height: 8),
@@ -356,77 +528,40 @@ class _OverallProgressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: const TextStyle(
-                      color: Color(0xFF888899),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF888899),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(value,
-                  style: TextStyle(
-                      color: accent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600)),
+              Text(
+                value,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
       ],
     );
   }
-
-  /// Renders "You are here" as a compact stage label derived from the
-  /// snapshot the service already produced. This does NOT re-decide the
-  /// next milestone or the pipeline order — it just picks a presentational
-  /// label from the highest-numbered stage that has any real progress,
-  /// defaulting to the pipeline's first stage.
-  static String _stageLabelForOverall(
-    CareerProgressSnapshot snapshot,
-    double overall,
-  ) {
-    if (overall <= 0) return CareerStage.learning.label;
-
-    // Walk the canonical pipeline order and remember the last stage with
-    // any progress; that is a faithful "you are here" for the snapshot
-    // the service produced, without re-implementing its milestone logic.
-    const order = [
-      CareerStage.learning,
-      CareerStage.skills,
-      CareerStage.roadmap,
-      CareerStage.dsa,
-      CareerStage.projects,
-      CareerStage.portfolio,
-      CareerStage.interview,
-      CareerStage.jobReady,
-    ];
-    CareerStage last = CareerStage.learning;
-    for (final stage in order) {
-      if (snapshot.progressFor(stage) > 0) {
-        last = stage;
-      }
-    }
-    return last.label;
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// CAREER JOURNEY CARD — all 8 stages with real progress
+// CAREER JOURNEY — CANONICAL 11 STAGES
 // ══════════════════════════════════════════════════════════════════════
 
 class _CareerJourneyCard extends StatelessWidget {
   final CareerProgressSnapshot snapshot;
-  const _CareerJourneyCard({required this.snapshot});
 
-  static const _order = [
-    CareerStage.learning,
-    CareerStage.skills,
-    CareerStage.roadmap,
-    CareerStage.dsa,
-    CareerStage.projects,
-    CareerStage.portfolio,
-    CareerStage.interview,
-    CareerStage.jobReady,
-  ];
+  const _CareerJourneyCard({required this.snapshot});
 
   @override
   Widget build(BuildContext context) {
@@ -440,59 +575,77 @@ class _CareerJourneyCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: const [
-              Icon(Icons.route, color: Color(0xFFA78BFA), size: 20),
+          const Row(
+            children: [
+              Icon(
+                Icons.route,
+                color: Color(0xFFA78BFA),
+                size: 20,
+              ),
               SizedBox(width: 8),
               Text(
                 'Career Journey',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14),
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 14),
-          ..._order.map((stage) {
-            final value = snapshot.progressFor(stage).clamp(0.0, 100.0);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _stageRow(stage, value),
-            );
-          }),
+          ...ProgressTrackingService.canonicalStageOrder.map(
+            (stage) {
+              final value =
+                  snapshot.progressFor(stage).clamp(0.0, 100.0);
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _stageRow(stage, value),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
   Widget _stageRow(CareerStage stage, double pct) {
-    final done = pct >= 70;
-    final started = pct > 0;
-    final color = done
-        ? const Color(0xFF4ADE80)
-        : started
-            ? const Color(0xFF7C3AED)
-            : const Color(0xFF444455);
+    // Presentation only:
+    // 100 = completed-looking, >0 = started, 0 = not evidenced.
+    final Color color;
+    if (pct >= 100) {
+      color = const Color(0xFF4ADE80);
+    } else if (pct > 0) {
+      color = const Color(0xFF7C3AED);
+    } else {
+      color = const Color(0xFF444455);
+    }
 
     return Row(
       children: [
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
         ),
         const SizedBox(width: 10),
         SizedBox(
-          width: 74,
+          width: 92,
           child: Text(
             stage.label,
             style: TextStyle(
-                color: started ? Colors.white : const Color(0xFF888899),
-                fontSize: 12,
-                fontWeight: FontWeight.w600),
+              color:
+                  pct > 0 ? Colors.white : const Color(0xFF888899),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
+        const SizedBox(width: 6),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -511,11 +664,12 @@ class _CareerJourneyCard extends StatelessWidget {
             '${pct.round()}%',
             textAlign: TextAlign.right,
             style: TextStyle(
-                color: started
-                    ? const Color(0xFFA78BFA)
-                    : const Color(0xFF888899),
-                fontSize: 11,
-                fontWeight: FontWeight.w600),
+              color: pct > 0
+                  ? const Color(0xFFA78BFA)
+                  : const Color(0xFF888899),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -524,17 +678,16 @@ class _CareerJourneyCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// READINESS CARD — job + interview readiness (only when data exists)
+// READINESS
 // ══════════════════════════════════════════════════════════════════════
 
 class _ReadinessCard extends StatelessWidget {
   final CareerProgressSnapshot snapshot;
-  final bool showJob;
-  final bool showInterview;
+  final bool available;
+
   const _ReadinessCard({
     required this.snapshot,
-    required this.showJob,
-    required this.showInterview,
+    required this.available,
   });
 
   @override
@@ -546,7 +699,6 @@ class _ReadinessCard extends StatelessWidget {
             emoji: '💼',
             label: 'Job Readiness',
             score: snapshot.jobReadinessScore,
-            available: showJob,
           ),
         ),
         const SizedBox(width: 12),
@@ -555,7 +707,6 @@ class _ReadinessCard extends StatelessWidget {
             emoji: '🎤',
             label: 'Interview Readiness',
             score: snapshot.interviewReadinessScore,
-            available: showInterview,
           ),
         ),
       ],
@@ -566,16 +717,17 @@ class _ReadinessCard extends StatelessWidget {
     required String emoji,
     required String label,
     required int score,
-    required bool available,
   }) {
     final s = score.clamp(0, 100);
-    final color = !available
-        ? const Color(0xFF888899)
-        : s >= 70
-            ? const Color(0xFF4ADE80)
-            : s >= 40
-                ? const Color(0xFFF59E0B)
-                : const Color(0xFFEF4444);
+
+    final Color color;
+    if (s >= 70) {
+      color = const Color(0xFF4ADE80);
+    } else if (s >= 40) {
+      color = const Color(0xFFF59E0B);
+    } else {
+      color = const Color(0xFF888899);
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -595,9 +747,10 @@ class _ReadinessCard extends StatelessWidget {
                 child: Text(
                   label,
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -607,17 +760,19 @@ class _ReadinessCard extends StatelessWidget {
             Text(
               '$s%',
               style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24),
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
             )
           else
             const Text(
               'Insufficient data',
               style: TextStyle(
-                  color: Color(0xFF888899),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13),
+                color: Color(0xFF888899),
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
             ),
           const SizedBox(height: 6),
           ClipRRect(
@@ -627,7 +782,8 @@ class _ReadinessCard extends StatelessWidget {
               minHeight: 5,
               backgroundColor: const Color(0xFF0F0F20),
               valueColor: AlwaysStoppedAnimation(
-                  available ? color : const Color(0xFF444455)),
+                available ? color : const Color(0xFF444455),
+              ),
             ),
           ),
         ],
@@ -637,18 +793,20 @@ class _ReadinessCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// XP CHART — preserved from original
+// XP CHART
 // ══════════════════════════════════════════════════════════════════════
 
 class _XpChart extends StatelessWidget {
   final List<ProgressEntry> chartData;
   final int maxXp;
-  const _XpChart({required this.chartData, required this.maxXp});
+
+  const _XpChart({
+    required this.chartData,
+    required this.maxXp,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
     if (chartData.isEmpty) {
       return Container(
         height: 120,
@@ -658,11 +816,23 @@ class _XpChart extends StatelessWidget {
           border: Border.all(color: const Color(0xFF2A2A40)),
         ),
         child: const Center(
-          child: Text('No data yet',
-              style: TextStyle(color: Color(0xFF888899))),
+          child: Text(
+            'No activity data yet',
+            style: TextStyle(color: Color(0xFF888899)),
+          ),
         ),
       );
     }
+
+    const dayLabels = [
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ];
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -677,7 +847,11 @@ class _XpChart extends StatelessWidget {
         children: chartData.asMap().entries.map((entry) {
           final i = entry.key;
           final item = entry.value;
-          final pct = maxXp == 0 ? 0.0 : item.xpEarned / maxXp;
+
+          final pct = maxXp <= 0
+              ? 0.0
+              : (item.xpEarned / maxXp).clamp(0.0, 1.0);
+
           final day = dayLabels[item.date.weekday - 1];
 
           return Expanded(
@@ -686,9 +860,13 @@ class _XpChart extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('${item.xpEarned}',
-                      style: const TextStyle(
-                          color: Color(0xFFA78BFA), fontSize: 9)),
+                  Text(
+                    '${item.xpEarned}',
+                    style: const TextStyle(
+                      color: Color(0xFFA78BFA),
+                      fontSize: 9,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   AnimatedContainer(
                     duration: Duration(milliseconds: 400 + i * 50),
@@ -696,7 +874,10 @@ class _XpChart extends StatelessWidget {
                     height: 80 * pct + 4,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF7C3AED), Color(0xFFA78BFA)],
+                        colors: [
+                          Color(0xFF7C3AED),
+                          Color(0xFFA78BFA),
+                        ],
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                       ),
@@ -704,9 +885,13 @@ class _XpChart extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(day,
-                      style: const TextStyle(
-                          color: Color(0xFF888899), fontSize: 10)),
+                  Text(
+                    day,
+                    style: const TextStyle(
+                      color: Color(0xFF888899),
+                      fontSize: 10,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -718,23 +903,30 @@ class _XpChart extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// HISTORY ROW — preserved from original
+// HISTORY
 // ══════════════════════════════════════════════════════════════════════
 
 class _HistoryRow extends StatelessWidget {
   final ProgressEntry entry;
+
   const _HistoryRow({required this.entry});
 
   @override
   Widget build(BuildContext context) {
-    final pct = entry.completionRate;
+    final pct = entry.completionRate.clamp(0.0, 1.0);
     final d = entry.date;
+
     final label =
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+        '${d.day.toString().padLeft(2, '0')}/'
+        '${d.month.toString().padLeft(2, '0')}/'
+        '${d.year}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 12,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(14),
@@ -744,9 +936,13 @@ class _HistoryRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label,
-                style: const TextStyle(
-                    color: Color(0xFF888899), fontSize: 12)),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF888899),
+                fontSize: 12,
+              ),
+            ),
           ),
           Expanded(
             child: ClipRRect(
@@ -755,26 +951,37 @@ class _HistoryRow extends StatelessWidget {
                 value: pct,
                 minHeight: 6,
                 backgroundColor: const Color(0xFF2A2A40),
-                valueColor:
-                    const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
+                valueColor: const AlwaysStoppedAnimation(
+                  Color(0xFF7C3AED),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 10),
-          Text('${entry.goalsCompleted}/${entry.totalGoals}',
-              style: const TextStyle(
-                  color: Colors.white70, fontSize: 12)),
+          Text(
+            '${entry.goalsCompleted}/${entry.totalGoals}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+            ),
+          ),
           const SizedBox(width: 10),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 2,
+            ),
             decoration: BoxDecoration(
               color: const Color(0xFF7C3AED).withOpacity(0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text('+${entry.xpEarned}',
-                style: const TextStyle(
-                    color: Color(0xFFA78BFA), fontSize: 11)),
+            child: Text(
+              '+${entry.xpEarned}',
+              style: const TextStyle(
+                color: Color(0xFFA78BFA),
+                fontSize: 11,
+              ),
+            ),
           ),
         ],
       ),
