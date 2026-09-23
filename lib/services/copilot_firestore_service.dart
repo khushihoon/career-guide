@@ -126,6 +126,20 @@
 // previously-stored data keeps resolving.
 //
 // ───────────────────────────────────────────────────────────────────────────
+// CAREER-ISOLATED LEGACY FALLBACKS (PHASE 1 HARDENING)
+// ───────────────────────────────────────────────────────────────────────────
+// Every career-scoped getter that falls back to a legacy (pre-career-scoping)
+// document must verify that legacy document genuinely belongs to the
+// resolved career before returning it. getRoadmap(), getProjectProgress(),
+// getJobProgress(), getInterviewProgress(), and getCareerReadiness() already
+// enforced this. getSkillProfile() now enforces the identical guard: when a
+// specific career is active but has no career-scoped profile saved yet, the
+// legacy global profile is returned ONLY if its own targetRole resolves to
+// that same career id. This prevents a different career's legacy profile
+// from silently leaking into the active career's context. The storage layer
+// — not the UI — enforces this boundary.
+//
+// ───────────────────────────────────────────────────────────────────────────
 // FIRESTORE LIMITS / SCALABILITY
 // ───────────────────────────────────────────────────────────────────────────
 // • Batch writes are chunked (450 ops/batch, safely below the 500 limit).
@@ -312,6 +326,15 @@ class CopilotFirestoreService {
   /// Reads the active career profile when the active career is known.
   /// Falls back to the legacy global profile only when no active career
   /// context can be resolved.
+  ///
+  /// CAREER-ISOLATION GUARD (Phase 1 hardening):
+  /// When a specific career IS active but has no career-scoped profile
+  /// saved yet, the legacy global profile is returned ONLY if it
+  /// genuinely belongs to that same career (its own targetRole resolves
+  /// to the same careerId). This mirrors the identical guard already
+  /// enforced by getRoadmap(), getProjectProgress(), getJobProgress(),
+  /// getInterviewProgress() and getCareerReadiness() — a different
+  /// career's legacy profile must never leak into this career's context.
   static Future<UserSkillProfile?> getSkillProfile(String uid) async {
     final career = await getCareerContext(uid);
     final careerId = career?.careerId;
@@ -325,7 +348,14 @@ class CopilotFirestoreService {
         .doc('skill_profile')
         .get();
     if (!snap.exists || snap.data() == null) return null;
-    return UserSkillProfile.fromFirestore(snap.data()!);
+    final legacy = UserSkillProfile.fromFirestore(snap.data()!);
+
+    if (careerId != null && careerId.isNotEmpty) {
+      // Guard: only honour the legacy fallback when it truly belongs to
+      // the currently active career.
+      return legacy.targetRole.careerId == careerId ? legacy : null;
+    }
+    return legacy;
   }
 
   /// Stream of the active career profile. Legacy global data is used only
@@ -854,6 +884,75 @@ class CopilotFirestoreService {
     return 0;
   }
 
+  /// Live authoritative lifetime XP stream.
+  ///
+  /// Every XP source that writes the authoritative users/{uid}.totalXp
+  /// field is reflected here immediately. UI/controller layers must use
+  /// this stream instead of deriving lifetime XP from daily snapshots.
+  static Stream<int> totalXpStream(String uid) {
+    if (uid.isEmpty) return const Stream<int>.empty();
+    return _userDoc(uid).snapshots().map((snap) {
+      final raw = snap.data()?['totalXp'];
+      if (raw is int) return raw < 0 ? 0 : raw;
+      if (raw is num) {
+        final value = raw.toInt();
+        return value < 0 ? 0 : value;
+      }
+      return 0;
+    });
+  }
+
+  /// Returns real XP activity since [since], combining the two existing
+  /// authoritative XP histories: RewardService reward history and the
+  /// career-scoped Copilot evidence ledger. This is used only for
+  /// time-window activity metrics; lifetime XP remains users/{uid}.totalXp.
+  static Future<int> getXpActivitySince(String uid, DateTime since) async {
+    if (uid.isEmpty) return 0;
+    var total = 0;
+
+    // RewardService authoritative reward history.
+    try {
+      final rewardDocs = await _db
+          .collection('rewards')
+          .doc(uid)
+          .collection('history')
+          .get();
+      for (final doc in rewardDocs.docs) {
+        final data = doc.data();
+        final timestamp = DateTime.tryParse(
+          data['timestamp'] as String? ?? '',
+        );
+        final xp = data['xpAmount'];
+        if (timestamp != null && !timestamp.isBefore(since) && xp is num) {
+          total += xp.toInt();
+        }
+      }
+    } catch (_) {}
+
+    // Career-scoped Copilot evidence. This covers goals, quizzes,
+    // challenges, projects and any other XP-bearing career event.
+    try {
+      final careerDocs = await _userDoc(uid)
+          .collection('copilot_learning_progress')
+          .get();
+      for (final careerDoc in careerDocs.docs) {
+        final events = await careerDoc.reference.collection('events').get();
+        for (final event in events.docs) {
+          final data = event.data();
+          final timestamp = DateTime.tryParse(
+            data['recordedAt'] as String? ?? '',
+          );
+          final xp = data['xp'];
+          if (timestamp != null && !timestamp.isBefore(since) && xp is num) {
+            total += xp.toInt();
+          }
+        }
+      }
+    } catch (_) {}
+
+    return total < 0 ? 0 : total;
+  }
+
   // ── Career XP ─────────────────────────────────────────────────────────────
 
   /// Returns XP earned inside one career. Lifetime/global XP remains
@@ -873,6 +972,56 @@ class CopilotFirestoreService {
       if (xp is num && xp.toInt() > 0) total += xp.toInt();
     }
     return total;
+  }
+
+  /// Returns authoritative earned XP for one course, broken down by
+  /// event type. Only persisted evidence is counted; promised course.totalXp
+  /// values and local UI counters are never used.
+  static Future<Map<String, int>> getCourseXpBreakdown(
+    String uid,
+    String careerId,
+    String courseId,
+  ) async {
+    final safeCareerId = _safeId(careerId);
+    final safeCourseId = _safeId(courseId);
+    if (uid.isEmpty || safeCareerId.isEmpty || safeCourseId.isEmpty) {
+      return const {'quiz': 0, 'challenge': 0, 'project': 0, 'lesson': 0, 'total': 0};
+    }
+
+    var quiz = 0;
+    var challenge = 0;
+    var project = 0;
+    var lesson = 0;
+    final events = await _eventsCol(uid, safeCareerId).get();
+    for (final doc in events.docs) {
+      final data = doc.data();
+      final eventId = data['eventId'] as String? ?? doc.id;
+      final xp = data['xp'];
+      if (xp is! num || xp.toInt() <= 0) continue;
+      if (!eventId.contains(safeCourseId)) continue;
+      final amount = xp.toInt();
+      switch (data['eventType']) {
+        case CopilotEventType.quiz:
+          quiz += amount;
+          break;
+        case CopilotEventType.challenge:
+          challenge += amount;
+          break;
+        case CopilotEventType.project:
+          project += amount;
+          break;
+        case CopilotEventType.lesson:
+          lesson += amount;
+          break;
+      }
+    }
+    return {
+      'quiz': quiz,
+      'challenge': challenge,
+      'project': project,
+      'lesson': lesson,
+      'total': quiz + challenge + project + lesson,
+    };
   }
 
   static Future<List<Map<String, dynamic>>> getCareerXpEvents(

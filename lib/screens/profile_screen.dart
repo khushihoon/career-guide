@@ -1,3 +1,4 @@
+import 'dart:async';
 // ══════════════════════════════════════════════════════════════════════
 // lib/screens/profile_screen.dart
 // Professional AI Career Profile Screen
@@ -113,6 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   bool _loading = true;
   late TabController _tabCtrl;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _xpSubscription;
 
   final _auth      = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
@@ -160,13 +162,35 @@ class _ProfileScreenState extends State<ProfileScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
+    _bindLiveXp();
     _loadAll();
   }
 
   @override
   void dispose() {
+    _xpSubscription?.cancel();
     _tabCtrl.dispose();
     super.dispose();
+  }
+
+  void _bindLiveXp() {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    _xpSubscription = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .listen((doc) {
+      final raw = doc.data()?['totalXp'];
+      final xp = raw is num ? raw.toInt() : null;
+      if (xp == null || xp < 0 || !mounted) return;
+      if (_lifetimeXp == xp && _hasAuthoritativeXp) return;
+      setState(() {
+        _lifetimeXp = xp;
+        _hasAuthoritativeXp = true;
+      });
+    });
   }
 
   Future<void> _loadAll() async {

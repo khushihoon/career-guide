@@ -228,6 +228,12 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
   ///   • It never substitutes a hardcoded placeholder.
   ///   • It returns 0 only when there genuinely is no history for this
   ///     week (a real, honest zero — not a fake placeholder).
+  DateTime _weekStart() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+  }
+
   int _weeklyXpFromState(CopilotState? state) {
     final history = state?.progressHistory;
     if (history == null || history.isEmpty) return 0;
@@ -329,15 +335,18 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
       });
 
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null && state != null) {
+      if (user != null && ctrl != null && state != null) {
         try {
           await _leaderboardService.syncUserToLeaderboard(
             uid: _uid!,
             displayName: user.displayName ?? 'Learner',
             photoUrl: user.photoURL,
-            totalXp: state.totalXp,
-            level: level,
-            weeklyXp: _weeklyXpFromState(state),
+            totalXp: ctrl.authoritativeTotalXp,
+            level: LevelSystem.levelFor(ctrl.authoritativeTotalXp),
+            weeklyXp: await CopilotFirestoreService.getXpActivitySince(
+              _uid!,
+              _weekStart(),
+            ),
           );
         } catch (_) {}
       }
@@ -373,7 +382,7 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
             await CopilotFirestoreService.getTotalGoalsCompleted(uid);
       } catch (_) {}
 
-      final level = LevelSystem.levelFor(state.totalXp);
+      final level = LevelSystem.levelFor(ctrl.authoritativeTotalXp);
 
       try {
         final newly = await _achievementService.checkAndUnlock(
@@ -619,7 +628,7 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
             ?.split(' ')
             .first ??
         'there';
-    final totalXp = state.totalXp;
+    final totalXp = ctrl.authoritativeTotalXp;
     final level   = LevelSystem.levelFor(totalXp);
 
     final copilotContext = ctrl.copilotContext;
@@ -686,7 +695,7 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _StatsStrip(state: state, rank: _userRank),
+              child: _StatsStrip(state: state, rank: _userRank, authoritativeXp: ctrl.authoritativeTotalXp),
             ).animate().fadeIn(delay: 80.ms),
           ),
 
@@ -794,6 +803,16 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
             ).animate().fadeIn(delay: 160.ms),
           ),
 
+          const SliverToBoxAdapter(child: SizedBox(height: 18)),
+
+          // ── Learning Progress — shared with Learn tab ────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _LearningProgressCard(ctrl: ctrl),
+            ).animate().fadeIn(delay: 175.ms),
+          ),
+
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
           // ── Daily Quests Preview ─────────────────────────────────
@@ -864,7 +883,7 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
               child: _LeaderboardTeaser(
                 rank: _userRank,
-                xp: state.totalXp,
+                xp: ctrl.authoritativeTotalXp,
                 onTap: () => _go(const LeaderboardScreen()),
               ),
             ).animate().fadeIn(delay: 320.ms),
@@ -1074,10 +1093,83 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
 // ════════════════════════════════════════════════════════════════════
 
 // ── Stats Strip ───────────────────────────────────────────────────────
+class _LearningProgressCard extends StatelessWidget {
+  final CopilotController ctrl;
+
+  const _LearningProgressCard({required this.ctrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = ctrl.learningProgress;
+    final completed = progress?.completedCount ?? 0;
+    final total = progress?.totalLessons ?? 0;
+    final careerXp = ctrl.careerTotalXp;
+    final ratio = total <= 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A2A40)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.school_rounded, color: Color(0xFFA78BFA), size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Learning Progress',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+              ),
+              Text(
+                '+$careerXp career XP',
+                style: const TextStyle(color: Color(0xFFA78BFA), fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            total > 0 ? '$completed / $total lessons completed' : '$completed lessons completed',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          if (total > 0) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 7,
+                backgroundColor: Color(0xFF2A2A40),
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF7C3AED)),
+              ),
+            ),
+          ],
+          const SizedBox(height: 7),
+          Text(
+            'This is the same career-scoped learning evidence used by the Learn tab.',
+            style: const TextStyle(color: Color(0xFF888899), fontSize: 10, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StatsStrip extends StatelessWidget {
   final CopilotState state;
   final int rank;
-  const _StatsStrip({required this.state, required this.rank});
+  final int authoritativeXp;
+  const _StatsStrip({
+    required this.state,
+    required this.rank,
+    required this.authoritativeXp,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1095,7 +1187,7 @@ class _StatsStrip extends StatelessWidget {
         children: [
           _item('🔥', '${state.currentStreak}', 'Streak'),
           _div(),
-          _item('⚡', '${state.totalXp}', 'XP'),
+          _item('⚡', '$authoritativeXp', 'XP'),
           _div(),
           _item('✅', '$done/$total', 'Today'),
           _div(),
@@ -1568,59 +1660,11 @@ class _DailyGoalsCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Human motivation only — this is presentation, not progress logic.
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF7C3AED).withOpacity(0.16),
-                  const Color(0xFFA78BFA).withOpacity(0.06),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFF7C3AED).withOpacity(0.22),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Text('✨', style: TextStyle(fontSize: 17)),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    completed == 0
-                        ? 'Start with one meaningful step. You do not need to finish everything at once.'
-                        : completed < total
-                            ? 'You are moving forward. Keep going — one focused step at a time.'
-                            : 'Great work. You showed up today — that is how real progress compounds.',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      height: 1.4,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
           Row(
             children: [
               Text('$completed/$total done',
                   style: const TextStyle(
                       color: Color(0xFF888899), fontSize: 12)),
-              const Spacer(),
-              Text(
-                completed == total ? 'Day complete' : 'Keep moving',
-                style: const TextStyle(
-                  color: Color(0xFFA78BFA),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -1657,22 +1701,7 @@ class _GoalTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
         onTap: onToggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          decoration: BoxDecoration(
-            color: goal.isCompleted
-                ? const Color(0xFF7C3AED).withOpacity(0.07)
-                : const Color(0xFF111120),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: goal.isCompleted
-                  ? const Color(0xFF7C3AED).withOpacity(0.28)
-                  : const Color(0xFF25253A),
-            ),
-          ),
-          child: Row(
+        child: Row(
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 220),
@@ -1726,7 +1755,6 @@ class _GoalTile extends StatelessWidget {
                       color: Color(0xFFA78BFA), fontSize: 10)),
             ),
           ],
-          ),
         ),
       ),
     );
