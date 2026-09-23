@@ -1568,11 +1568,59 @@ class _DailyGoalsCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // Human motivation only — this is presentation, not progress logic.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF7C3AED).withOpacity(0.16),
+                  const Color(0xFFA78BFA).withOpacity(0.06),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF7C3AED).withOpacity(0.22),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Text('✨', style: TextStyle(fontSize: 17)),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    completed == 0
+                        ? 'Start with one meaningful step. You do not need to finish everything at once.'
+                        : completed < total
+                            ? 'You are moving forward. Keep going — one focused step at a time.'
+                            : 'Great work. You showed up today — that is how real progress compounds.',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      height: 1.4,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               Text('$completed/$total done',
                   style: const TextStyle(
                       color: Color(0xFF888899), fontSize: 12)),
+              const Spacer(),
+              Text(
+                completed == total ? 'Day complete' : 'Keep moving',
+                style: const TextStyle(
+                  color: Color(0xFFA78BFA),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -1609,7 +1657,22 @@ class _GoalTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
         onTap: onToggle,
-        child: Row(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: goal.isCompleted
+                ? const Color(0xFF7C3AED).withOpacity(0.07)
+                : const Color(0xFF111120),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: goal.isCompleted
+                  ? const Color(0xFF7C3AED).withOpacity(0.28)
+                  : const Color(0xFF25253A),
+            ),
+          ),
+          child: Row(
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 220),
@@ -1663,6 +1726,7 @@ class _GoalTile extends StatelessWidget {
                       color: Color(0xFFA78BFA), fontSize: 10)),
             ),
           ],
+          ),
         ),
       ),
     );

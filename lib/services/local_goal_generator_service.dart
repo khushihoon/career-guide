@@ -1,346 +1,346 @@
-// ══════════════════════════════════════════════════════════════════════
 // lib/services/local_goal_generator_service.dart
 //
-// PURPOSE: 100% offline, zero API calls, production-ready goal engine.
+// PRODUCTION V2 — Decision-driven, career-scoped, offline.
 //
-// COMPATIBLE WITH:
-//   • DailyGoal in copilot_models.dart
-//     Fields: id, uid, title, category (GoalCategory), date, isCompleted,
-//             xpReward, linkedSkill
-//   • GoalCategory enum in copilot_models.dart
-//     Values: learning, practice, networking, application, project
-//   • CopilotFirestoreService.saveDailyGoals() — uses toFirestore()
-//   • CopilotFirestoreService.getTodayGoals()  — date format yyyy-MM-dd
-// ══════════════════════════════════════════════════════════════════════
+// This service converts CareerGoalEngine decisions into DailyGoal records.
+// It does not own readiness, XP, skill mastery, or historical evidence.
+// XP is only copied from the authored goal difficulty as a display/reward
+// hint; authoritative XP remains with the existing completion/evidence flow.
 
-import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/copilot_models.dart';
+import 'career_goal_engine.dart';
 import 'goal_content_database.dart';
 
-// ── XP constants ───────────────────────────────────────────────────────
-class _Xp {
-  static const int easy              = 15;
-  static const int medium            = 30;
-  static const int hard              = 50;
-  static const int allGoalsBonus     = 40;
-  static const int streakBonus3      = 5;
-  static const int streakBonus7      = 10;
-  static const int weeklyBase        = 150;
-  static const int monthlyBase       = 400;
-}
-
-// ── Date key helpers ───────────────────────────────────────────────────
-// Uses the same yyyy-MM-dd format as CopilotFirestoreService._todayKey()
-String _todayDateKey() {
-  final n = DateTime.now();
-  return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
-}
-
-String _weekKey(DateTime d) {
-  final monday = d.subtract(Duration(days: d.weekday - 1));
-  return '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
-}
-
-String _monthKey(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}';
-
-// ══════════════════════════════════════════════════════════════════════
-// LOCAL GOAL GENERATOR SERVICE
-// ══════════════════════════════════════════════════════════════════════
-
 class LocalGoalGeneratorService {
-  // No FirebaseFirestore here — we use CopilotFirestoreService for
-  // persistence. This service only generates and returns DailyGoal lists.
+  final CareerGoalEngine _engine;
 
-  // ── PUBLIC API ─────────────────────────────────────────────────────
+  const LocalGoalGeneratorService({CareerGoalEngine engine = const CareerGoalEngine()})
+      : _engine = engine;
 
-  /// Generates and returns daily goals.
-  /// Returns empty list if goals already exist for today (caller checks
-  /// via CopilotFirestoreService.getTodayGoals before calling this).
-  ///
-  /// All parameters come from CopilotController — no new API calls.
   Future<List<DailyGoal>> generateAndSaveDailyGoals({
     required String uid,
-    required String targetRole,      // e.g. "AI Engineer"
+    required String targetRole,
     required List<String> currentSkills,
     required int currentStreak,
     required int currentLevel,
     required int roadmapPhase,
-    required List<DailyGoal> existingGoals, // pass already-fetched list
+    required List<DailyGoal> existingGoals,
     String? careerId,
+    CopilotContext? context,
+    String? preferredSkill,
+    Set<String> completedGoalIds = const {},
+    Set<String> recentGoalIds = const {},
   }) async {
-    // Firestore is the source of truth. If today's goals are absent for the
-    // active career, generate them even when another career generated goals
-    // earlier today. Local SharedPreferences must never block a career switch.
     if (existingGoals.isNotEmpty) return existingGoals;
 
+    final prefs = await SharedPreferences.getInstance();
     final todayKey = _todayDateKey();
-    final goals = _generateDailyGoals(
-      uid:       uid,
-      role:      targetRole,
-      level:     currentLevel,
-      streak:    currentStreak,
-      phase:     roadmapPhase,
-      dateKey:   todayKey,
-      careerId:  careerId,
+    final prefKey = _generationKey(uid, careerId, todayKey);
+
+    // Generation guard is only a local duplicate-prevention optimisation.
+    // Firestore remains the source of truth for today's goals.
+    if (prefs.getBool(prefKey) == true) return existingGoals;
+
+    final profile = context?.state.skillProfile;
+    final career = _careerFromRole(targetRole);
+    final effectiveCareer = profile?.targetRole ?? career;
+
+    final recentSkillNames = <String>{
+      ..._readRecentSkills(prefs, uid, careerId),
+    };
+
+    final decision = _engine.decideDaily(
+      career: effectiveCareer,
+      profile: profile,
+      skillGaps: context?.state.skillGaps ?? const <SkillGap>[],
+      context: context,
+      preferredSkill: preferredSkill,
+      currentLevel: currentLevel,
+      roadmapPhase: roadmapPhase,
+      completedGoalIds: completedGoalIds,
+      recentGoalIds: recentGoalIds,
+      recentSkillNames: recentSkillNames,
+      maxGoals: 4,
     );
 
-    // Do not use a global local "already generated today" flag here.
-    // Firestore is the source of truth and career-scoped reads determine
-    // whether today's goals already exist. This allows:
-    // Software Engineer -> Prompt Engineer -> Software Engineer
-    // without one career blocking another career's goals.
+    // Safe compatibility fallback for legacy callers that do not yet provide
+    // CopilotContext/skill gaps. It still uses authored career content and
+    // avoids random shuffling as the primary behaviour.
+    final templates = decision.templates.isNotEmpty
+        ? decision.templates
+        : _fallbackTemplates(
+            effectiveCareer,
+            currentLevel,
+            roadmapPhase,
+            recentSkillNames,
+          );
+
+    final goals = <DailyGoal>[];
+    for (var i = 0; i < templates.length; i++) {
+      final template = templates[i];
+      final linkedSkill = template.skill ?? _inferSkill(template);
+      goals.add(
+        DailyGoal(
+          id: '${_safeCareerId(careerId ?? effectiveCareer.name)}_${template.id}_${todayKey}_$i',
+          uid: uid,
+          title: _friendlyTitle(template, i, decision.focusSkill),
+          category: _mapCategory(template.category),
+          date: todayKey,
+          isCompleted: false,
+          xpReward: template.xp,
+          linkedSkill: linkedSkill,
+        ),
+      );
+    }
+
+    await _rememberRecentSkills(
+      prefs,
+      uid,
+      careerId,
+      goals.map((g) => g.linkedSkill).whereType<String>(),
+    );
+    await prefs.setBool(prefKey, true);
     return goals;
   }
 
-  /// Generate weekly goals (call from CopilotController or QuestService).
   Future<List<DailyGoal>> generateWeeklyGoals({
     required String uid,
     required String targetRole,
     required int currentLevel,
     required int roadmapPhase,
+    List<String> currentSkills = const [],
+    String? careerId,
   }) async {
-    final weekKey = _weekKey(DateTime.now());
-
     return _generatePeriodGoals(
-      uid:       uid,
-      role:      targetRole,
-      level:     currentLevel,
-      phase:     roadmapPhase,
-      type:      _PeriodType.weekly,
-      periodKey: weekKey,
-      count:     3,
-      baseXp:    _Xp.weeklyBase,
+      uid: uid,
+      targetRole: targetRole,
+      currentLevel: currentLevel,
+      roadmapPhase: roadmapPhase,
+      currentSkills: currentSkills,
+      careerId: careerId,
+      periodKey: _weekKey(DateTime.now()),
+      count: 3,
+      baseXp: 150,
     );
   }
 
-  /// Generate monthly goals (call from CopilotController or QuestService).
   Future<List<DailyGoal>> generateMonthlyGoals({
     required String uid,
     required String targetRole,
     required int currentLevel,
     required int roadmapPhase,
+    List<String> currentSkills = const [],
+    String? careerId,
   }) async {
-    final monthKey = _monthKey(DateTime.now());
-
     return _generatePeriodGoals(
-      uid:       uid,
-      role:      targetRole,
-      level:     currentLevel,
-      phase:     roadmapPhase,
-      type:      _PeriodType.monthly,
-      periodKey: monthKey,
-      count:     2,
-      baseXp:    _Xp.monthlyBase,
+      uid: uid,
+      targetRole: targetRole,
+      currentLevel: currentLevel,
+      roadmapPhase: roadmapPhase,
+      currentSkills: currentSkills,
+      careerId: careerId,
+      periodKey: _monthKey(DateTime.now()),
+      count: 2,
+      baseXp: 400,
     );
   }
 
-  // ── PRIVATE: Daily generation ──────────────────────────────────────
-
-  List<DailyGoal> _generateDailyGoals({
+  Future<List<DailyGoal>> _generatePeriodGoals({
     required String uid,
-    required String role,
-    required int level,
-    required int streak,
-    required int phase,
-    required String dateKey,
-    String? careerId,
-  }) {
-    final allPool  = GoalContentDatabase.dailyForRole(role);
-    // GoalContentDatabase already returns role-specific + generic goals.
-    // Keep one final safety net so a future empty database can never leave
-    // the Copilot permanently stuck with zero daily goals.
-    final pool = allPool.isNotEmpty
-        ? allPool
-        : GoalContentDatabase.dailyForRole('generic');
-    final usedIds  = <String>{};
-    final seed     = _buildSeed(uid, dateKey);
-    final rng      = Random(seed);
-
-    // Filter by level and phase gates
-    var eligible = pool
-        .where((t) => t.minLevel <= level && t.minPhase <= phase)
-        .toList();
-
-    // Fallback: ignore gates if nothing passes
-    if (eligible.isEmpty) eligible = List.from(pool);
-
-    eligible.shuffle(rng);
-
-    // Day-of-week strategy: easier goals on Monday, harder toward weekend
-    final dayOfWeek = DateTime.now().weekday; // 1=Mon … 7=Sun
-    final wantsHard   = dayOfWeek >= 4;
-    final wantsMedium = dayOfWeek >= 2;
-
-    final easy   = _pick(eligible, LocalGoalDifficulty.easy,   2, usedIds, rng);
-    final medium = _pick(eligible, LocalGoalDifficulty.medium, wantsMedium ? 2 : 1, usedIds, rng);
-    final hard   = _pick(eligible, LocalGoalDifficulty.hard,   wantsHard ? 1 : 0, usedIds, rng);
-
-    final picked = [...easy, ...medium, ...hard].take(5).toList();
-
-    return picked.asMap().entries.map((entry) {
-      final idx      = entry.key;
-      final template = entry.value;
-      final xp       = _computeXp(template.difficulty, streak);
-
-      final careerPrefix = (careerId == null || careerId.trim().isEmpty)
-          ? 'career'
-          : careerId.trim().replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
-
-      return DailyGoal(
-        id:          '${careerPrefix}_${template.id}_${dateKey}_$idx',
-        uid:         uid,
-        title:       template.title,
-        category:    _mapCategory(template.category),
-        date:        dateKey,
-        isCompleted: false,
-        xpReward:    xp,
-        linkedSkill: _inferLinkedSkill(template),
-      );
-    }).toList();
-  }
-
-  // ── PRIVATE: Period generation (weekly / monthly) ──────────────────
-
-  List<DailyGoal> _generatePeriodGoals({
-    required String uid,
-    required String role,
-    required int level,
-    required int phase,
-    required _PeriodType type,
+    required String targetRole,
+    required int currentLevel,
+    required int roadmapPhase,
+    required List<String> currentSkills,
+    required String? careerId,
     required String periodKey,
     required int count,
     required int baseXp,
-  }) {
-    final pool = type == _PeriodType.weekly
-        ? GoalContentDatabase.weeklyForRole(role)
-        : GoalContentDatabase.monthlyForRole(role);
-
-    final seed = _buildSeed(uid, periodKey);
-    final rng  = Random(seed);
-
-    var eligible = pool
-        .where((t) => t.minLevel <= level && t.minPhase <= phase)
+  }) async {
+    final pool = GoalContentDatabase.dailyForRole(targetRole)
+        .where((t) => t.minLevel <= currentLevel && t.minPhase <= roadmapPhase)
         .toList();
+    final source = pool.isNotEmpty
+        ? pool
+        : GoalContentDatabase.dailyForRole(targetRole);
 
-    if (eligible.isEmpty) eligible = List.from(pool);
-    eligible.shuffle(rng);
+    final known = currentSkills.map(_key).toSet();
+    source.sort((a, b) {
+      final aSkill = a.skill == null ? '' : _key(a.skill!);
+      final bSkill = b.skill == null ? '' : _key(b.skill!);
+      final aGap = aSkill.isNotEmpty && !known.contains(aSkill) ? 0 : 1;
+      final bGap = bSkill.isNotEmpty && !known.contains(bSkill) ? 0 : 1;
+      return aGap.compareTo(bGap);
+    });
 
-    final picked = eligible.take(count).toList();
-
-    return picked.asMap().entries.map((e) {
-      final t = e.value;
+    return source.take(count).toList().asMap().entries.map((entry) {
+      final t = entry.value;
       return DailyGoal(
-        id:          '${t.id}_${periodKey}_${e.key}',
-        uid:         uid,
-        title:       t.title,
-        category:    _mapCategory(t.category),
-        date:        periodKey,
+        id: '${_safeCareerId(careerId ?? targetRole)}_${t.id}_${periodKey}_${entry.key}',
+        uid: uid,
+        title: t.title,
+        category: _mapCategory(t.category),
+        date: periodKey,
         isCompleted: false,
-        xpReward:    baseXp,
-        linkedSkill: _inferLinkedSkill(t),
+        xpReward: baseXp,
+        linkedSkill: t.skill ?? _inferSkill(t),
       );
     }).toList();
   }
 
-  // ── PRIVATE: Helpers ───────────────────────────────────────────────
-
-  List<GoalTemplate> _pick(
-    List<GoalTemplate> pool,
-    LocalGoalDifficulty diff,
-    int count,
-    Set<String> usedIds,
-    Random rng,
-  ) {
-    if (count <= 0) return [];
-
-    final candidates = pool
-        .where((t) => t.difficulty == diff && !usedIds.contains(t.id))
-        .toList()
-      ..shuffle(rng);
-
-    final result = <GoalTemplate>[];
-    for (final t in candidates) {
-      if (result.length >= count) break;
-      result.add(t);
-      usedIds.add(t.id);
-    }
-
-    // Fill with any difficulty if not enough matching ones
-    if (result.length < count) {
-      final any = pool
-          .where((t) => !usedIds.contains(t.id))
-          .take(count - result.length)
-          .toList();
-      result.addAll(any);
-      for (final t in any) usedIds.add(t.id);
-    }
-
-    return result;
-  }
-
-  int _computeXp(LocalGoalDifficulty diff, int streak) {
-    int base;
-    switch (diff) {
-      case LocalGoalDifficulty.easy:   base = _Xp.easy;   break;
-      case LocalGoalDifficulty.medium: base = _Xp.medium; break;
-      case LocalGoalDifficulty.hard:   base = _Xp.hard;   break;
-    }
-
-    if (streak >= 30) return (base * 1.5).round();
-    if (streak >= 14) return (base * 1.3).round();
-    if (streak >= 7)  return (base * 1.15).round();
-    if (streak >= 3)  return base + _Xp.streakBonus3;
-    return base;
-  }
-
-  /// Maps LocalGoalCategory → GoalCategory (copilot_models.dart).
-  /// GoalCategory has: learning, practice, networking, application, project
-  GoalCategory _mapCategory(LocalGoalCategory cat) {
-    switch (cat) {
-      case LocalGoalCategory.learning:    return GoalCategory.learning;
-      case LocalGoalCategory.reading:     return GoalCategory.learning;
-      case LocalGoalCategory.practice:    return GoalCategory.practice;
-      case LocalGoalCategory.coding:      return GoalCategory.practice;
-      case LocalGoalCategory.review:      return GoalCategory.practice;
-      case LocalGoalCategory.project:     return GoalCategory.project;
-      case LocalGoalCategory.deployment:  return GoalCategory.project;
-      case LocalGoalCategory.community:   return GoalCategory.networking;
-      case LocalGoalCategory.career:      return GoalCategory.application;
-      case LocalGoalCategory.design:      return GoalCategory.practice;
-      case LocalGoalCategory.data:        return GoalCategory.practice;
-    }
-  }
-
-  /// Infers linkedSkill from goal template tags or title keywords.
-  String? _inferLinkedSkill(GoalTemplate t) {
-    if (t.tags.isNotEmpty) {
-      // Convert role tag to a readable skill name
-      final tag = t.tags.first;
-      switch (tag) {
-        case 'ai_engineer':        return 'AI Engineering';
-        case 'ml_engineer':        return 'Machine Learning';
-        case 'data_scientist':     return 'Data Science';
-        case 'nlp_engineer':       return 'NLP';
-        case 'prompt_engineer':    return 'Prompt Engineering';
-        case 'ai_researcher':      return 'AI Research';
-        case 'ai_product_manager': return 'AI Product Management';
-        default:                   return null;
+  CareerGoal _careerFromRole(String role) {
+    final normal = role.toLowerCase().trim();
+    for (final career in CareerGoal.values) {
+      if (career.label.toLowerCase() == normal || career.name == normal) {
+        return career;
       }
+    }
+    if (normal.contains('machine learning')) return CareerGoal.mlEngineer;
+    if (normal.contains('data')) return CareerGoal.dataScientist;
+    if (normal.contains('computer vision')) return CareerGoal.cvEngineer;
+    if (normal.contains('nlp')) return CareerGoal.nlpEngineer;
+    if (normal.contains('prompt')) return CareerGoal.promptEngineer;
+    if (normal.contains('research')) return CareerGoal.aiResearcher;
+    if (normal.contains('product')) return CareerGoal.aiProductManager;
+    if (normal.contains('software')) return CareerGoal.softwareEngineer;
+    return CareerGoal.aiEngineer;
+  }
+
+  List<GoalTemplate> _fallbackTemplates(
+    CareerGoal career,
+    int level,
+    int phase,
+    Set<String> recentSkills,
+  ) {
+    final pool = GoalContentDatabase.dailyForRole(career.label);
+    final eligible = pool.where((t) =>
+        t.minLevel <= level && t.minPhase <= phase).toList();
+    final source = eligible.isNotEmpty ? eligible : pool;
+    source.sort((a, b) {
+      final ar = recentSkills.contains(_key(a.skill ?? _inferSkill(a) ?? '')) ? 1 : 0;
+      final br = recentSkills.contains(_key(b.skill ?? _inferSkill(b) ?? '')) ? 1 : 0;
+      return ar.compareTo(br);
+    });
+    return source.take(4).toList();
+  }
+
+  String _friendlyTitle(GoalTemplate template, int index, String? focusSkill) {
+    final title = template.title.trim();
+    if (index == 0 && focusSkill != null &&
+        (template.skill ?? '').trim().isNotEmpty) {
+      return '🎯 Focus: ${template.skill} — $title';
+    }
+    if (index == 0) return '🌱 Start small — $title';
+    if (index == 1) return '🧠 Practice — $title';
+    if (index == 2) return '🛠 Build it — $title';
+    return '✨ Make it real — $title';
+  }
+
+  GoalCategory _mapCategory(LocalGoalCategory category) {
+    switch (category) {
+      case LocalGoalCategory.learning:
+      case LocalGoalCategory.reading:
+        return GoalCategory.learning;
+      case LocalGoalCategory.practice:
+      case LocalGoalCategory.coding:
+      case LocalGoalCategory.review:
+      case LocalGoalCategory.data:
+      case LocalGoalCategory.design:
+        return GoalCategory.practice;
+      case LocalGoalCategory.project:
+      case LocalGoalCategory.deployment:
+        return GoalCategory.project;
+      case LocalGoalCategory.community:
+        return GoalCategory.networking;
+      case LocalGoalCategory.career:
+        return GoalCategory.application;
+    }
+  }
+
+  String? _inferSkill(GoalTemplate t) {
+    final text = '${t.title} ${t.description}'.toLowerCase();
+    const map = <String, String>{
+      'pytorch': 'PyTorch',
+      'tensorflow': 'TensorFlow',
+      'python': 'Python',
+      'machine learning': 'Machine Learning',
+      'deep learning': 'Deep Learning',
+      'llm': 'LLMs',
+      'rag': 'RAG',
+      'prompt engineering': 'Prompt Engineering',
+      'computer vision': 'Computer Vision',
+      'nlp': 'NLP',
+      'sql': 'SQL',
+      'algorithm': 'Algorithms',
+      'data structure': 'Data Structures',
+      'system design': 'System Design',
+      'docker': 'Docker',
+      'git': 'Git',
+      'testing': 'Testing',
+      'security': 'Security',
+      'api': 'APIs',
+      'mlops': 'MLOps',
+      'cloud': 'Cloud Computing',
+    };
+    for (final e in map.entries) {
+      if (text.contains(e.key)) return e.value;
     }
     return null;
   }
 
-  /// Deterministic seed: same uid + same date → same pool order every time.
-  int _buildSeed(String uid, String dateKey) {
-    final combined = '$uid|$dateKey';
-    int hash = 0;
-    for (final ch in combined.codeUnits) {
-      hash = (hash * 31 + ch) & 0x7FFFFFFF;
-    }
-    return hash;
+  Set<String> _readRecentSkills(
+    SharedPreferences prefs,
+    String uid,
+    String? careerId,
+  ) {
+    final raw = prefs.getStringList(
+          'career_goal_recent_skills_${uid}_${_safeCareerId(careerId ?? 'general')}',
+        ) ??
+        const <String>[];
+    return raw.map(_key).where((e) => e.isNotEmpty).toSet();
   }
-}
 
-enum _PeriodType { weekly, monthly }
+  Future<void> _rememberRecentSkills(
+    SharedPreferences prefs,
+    String uid,
+    String? careerId,
+    Iterable<String> skills,
+  ) async {
+    final key =
+        'career_goal_recent_skills_${uid}_${_safeCareerId(careerId ?? 'general')}';
+    final old = prefs.getStringList(key) ?? const <String>[];
+    final merged = <String>[...skills, ...old]
+        .where((s) => s.trim().isNotEmpty)
+        .map((s) => s.trim())
+        .toSet()
+        .take(12)
+        .toList();
+    await prefs.setStringList(key, merged);
+  }
+
+  String _generationKey(String uid, String? careerId, String date) =>
+      'career_goal_generated_${uid}_${_safeCareerId(careerId ?? 'general')}_$date';
+
+  String _safeCareerId(String value) => value
+      .toLowerCase()
+      .trim()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '')
+      .replaceAll(RegExp(r'_+'), '_');
+
+  String _key(String value) =>
+      value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+  String _todayDateKey() {
+    final n = DateTime.now();
+    return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
+  }
+
+  String _weekKey(DateTime d) {
+    final monday = d.subtract(Duration(days: d.weekday - 1));
+    return '${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
+  }
+
+  String _monthKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}';
+}

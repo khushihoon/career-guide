@@ -109,6 +109,10 @@ class CopilotController extends ChangeNotifier {
   /// authoritative value must use [_resolveAuthoritativeTotalXp].
   int? _authoritativeTotalXp;
 
+  /// Authoritative XP earned inside the currently active career.
+  int? _careerTotalXp;
+  int get careerTotalXp => _careerTotalXp ?? 0;
+
   CopilotContext? _copilotContext;
   CopilotContext? get copilotContext => _copilotContext;
 
@@ -137,6 +141,7 @@ class CopilotController extends ChangeNotifier {
       _selectedCareerId = null;
       _copilotContext = null;
       _authoritativeTotalXp = null;
+      _careerTotalXp = null;
       _state = const CopilotState(isLoading: true);
       // Invalidate any in-flight authoritative refresh from the old UID.
       _authoritativeRefreshToken++;
@@ -184,7 +189,10 @@ class CopilotController extends ChangeNotifier {
       _set(_state.copyWith(todayGoals: g));
     });
 
-    _progressSub = CopilotFirestoreService.progressStream(uid).listen((h) {
+    _progressSub = CopilotFirestoreService.progressStream(
+      uid,
+      careerId: _selectedCareerId,
+    ).listen((h) {
       _set(_state.copyWith(progressHistory: h));
     });
 
@@ -397,7 +405,11 @@ class CopilotController extends ChangeNotifier {
       // result even if the subsequent Firestore sync fails.
       _set(_state.copyWith(todayGoals: updated));
 
-      await CopilotFirestoreService.syncTodayProgress(uid, updated);
+      await CopilotFirestoreService.syncTodayProgress(
+        uid,
+        updated,
+        careerId: _resolveActiveCareerId(fallbackToProfile: false),
+      );
 
       // Reconcile authoritative XP before intelligence refresh so any
       // downstream listener sees the newly-awarded XP immediately.
@@ -554,6 +566,7 @@ class CopilotController extends ChangeNotifier {
             currentLevel: realLevel,
             roadmapPhase: realPhase,
             existingGoals: existingGoals,
+            context: _copilotContext,
           );
           await CopilotFirestoreService.saveDailyGoals(
               profile.uid,
@@ -873,18 +886,20 @@ class CopilotController extends ChangeNotifier {
     final liveRoadmap = context?.state.roadmap;
     final localRoadmap = _state.roadmap;
 
-    final double progress;
-    final int currentPhaseIndexFromEvidence;
-    if (liveRoadmap != null) {
-      progress = liveRoadmap.overallProgress;
-      currentPhaseIndexFromEvidence = liveRoadmap.currentPhaseIndex;
-    } else if (localRoadmap != null) {
-      progress = localRoadmap.overallProgress;
-      currentPhaseIndexFromEvidence = localRoadmap.currentPhaseIndex;
-    } else {
-      progress = context?.learningProgress.progress ?? 0.0;
-      currentPhaseIndexFromEvidence = 0;
-    }
+    final learningProgress = context?.learningProgress;
+    final hasLearningEvidence =
+        learningProgress != null && learningProgress.totalLessons > 0;
+    final evidenceProgress = hasLearningEvidence
+        ? learningProgress!.progress.clamp(0.0, 1.0)
+        : 0.0;
+
+    // Fresh career-scoped learning evidence wins over the previous roadmap
+    // snapshot. This makes lesson completion visibly move the roadmap.
+    final double progress = hasLearningEvidence
+        ? evidenceProgress
+        : (liveRoadmap?.overallProgress ?? localRoadmap?.overallProgress ?? 0.0);
+    final int persistedPhaseIndex =
+        liveRoadmap?.currentPhaseIndex ?? localRoadmap?.currentPhaseIndex ?? 0;
 
     final careerId = context?.career?.careerId ?? '';
     final spec = _careerRoadmapSpecs[careerId] ??
@@ -892,17 +907,22 @@ class CopilotController extends ChangeNotifier {
         _careerRoadmapSpecs['ai_engineer']!;
 
     final totalPhases = spec.phases.length;
-    bool phaseCompleted(int phaseNumber) =>
-        totalPhases == 0 ? false : progress >= (phaseNumber + 1) / totalPhases;
+    bool phaseCompleted(int phaseNumber) {
+      final persisted = liveRoadmap != null &&
+          phaseNumber < liveRoadmap.phases.length &&
+          liveRoadmap.phases[phaseNumber].isCompleted;
+      return persisted ||
+          (totalPhases != 0 && progress >= (phaseNumber + 1) / totalPhases);
+    }
     bool phaseUnlocked(int phaseNumber) =>
         phaseNumber == 0 ||
         (totalPhases > 0 && progress >= phaseNumber / totalPhases);
     final computedIndex = totalPhases == 0
         ? 0
         : min(totalPhases - 1, (progress * totalPhases).floor());
-    final currentPhaseIndex = liveRoadmap != null || localRoadmap != null
-        ? currentPhaseIndexFromEvidence
-        : computedIndex;
+    final currentPhaseIndex =
+        min(totalPhases == 0 ? 0 : totalPhases - 1,
+            max(persistedPhaseIndex, computedIndex));
 
     final phases = <RoadmapPhase>[];
     for (var i = 0; i < spec.phases.length; i++) {
@@ -945,9 +965,8 @@ class CopilotController extends ChangeNotifier {
   /// generates genuinely-new actions/recommendations (state-versioned IDs),
   /// persists the new pieces, and updates local state.
   ///
-  /// This method does NOT touch XP — it consumes whatever XP is already
-  /// present on the caller's state. XP reconciliation is owned by
-  /// [refreshAuthoritativeState] so there is exactly one XP source.
+  /// This method never awards XP. It only re-reads the authoritative
+  /// career-scoped aggregate and global XP cache after evidence changes.
   Future<CopilotContext?> refreshIntelligence(String uid, {String? careerId}) async {
     final switchToken = _careerSwitchToken;
     try {
@@ -999,7 +1018,24 @@ class CopilotController extends ChangeNotifier {
         return null;
       }
       _copilotContext = updatedContext;
-      notifyListeners();
+
+      // Keep the legacy screen-facing CopilotState synchronized with the
+      // freshly-read career-scoped context. Previously only _copilotContext
+      // changed, so lesson/course progress could be invisible to screens.
+      _set(_state.copyWith(
+        skillProfile: updatedContext.state.skillProfile,
+        skillGaps: updatedContext.state.skillGaps,
+        roadmap: updatedContext.state.roadmap,
+        todayGoals: updatedContext.state.todayGoals,
+        progressHistory: updatedContext.state.progressHistory,
+      ));
+
+      if (resolvedCareerId != null && resolvedCareerId.isNotEmpty) {
+        try {
+          _careerTotalXp = await CopilotFirestoreService.getCareerTotalXp(
+            uid, resolvedCareerId);
+        } catch (_) {}
+      }
       return updatedContext;
     } catch (e) {
       debugPrint('refreshIntelligence error: $e');
@@ -1030,12 +1066,25 @@ class CopilotController extends ChangeNotifier {
         career.careerId,
       );
 
-      activeProfile ??= _state.skillProfile;
-
       final mappedGoal = _careerGoalForId(career.careerId);
       if (activeProfile != null && mappedGoal != null &&
           activeProfile.targetRole != mappedGoal) {
         activeProfile = activeProfile.copyWith(targetRole: mappedGoal);
+      }
+
+      // First visit to a career starts with zero evidence. The previous
+      // career's profile is never copied into the new career.
+      if (activeProfile == null && mappedGoal != null) {
+        final now = DateTime.now();
+        activeProfile = UserSkillProfile(
+          uid: uid,
+          targetRole: mappedGoal,
+          skills: const <UserSkill>[],
+          experienceMonths: 0,
+          currentRole: 'Student',
+          createdAt: now,
+          updatedAt: now,
+        );
       }
 
       if (activeProfile != null) {
@@ -1068,10 +1117,13 @@ class CopilotController extends ChangeNotifier {
       ).copyWith(career: career);
 
       _copilotContext = scoped;
+      _careerTotalXp = null;
       _set(_state.copyWith(
+        skillProfile: scoped.state.skillProfile,
         skillGaps: scoped.state.skillGaps,
         roadmap: scoped.state.roadmap,
         todayGoals: scoped.state.todayGoals,
+        progressHistory: scoped.state.progressHistory,
         isLoading: true,
         error: null,
       ));
@@ -1118,6 +1170,7 @@ class CopilotController extends ChangeNotifier {
   ) async {
     await _roadmapSub?.cancel();
     await _goalsSub?.cancel();
+    await _progressSub?.cancel();
     if (token != _careerSwitchToken) return;
 
     _roadmapSub = CopilotFirestoreService.roadmapStream(
@@ -1135,6 +1188,14 @@ class CopilotController extends ChangeNotifier {
       if (token != _careerSwitchToken) return;
       _set(_state.copyWith(todayGoals: goals));
     });
+
+    _progressSub = CopilotFirestoreService.progressStream(
+      uid,
+      careerId: careerId,
+    ).listen((history) {
+      if (token != _careerSwitchToken) return;
+      _set(_state.copyWith(progressHistory: history));
+    });
   }
 
   static CareerContext _careerContextForGoal(CareerGoal goal) =>
@@ -1146,6 +1207,40 @@ class CopilotController extends ChangeNotifier {
         isStaticCareer: true,
         selectedAt: DateTime.now(),
       );
+
+  Future<void> _refreshCareerJourney(String uid, String careerId) async {
+    if (uid.isEmpty || careerId.isEmpty) return;
+    try {
+      final freshContext = await CopilotFirestoreService.getCopilotContext(
+        uid, careerId: careerId);
+      final scoped = _scopeContextToCareer(freshContext, careerId);
+      _copilotContext = scoped;
+      _set(_state.copyWith(
+        skillProfile: scoped.state.skillProfile,
+        skillGaps: scoped.state.skillGaps,
+        roadmap: scoped.state.roadmap,
+        todayGoals: scoped.state.todayGoals,
+        progressHistory: scoped.state.progressHistory,
+      ));
+
+      final profile = scoped.state.skillProfile;
+      if (profile != null) {
+        // Rebuild derived roadmap against the newest career evidence.
+        // Existing today's goals are preserved by _runAnalysis.
+        await _runAnalysis(
+          profile,
+          careerId: careerId,
+          preserveExisting: false,
+        );
+      }
+
+      _careerTotalXp =
+          await CopilotFirestoreService.getCareerTotalXp(uid, careerId);
+      await refreshIntelligence(uid, careerId: careerId);
+    } catch (e) {
+      debugPrint('refresh career journey error: $e');
+    }
+  }
 
   Future<void> recordLessonCompleted(
     String uid, {
@@ -1162,9 +1257,9 @@ class CopilotController extends ChangeNotifier {
         totalLessons: totalLessons,
         currentLevelTitle: currentLevelTitle,
       );
-      _selectedCareerId ??= careerId;
+      _selectedCareerId = careerId;
       await refreshAuthoritativeState(uid);
-      await refreshIntelligence(uid, careerId: careerId);
+      await _refreshCareerJourney(uid, careerId);
     } catch (e) {
       debugPrint('recordLessonCompleted error: $e');
     }
@@ -1194,9 +1289,9 @@ class CopilotController extends ChangeNotifier {
         topic: topic,
         correct: correct,
       );
-      _selectedCareerId ??= effectiveCareerId;
+      _selectedCareerId = effectiveCareerId;
       await refreshAuthoritativeState(uid);
-      await refreshIntelligence(uid, careerId: effectiveCareerId);
+      await _refreshCareerJourney(uid, effectiveCareerId);
       return wasNewlyRecorded;
     } catch (e) {
       debugPrint('recordCourseEvent error: $e');
