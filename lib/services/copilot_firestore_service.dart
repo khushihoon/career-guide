@@ -427,6 +427,24 @@ class CopilotFirestoreService {
   ///
   /// The current collection remains backward compatible with the existing
   /// UI/read path. Historical snapshots are never deleted.
+  /// KNOWN LIMITATION (documented, not fixed in this pass — see rationale
+  /// below): the delete-existing + write-new sequence here is NOT wrapped
+  /// in a single atomic transaction. Two genuinely concurrent calls to
+  /// saveSkillGaps() for the SAME uid+career (e.g. two rapid re-analysis
+  /// triggers) could theoretically interleave their query→delete→write
+  /// steps. In practice this is low-risk and self-healing:
+  ///   • Each gap's document id is deterministic
+  ///     (`{careerId}__gap_{skillNameId}`), so two concurrent writes for
+  ///     the SAME skill converge to the same document via merge — never
+  ///     a duplicate.
+  ///   • The only edge case is a gap present in an OLDER generation but
+  ///     absent from a NEWER one surviving an interleaved delete — and
+  ///     the very next analysis run (which always re-derives the full
+  ///     gap set from current evidence) corrects it.
+  /// A fully atomic fix would require restructuring this collection
+  /// around a single per-career document (a larger schema change), which
+  /// is not justified by the narrow, self-correcting risk above — see
+  /// the "do not overengineer" principle in the standing contract.
   static Future<void> saveSkillGaps(
       String uid, List<SkillGap> gaps, {String? careerId}) async {
     if (uid.isEmpty) return;
@@ -493,13 +511,37 @@ class CopilotFirestoreService {
     });
   }
 
+  /// CAREER-ISOLATION HARDENING (Phase 2):
+  /// When a real [careerId] is supplied, this now queries directly by
+  /// `careerId` (a single-equality Firestore filter, no composite index
+  /// required) instead of reading every gap the user has ever had across
+  /// every career and filtering client-side — fewer reads, same result.
+  ///
+  /// When no career is resolved (`careerId` is null/empty), this
+  /// previously returned EVERY stored gap regardless of which career it
+  /// belonged to — silently blending multiple explicit careers' gaps
+  /// together the moment more than one career had ever been used. That
+  /// violated career isolation at the storage layer. It now returns only
+  /// genuinely unscoped (legacy, pre-career-isolation) gaps — the same
+  /// "missing/empty careerId = legacy" contract saveSkillGaps() already
+  /// uses on write.
   static Future<List<SkillGap>> getSkillGaps(String uid, {String? careerId}) async {
     final col = _userDoc(uid).collection('copilot_skill_gaps');
     final safeCareerId = careerId == null ? '' : _safeId(careerId);
+
+    if (safeCareerId.isNotEmpty) {
+      final snap = await col.where('careerId', isEqualTo: safeCareerId).get();
+      final items =
+          snap.docs.map((d) => SkillGap.fromFirestore(d.data())).toList();
+      items.sort((a, b) => a.priority.compareTo(b.priority));
+      return items;
+    }
+
     final snap = await col.orderBy('priority').get();
-    final items = snap.docs.map((d) => SkillGap.fromFirestore(d.data())).toList();
-    if (safeCareerId.isEmpty) return items;
-    return items.where((g) => _safeId(g.careerId) == safeCareerId).toList();
+    return snap.docs
+        .map((d) => SkillGap.fromFirestore(d.data()))
+        .where((g) => g.careerId == null || g.careerId!.isEmpty)
+        .toList();
   }
 
   // ── Personalized Roadmap ───────────────────────────────────────────────────
@@ -1079,6 +1121,22 @@ class CopilotFirestoreService {
         .set(data, SetOptions(merge: true));
   }
 
+  /// CAREER-ISOLATION HARDENING (Phase 2):
+  /// When no career is resolved, this previously returned the most recent
+  /// progress entries across EVERY career the user has ever used — mixing
+  /// Career A's and Career B's daily XP/goal history into one feed. This
+  /// fed straight into `CopilotState.progressHistory`, which the streak
+  /// and (compatibility) XP getters, and the Hub's weekly-XP chart, all
+  /// read from — so the leak was directly user-visible.
+  ///
+  /// `ProgressEntry` itself does not carry a `careerId` field (only the
+  /// raw stored document does, added by `syncTodayProgress` only when a
+  /// real career was active), so the check is performed on the raw
+  /// document map before it is turned into a model — the model layer
+  /// cannot express this filter after the fact.
+  ///
+  /// The read is bounded (never more than 500 raw docs) so an "empty
+  /// career" resolution can never trigger an unbounded collection scan.
   static Future<List<ProgressEntry>> getProgressHistory(
       String uid, {int limit = 30, String? careerId}) async {
     final safeLimit = limit <= 0 ? 30 : (limit > 90 ? 90 : limit);
@@ -1095,13 +1153,19 @@ class CopilotFirestoreService {
       return entries.length > safeLimit ? entries.sublist(0, safeLimit) : entries;
     }
 
+    final rawLimit = (safeLimit * 5) > 500 ? 500 : safeLimit * 5;
     final snap = await col
         .orderBy('date', descending: true)
-        .limit(safeLimit)
+        .limit(rawLimit)
         .get();
-    return snap.docs
+    final entries = snap.docs
+        .where((d) {
+          final raw = d.data()['careerId'] as String?;
+          return raw == null || raw.isEmpty;
+        })
         .map((d) => ProgressEntry.fromFirestore(d.data()))
         .toList();
+    return entries.length > safeLimit ? entries.sublist(0, safeLimit) : entries;
   }
 
   static Stream<List<ProgressEntry>> progressStream(
@@ -1121,11 +1185,19 @@ class CopilotFirestoreService {
 
     final sevenAgo =
         DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
+    // Same isolation guard as getProgressHistory()'s no-career branch:
+    // only genuinely unscoped (legacy) entries qualify when no career is
+    // resolved, checked on the raw document since ProgressEntry itself
+    // does not carry a careerId field.
     return col
         .where('date', isGreaterThan: sevenAgo)
         .orderBy('date', descending: false)
         .snapshots()
         .map((s) => s.docs
+            .where((d) {
+              final raw = d.data()['careerId'] as String?;
+              return raw == null || raw.isEmpty;
+            })
             .map((d) => ProgressEntry.fromFirestore(d.data()))
             .toList());
   }
@@ -2030,6 +2102,13 @@ class CopilotFirestoreService {
         .set(data, SetOptions(merge: true));
   }
 
+  /// CAREER-ISOLATION HARDENING (Phase 2):
+  /// When no career is resolved, this previously returned every
+  /// NextBestAction across every career the user has ever used. It now
+  /// returns only genuinely unscoped (legacy) actions — never a blend of
+  /// two different careers' next steps. When a real careerId IS supplied,
+  /// behaviour is unchanged (already correctly scoped via the Firestore
+  /// query).
   static Future<List<NextBestAction>> getNextActions(
     String uid, {
     bool onlyPending = false,
@@ -2043,14 +2122,21 @@ class CopilotFirestoreService {
     final safeCareerId = careerId == null ? '' : _safeId(careerId);
 
     if (onlyPending) q = q.where('isCompleted', isEqualTo: false);
+
+    List<NextBestAction> actions;
     if (safeCareerId.isNotEmpty) {
       q = q.where('careerId', isEqualTo: safeCareerId);
+      final snap = await q.get();
+      actions =
+          snap.docs.map((d) => NextBestAction.fromFirestore(d.data())).toList();
+    } else {
+      final snap = await q.get();
+      actions = snap.docs
+          .map((d) => NextBestAction.fromFirestore(d.data()))
+          .where((a) => a.careerId == null || a.careerId!.isEmpty)
+          .toList();
     }
 
-    final snap = await q.get();
-    final actions = snap.docs
-        .map((d) => NextBestAction.fromFirestore(d.data()))
-        .toList();
     actions.sort((a, b) => a.priority.compareTo(b.priority));
     if (actions.length > safeLimit) {
       return actions.sublist(0, safeLimit);
@@ -2058,6 +2144,8 @@ class CopilotFirestoreService {
     return actions;
   }
 
+  /// See getNextActions() — identical career-isolation guard applied to
+  /// the live stream variant.
   static Stream<List<NextBestAction>> nextActionsStream(
     String uid, {
     bool onlyPending = false,
@@ -2076,8 +2164,13 @@ class CopilotFirestoreService {
     }
 
     return q.snapshots().map((s) {
-      final actions =
+      var actions =
           s.docs.map((d) => NextBestAction.fromFirestore(d.data())).toList();
+      if (safeCareerId.isEmpty) {
+        actions = actions
+            .where((a) => a.careerId == null || a.careerId!.isEmpty)
+            .toList();
+      }
       actions.sort((a, b) => a.priority.compareTo(b.priority));
       if (actions.length > safeLimit) {
         return actions.sublist(0, safeLimit);
@@ -2152,6 +2245,10 @@ class CopilotFirestoreService {
         .set(data, SetOptions(merge: true));
   }
 
+  /// CAREER-ISOLATION HARDENING (Phase 2):
+  /// Identical guard to getNextActions() — when no career is resolved,
+  /// only genuinely unscoped (legacy) recommendations are returned,
+  /// never a blend of multiple explicit careers' recommendations.
   static Future<List<CopilotRecommendation>> getRecommendations(
     String uid, {
     bool onlyActive = false,
@@ -2165,14 +2262,22 @@ class CopilotFirestoreService {
     final safeCareerId = careerId == null ? '' : _safeId(careerId);
 
     if (onlyActive) q = q.where('isDismissed', isEqualTo: false);
+
+    List<CopilotRecommendation> recs;
     if (safeCareerId.isNotEmpty) {
       q = q.where('careerId', isEqualTo: safeCareerId);
+      final snap = await q.get();
+      recs = snap.docs
+          .map((d) => CopilotRecommendation.fromFirestore(d.data()))
+          .toList();
+    } else {
+      final snap = await q.get();
+      recs = snap.docs
+          .map((d) => CopilotRecommendation.fromFirestore(d.data()))
+          .where((r) => r.careerId == null || r.careerId!.isEmpty)
+          .toList();
     }
 
-    final snap = await q.get();
-    final recs = snap.docs
-        .map((d) => CopilotRecommendation.fromFirestore(d.data()))
-        .toList();
     recs.sort((a, b) => a.priority.compareTo(b.priority));
     if (recs.length > safeLimit) {
       return recs.sublist(0, safeLimit);
@@ -2180,6 +2285,8 @@ class CopilotFirestoreService {
     return recs;
   }
 
+  /// See getRecommendations() — identical career-isolation guard applied
+  /// to the live stream variant.
   static Stream<List<CopilotRecommendation>> recommendationsStream(
     String uid, {
     bool onlyActive = false,
@@ -2198,9 +2305,14 @@ class CopilotFirestoreService {
     }
 
     return q.snapshots().map((s) {
-      final recs = s.docs
+      var recs = s.docs
           .map((d) => CopilotRecommendation.fromFirestore(d.data()))
           .toList();
+      if (safeCareerId.isEmpty) {
+        recs = recs
+            .where((r) => r.careerId == null || r.careerId!.isEmpty)
+            .toList();
+      }
       recs.sort((a, b) => a.priority.compareTo(b.priority));
       if (recs.length > safeLimit) {
         return recs.sublist(0, safeLimit);

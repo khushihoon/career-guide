@@ -805,16 +805,6 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 18)),
 
-          // ── Learning Progress — shared with Learn tab ────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _LearningProgressCard(ctrl: ctrl),
-            ).animate().fadeIn(delay: 175.ms),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
           // ── Daily Quests Preview ─────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(

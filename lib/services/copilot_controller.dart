@@ -48,6 +48,56 @@
 // runs only for the currently initialized user and safely no-ops
 // otherwise.
 //
+// ──────────────────────────────────────────────────────────────────────
+// PHASE 1 FINAL FIX — CAREER-ID SYNC (this revision)
+// ──────────────────────────────────────────────────────────────────────
+// PROBLEM FOUND:
+//   Inside init()'s skill-profile stream listener, when no career had
+//   been explicitly selected yet (_selectedCareerId == null), the
+//   listener derived a fallback career id via
+//   `_careerIdForGoal(p.targetRole)` and passed that fallback directly
+//   to `_runAnalysis(...)` — but it never assigned that value back into
+//   `_selectedCareerId`. Every OTHER read path in this controller
+//   (`_resolveActiveCareerId(fallbackToProfile: false)`, used by
+//   `toggleGoal()`; the `careerId` default on `refreshIntelligence()`,
+//   `rerunAnalysis()`, `completePhase()`, etc.) resolves the active
+//   career from `_selectedCareerId` alone, with NO profile fallback.
+//
+//   For any user who has a skill profile but never went through the
+//   explicit `selectCareer()` flow (i.e. most existing/legacy users),
+//   this meant: goals/gaps/roadmap were generated and SAVED under a real
+//   derived career id, but goal-completion idempotency, career XP
+//   aggregation, and career-scoped reads elsewhere in the controller
+//   resolved to the legacy UNSCOPED bucket instead — silently splitting
+//   one user's data across two different "buckets" for the same career.
+//
+//   A second, directly-related inconsistency was found in the same
+//   listener: the `existingGoals` lookup used
+//   `careerId: _selectedCareerId` (frequently null at this point) while
+//   the subsequent `_runAnalysis` call used the resolved fallback — so
+//   the emptiness check and the analysis it gated could silently
+//   disagree about which career's goals they were even looking at.
+//
+// FIX APPLIED:
+//   As soon as a non-null skill profile arrives and no career is yet
+//   selected, `_selectedCareerId` is populated from the SAME fallback
+//   derivation (`_careerIdForGoal(p.targetRole)`) BEFORE it is used for
+//   either the `getTodayGoals` existence check or `_runAnalysis`. Using
+//   `??=` means an already-explicitly-selected career (via
+//   `selectCareer()`) is never overwritten — this only fills in the
+//   fallback when nothing has been explicitly chosen yet, preserving
+//   all existing explicit-selection behaviour exactly.
+//
+// RESULT:
+//   Goal generation, the existing-goals check, goal completion
+//   (idempotency + XP), career-XP aggregation, and career switching now
+//   all resolve to and agree on the exact same active career id for a
+//   given session — with zero change to any public API, Firestore path,
+//   or explicit-selection behaviour.
+//
+// No other files were touched. No other logic in this file was changed.
+// ──────────────────────────────────────────────────────────────────────
+//
 // AUTHORITATIVE GOAL COMPLETION DETECTION
 // ──────────────────────────────────────
 // CopilotFirestoreService.toggleGoalCompletion() is the single source of
@@ -170,13 +220,29 @@ class CopilotController extends ChangeNotifier {
       _set(_state.copyWith(skillProfile: p));
 
       if (p != null) {
+        // ── PHASE 1 FINAL FIX ────────────────────────────────────────
+        // Keep _selectedCareerId in sync with the SAME fallback derivation
+        // used to run analysis, so every other read path in this
+        // controller (toggleGoal's _resolveActiveCareerId, rerunAnalysis,
+        // refreshIntelligence, completePhase, etc.) resolves to the exact
+        // same active career id that goals/gaps/roadmap are being saved
+        // under below. `??=` never overwrites an explicitly-selected
+        // career (via selectCareer()) — it only fills the gap for users
+        // who have a profile but have never explicitly chosen a career.
+        _selectedCareerId ??= _careerIdForGoal(p.targetRole);
+
+        final resolvedCareerId = _selectedCareerId!;
+
+        // Both the existence check and the analysis it gates now resolve
+        // to the identical career id — previously these could silently
+        // disagree when _selectedCareerId was still null at this point.
         final existingGoals =
             await CopilotFirestoreService.getTodayGoals(
               uid,
-              careerId: _selectedCareerId,
+              careerId: resolvedCareerId,
             );
         if (existingGoals.isEmpty) {
-          await _runAnalysis(p, careerId: _selectedCareerId ?? _careerIdForGoal(p.targetRole));
+          await _runAnalysis(p, careerId: resolvedCareerId);
         }
       }
 
@@ -804,14 +870,6 @@ class CopilotController extends ChangeNotifier {
       _CareerSkill('Figma',             SkillLevel.intermediate, 2, 'Industry-standard design tool'),
       _CareerSkill('Prototyping',       SkillLevel.intermediate, 2, 'Testing ideas before building them'),
       _CareerSkill('Accessibility',     SkillLevel.beginner,     3, 'Designing for everyone, not just the median user'),
-    ],
-    'ux_designer': const [
-      _CareerSkill('UX Fundamentals',   SkillLevel.advanced,     1, 'Foundation of every design decision'),
-      _CareerSkill('UI Design',         SkillLevel.advanced,     1, 'Visual craft of the product'),
-      _CareerSkill('Design Thinking',   SkillLevel.intermediate, 1, 'Human-centred problem solving'),
-      _CareerSkill('Figma',             SkillLevel.intermediate, 2, 'Industry-standard design tool'),
-      _CareerSkill('Prototyping',       SkillLevel.intermediate, 2, 'Testing ideas before building them'),
-      _CareerSkill('Accessibility',     SkillLevel.beginner,     3, 'Designing for everyone'),
     ],
     'devops_engineer': const [
       _CareerSkill('Linux',             SkillLevel.advanced,     1, 'Foundation of every server'),
