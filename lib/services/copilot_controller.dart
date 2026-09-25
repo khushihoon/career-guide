@@ -1354,7 +1354,16 @@ class CopilotController extends ChangeNotifier {
         totalLessons: totalLessons,
         currentLevelTitle: currentLevelTitle,
       );
-      _selectedCareerId = careerId;
+      // PHASE 3 FIX: never force-overwrite an already-different active
+      // career. If a course screen for a career the user has since
+      // switched away from stays alive (backgrounded/stale) and its
+      // completion sync fires late, this must not silently yank the
+      // active career back. Matches the ??= pattern already used
+      // consistently by recordProjectCompleted / recordJobApplied /
+      // recordInterviewCompleted below — this method and
+      // recordCourseEvent were the only two outliers still using an
+      // unconditional overwrite.
+      _selectedCareerId ??= careerId;
       await refreshAuthoritativeState(uid);
       await _refreshCareerJourney(uid, careerId);
       return true;
@@ -1399,7 +1408,12 @@ class CopilotController extends ChangeNotifier {
         topic: topic,
         correct: correct,
       );
-      _selectedCareerId = effectiveCareerId;
+      // PHASE 3 FIX: see the identical note in recordLessonCompleted()
+      // above — never force-overwrite an already-different active
+      // career. This is the higher-frequency sibling (fires on every
+      // quiz/challenge answer), so the same narrow stale-screen risk
+      // applies here too.
+      _selectedCareerId ??= effectiveCareerId;
       await refreshAuthoritativeState(uid);
       await _refreshCareerJourney(uid, effectiveCareerId);
       return wasNewlyRecorded;

@@ -6,6 +6,45 @@
 // It does not own readiness, XP, skill mastery, or historical evidence.
 // XP is only copied from the authored goal difficulty as a display/reward
 // hint; authoritative XP remains with the existing completion/evidence flow.
+//
+// ──────────────────────────────────────────────────────────────────────
+// PHASE 3 FIX — RECENT-TEMPLATE ANTI-REPETITION (this revision)
+// ──────────────────────────────────────────────────────────────────────
+// PROBLEM FOUND:
+//   CareerGoalEngine.decideDaily() already implements real anti-
+//   repetition logic keyed on `recentGoalIds` / `completedGoalIds` (a
+//   template whose id appears in either set is skipped entirely). But
+//   this service's call into decideDaily() always passed empty defaults
+//   for both — only `recentSkillNames` was actually being populated
+//   (via the existing _readRecentSkills/_rememberRecentSkills pair).
+//   Since scoring inputs (level, roadmap phase, skill gaps) often don't
+//   change day to day, the same top-scoring template could legitimately
+//   get re-picked on consecutive generation days, which is exactly the
+//   "random repetition / already completed goals" failure mode the
+//   product contract explicitly calls out.
+//
+// FIX APPLIED:
+//   The exact same local-tracking pattern already used for recent
+//   skills is now ALSO applied to template ids: a rolling window of the
+//   most recently generated GoalTemplate ids is persisted locally
+//   (SharedPreferences, per uid+career — no new database, no Firestore
+//   collection, no new architecture) and fed into decideDaily() as
+//   `recentGoalIds`. The engine's existing skip-if-recent logic now
+//   actually has real data to act on.
+//
+// SCOPE NOTE:
+//   `completedGoalIds` remains intentionally NOT populated from
+//   Firestore evidence in this pass. Doing so would require correlating
+//   DailyGoal.id (which embeds the template id as a substring) back
+//   against the full completion history via a new Firestore query on
+//   every generation — meaningfully heavier, and arguably a second
+//   progress-tracking mechanism layered on top of the existing one.
+//   The local recentGoalIds window already solves the practical
+//   repetition problem (a template cannot resurface for several days
+//   after being shown) without that added weight — consistent with the
+//   "do not overengineer" principle. This is a deliberate, documented
+//   scope boundary, not an oversight.
+// ──────────────────────────────────────────────────────────────────────
 
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/copilot_models.dart';
@@ -14,6 +53,11 @@ import 'goal_content_database.dart';
 
 class LocalGoalGeneratorService {
   final CareerGoalEngine _engine;
+
+  /// How many recently-shown template ids to remember before the oldest
+  /// entries roll off. Sized generously above a typical 4-goals/day cap
+  /// so a template stays "recent" for several days, not just one.
+  static const int _recentTemplateWindow = 24;
 
   const LocalGoalGeneratorService({CareerGoalEngine engine = const CareerGoalEngine()})
       : _engine = engine;
@@ -50,6 +94,16 @@ class LocalGoalGeneratorService {
       ..._readRecentSkills(prefs, uid, careerId),
     };
 
+    // PHASE 3 FIX: feed the engine's existing recentGoalIds parameter
+    // from real local history instead of leaving it permanently empty.
+    // Any ids the caller explicitly supplies are honoured too (unioned),
+    // so a future caller with real Firestore-backed completion evidence
+    // can still participate without this service needing to change.
+    final effectiveRecentGoalIds = <String>{
+      ...recentGoalIds,
+      ..._readRecentTemplateIds(prefs, uid, careerId),
+    };
+
     final decision = _engine.decideDaily(
       career: effectiveCareer,
       profile: profile,
@@ -59,7 +113,7 @@ class LocalGoalGeneratorService {
       currentLevel: currentLevel,
       roadmapPhase: roadmapPhase,
       completedGoalIds: completedGoalIds,
-      recentGoalIds: recentGoalIds,
+      recentGoalIds: effectiveRecentGoalIds,
       recentSkillNames: recentSkillNames,
       maxGoals: 4,
     );
@@ -99,6 +153,15 @@ class LocalGoalGeneratorService {
       uid,
       careerId,
       goals.map((g) => g.linkedSkill).whereType<String>(),
+    );
+    // PHASE 3 FIX: remember today's picked template ids so tomorrow's
+    // (and the following days') generation can skip them via
+    // recentGoalIds, closing the loop the engine already supported.
+    await _rememberRecentTemplateIds(
+      prefs,
+      uid,
+      careerId,
+      templates.map((t) => t.id),
     );
     await prefs.setBool(prefKey, true);
     return goals;
@@ -314,6 +377,42 @@ class LocalGoalGeneratorService {
         .map((s) => s.trim())
         .toSet()
         .take(12)
+        .toList();
+    await prefs.setStringList(key, merged);
+  }
+
+  /// PHASE 3 FIX: mirrors _readRecentSkills exactly, but for template
+  /// ids instead of skill names. Same storage mechanism (SharedPreferences,
+  /// per uid+career), same "no new architecture" footprint.
+  Set<String> _readRecentTemplateIds(
+    SharedPreferences prefs,
+    String uid,
+    String? careerId,
+  ) {
+    final raw = prefs.getStringList(
+          'career_goal_recent_templates_${uid}_${_safeCareerId(careerId ?? 'general')}',
+        ) ??
+        const <String>[];
+    return raw.where((e) => e.trim().isNotEmpty).toSet();
+  }
+
+  /// PHASE 3 FIX: mirrors _rememberRecentSkills exactly, but for template
+  /// ids. Keeps a rolling window of [_recentTemplateWindow] ids so a
+  /// template stays "recent" (and therefore skipped by the engine) for
+  /// several generation cycles, not just the next one.
+  Future<void> _rememberRecentTemplateIds(
+    SharedPreferences prefs,
+    String uid,
+    String? careerId,
+    Iterable<String> templateIds,
+  ) async {
+    final key =
+        'career_goal_recent_templates_${uid}_${_safeCareerId(careerId ?? 'general')}';
+    final old = prefs.getStringList(key) ?? const <String>[];
+    final merged = <String>[...templateIds, ...old]
+        .where((id) => id.trim().isNotEmpty)
+        .toSet()
+        .take(_recentTemplateWindow)
         .toList();
     await prefs.setStringList(key, merged);
   }

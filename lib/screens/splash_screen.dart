@@ -258,28 +258,31 @@ class _SplashScreenState extends State<SplashScreen>
     ];
 
     return icons.map((c) {
-      return AnimatedBuilder(
-        animation: _floatCtrl,
-        builder: (_, __) {
-          final bob = math.sin((_floatCtrl.value * 2 * math.pi) + c.seed) * 6;
-          return Positioned(
-            left: c.leftFrac * size.width - c.size / 2,
-            top: c.topFrac * size.height - c.size / 2 + bob,
-            child: Container(
-              width: c.size, height: c.size,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF15102E).withOpacity(0.75),
-                border: Border.all(color: c.color.withOpacity(0.45), width: 1.2),
-                boxShadow: [
-                  BoxShadow(color: c.color.withOpacity(0.35), blurRadius: 16, spreadRadius: 1),
-                ],
+      return Positioned(
+        left: c.leftFrac * size.width - c.size / 2,
+        top: c.topFrac * size.height - c.size / 2,
+        child: AnimatedBuilder(
+          animation: _floatCtrl,
+          builder: (_, __) {
+            final bob = math.sin((_floatCtrl.value * 2 * math.pi) + c.seed) * 6;
+            return Transform.translate(
+              offset: Offset(0, bob),
+              child: Container(
+                width: c.size, height: c.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF15102E).withOpacity(0.75),
+                  border: Border.all(color: c.color.withOpacity(0.45), width: 1.2),
+                  boxShadow: [
+                    BoxShadow(color: c.color.withOpacity(0.35), blurRadius: 16, spreadRadius: 1),
+                  ],
+                ),
+                child: Icon(c.icon, size: c.size * 0.5, color: c.color),
               ),
-              child: Icon(c.icon, size: c.size * 0.5, color: c.color),
-            ),
-          );
-        },
-      ).animate().fadeIn(delay: (700 + c.seed * 220).ms, duration: 600.ms);
+            );
+          },
+        ).animate().fadeIn(delay: (700 + c.seed * 220).ms, duration: 600.ms),
+      );
     }).toList();
   }
 
