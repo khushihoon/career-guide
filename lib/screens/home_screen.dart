@@ -1,35 +1,51 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import '../models/models.dart';
-import 'jobdetails_screen.dart';
+import '../models/home_market_models.dart';
+import '../services/home_market_service.dart';
 import 'mentor_screen.dart';
 import 'notifications_screen.dart';
+import 'skill_profile_screen.dart';
+import 'career_intelligence_screen.dart';
+import 'company_intelligence_screen.dart';
 
 // -----------------------------------------------------------------------------
-// Career Guide — Home UI v2
+// Career Guide — Home
 //
-// STEP 1 ONLY:
-// - UI / visual design upgrade.
-// - Existing search, Job model and navigation are preserved.
-// - No new data source, Firebase logic, Copilot logic, Roadmap logic,
-//   Courses logic, XP logic or live-market logic is introduced here.
+// HOME ROLE:
+// Career discovery + career world + company awareness + factual insights.
 //
-// Design language intentionally follows the existing Skill Gap screen:
-// #080B14 background, #111625 / #151B2D surfaces, #273047 borders,
-// violet/cyan/mint/amber/pink semantic accents.
+// NOT HOME:
+// - Roadmap learning path
+// - Copilot daily guidance
+// - Course catalogue
+// - AI Mentor conversation
+// - Application management
+//
+// DATA:
+// HomeMarketService
+//
+// IMPORTANT:
+// Reference information is never presented as live hiring information.
+// Live jobs / hiring / salary will only appear when a verified source is
+// connected later.
 // -----------------------------------------------------------------------------
 
 const _bg = Color(0xFF080B14);
 const _surface = Color(0xFF111625);
 const _surface2 = Color(0xFF151B2D);
 const _border = Color(0xFF273047);
+
 const _violet = Color(0xFF8B5CF6);
 const _violetBright = Color(0xFFA78BFA);
 const _cyan = Color(0xFF22D3EE);
 const _mint = Color(0xFF34D399);
 const _amber = Color(0xFFF59E0B);
 const _pink = Color(0xFFF472B6);
+
 const _muted = Color(0xFF8D96AB);
 const _text = Color(0xFFF7F8FC);
 
@@ -41,24 +57,44 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const HomeMarketService _marketService = HomeMarketService();
+
+  late HomeMarketSnapshot _snapshot;
+
   String _search = '';
 
-  List<Job> get _filteredJobs {
+  String get _userName {
+    final name = FirebaseAuth.instance.currentUser?.displayName?.trim();
+    if (name != null && name.isNotEmpty) {
+      return name.split(' ').first;
+    }
+    return 'THERE';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _snapshot = _marketService.getSnapshot();
+  }
+
+  List<HomeCareer> get _filteredCareers {
     final query = _search.trim().toLowerCase();
 
     if (query.isEmpty) {
-      return kJobs;
+      return _snapshot.careers;
     }
 
-    return kJobs.where((job) {
-      return job.title.toLowerCase().contains(query) ||
-          job.company.toLowerCase().contains(query) ||
-          job.location.toLowerCase().contains(query) ||
-          job.type.toLowerCase().contains(query) ||
-          job.skills.any(
-            (skill) => skill.toLowerCase().contains(query),
-          );
-    }).toList();
+    return _marketService.searchCareers(query);
+  }
+
+  List<HomeCompany> get _filteredCompanies {
+    final query = _search.trim().toLowerCase();
+
+    if (query.isEmpty) {
+      return _snapshot.companies.take(12).toList();
+    }
+
+    return _marketService.searchCompanies(query);
   }
 
   void _openNotifications() {
@@ -79,18 +115,41 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openJob(Job job) {
+  void _openCareerProfile() {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => JobDetailsScreen(job: job),
+        builder: (_) => const SkillProfileScreen(),
+      ),
+    );
+  }
+
+  void _showCareer(HomeCareer career) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CareerIntelligenceScreen(
+          career: career,
+        ),
+      ),
+    );
+  }
+
+  void _showCompany(HomeCompany company) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CompanyIntelligenceScreen(
+          company: company,
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final jobs = _filteredJobs;
+    final careers = _filteredCareers;
+    final companies = _filteredCompanies;
 
     return Scaffold(
       backgroundColor: _bg,
@@ -100,7 +159,12 @@ class _HomeScreenState extends State<HomeScreen> {
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  18,
+                  14,
+                  18,
+                  0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -109,84 +173,65 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildHero(),
                     const SizedBox(height: 18),
                     _buildSearch(),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 18),
+                    _buildCareerWorldSignal(),
+                    const SizedBox(height: 26),
                     _buildSectionHeader(
-                      eyebrow: 'EXPLORE',
-                      title: 'Discover Your Direction',
+                      eyebrow: '01  •  DISCOVER',
+                      title: 'Explore Career Paths',
                       subtitle:
-                          'Explore careers and find where your future could take you.',
+                          'Understand what different careers actually involve.',
                       accent: _violetBright,
+                      trailing: '${careers.length}',
                     ),
                     const SizedBox(height: 12),
-                    _buildCareerExplorer(),
-                    const SizedBox(height: 24),
+                    _buildCareerExplorer(careers),
+                    const SizedBox(height: 26),
                     _buildSectionHeader(
-                      eyebrow: 'DISCOVER',
-                      title: 'Explore Career Areas',
+                      eyebrow: '02  •  EXPLORE',
+                      title: 'Career Areas',
                       subtitle:
-                          'Start with an area that matches your interests.',
+                          'Start broad, then discover roles inside each area.',
                       accent: _cyan,
                     ),
                     const SizedBox(height: 12),
                     _buildCareerAreas(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 26),
                     _buildSectionHeader(
-                      eyebrow: 'YOUR GUIDE',
-                      title: 'Need a little direction?',
+                      eyebrow: '03  •  REAL WORLD',
+                      title: 'Companies to Know',
                       subtitle:
-                          'Talk with your existing AI Career Mentor when you want help.',
+                          'Explore organizations connected to technology and AI.',
                       accent: _mint,
                     ),
                     const SizedBox(height: 12),
-                    _buildMentorCard(),
-                    const SizedBox(height: 24),
+                    _buildCompanies(companies),
+                    const SizedBox(height: 26),
                     _buildSectionHeader(
-                      eyebrow: 'OPPORTUNITIES',
-                      title: 'Explore Job Profiles',
+                      eyebrow: '04  •  INTELLIGENCE',
+                      title: 'Things Worth Knowing',
                       subtitle:
-                          'Browse the existing reference job profiles in your app.',
+                          'Useful context before you choose your direction.',
                       accent: _amber,
-                      trailing: _search.isNotEmpty
-                          ? '${jobs.length} result${jobs.length == 1 ? '' : 's'}'
-                          : null,
                     ),
                     const SizedBox(height: 12),
+                    _buildInsights(),
+                    const SizedBox(height: 26),
+                    _buildSectionHeader(
+                      eyebrow: '05  •  YOUR GUIDE',
+                      title: 'AI Career Mentor',
+                      subtitle:
+                          'Use the existing AI Career Mentor when you want a conversation.',
+                      accent: _pink,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMentorCard(),
+                    const SizedBox(height: 26),
+                    _buildOpportunityStatus(),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
-            ),
-            if (jobs.isEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
-                  child: _buildEmptyState(),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final job = jobs[index];
-
-                      return _JobCard(
-                        job: job,
-                        onTap: () => _openJob(job),
-                      )
-                          .animate()
-                          .fadeIn(
-                            delay: Duration(milliseconds: index * 35),
-                            duration: 350.ms,
-                          )
-                          .slideY(begin: 0.025);
-                    },
-                    childCount: jobs.length,
-                  ),
-                ),
-              ),
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 28),
             ),
           ],
         ),
@@ -198,39 +243,28 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: _cyan,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'CAREER GUIDE',
-                    style: TextStyle(
-                      color: _cyan,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: _surface2,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _border),
+                ),
+                child: const _CareerGuideLogo(
+                  size: 22,
+                ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(width: 10),
               const Text(
-                'Ready to Build Your Future?',
+                'CAREER GUIDE',
                 style: TextStyle(
                   color: _text,
-                  fontSize: 25,
-                  height: 1.1,
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
+                  letterSpacing: 1.35,
                 ),
               ),
             ],
@@ -247,25 +281,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHero() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            _violet.withOpacity(0.32),
+            _violet.withOpacity(0.30),
             _surface2,
-            _cyan.withOpacity(0.075),
+            _cyan.withOpacity(0.08),
           ],
         ),
-        border: Border.all(
-          color: _violet.withOpacity(0.28),
-        ),
+        border: Border.all(color: _violet.withOpacity(0.26)),
         boxShadow: [
           BoxShadow(
-            color: _violet.withOpacity(0.09),
-            blurRadius: 28,
+            color: _violet.withOpacity(0.08),
+            blurRadius: 30,
             spreadRadius: 1,
           ),
         ],
@@ -273,16 +305,16 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Stack(
         children: [
           Positioned(
-            right: -16,
-            top: -18,
+            right: -28,
+            top: -35,
             child: Container(
-              width: 105,
-              height: 105,
+              width: 145,
+              height: 145,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _cyan.withOpacity(0.15),
+                    _cyan.withOpacity(0.13),
                     Colors.transparent,
                   ],
                 ),
@@ -295,84 +327,84 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        colors: [_violet, _cyan],
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.explore_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 9,
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.055),
+                      color: _violet.withOpacity(0.13),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.08),
+                        color: _violetBright.withOpacity(0.18),
                       ),
                     ),
                     child: const Text(
-                      'DISCOVER',
+                      'YOUR CAREER SPACE',
                       style: TextStyle(
                         color: _violetBright,
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
+                        letterSpacing: 0.9,
                       ),
                     ),
                   ),
+                  const Spacer(),
+                  const _CareerGuideLogo(
+                    size: 24,
+                  ),
                 ],
               ),
-              const SizedBox(height: 18),
-              const Text(
-                'Explore what could be next.',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  height: 1.2,
-                  fontWeight: FontWeight.w800,
+              const SizedBox(height: 20),
+              Text(
+                'HEY ${_userName.toUpperCase()}! 👋',
+                style: const TextStyle(
+                  color: _cyan,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
                 ),
               ),
               const SizedBox(height: 7),
               const Text(
-                'Discover careers, understand the world of work, '
-                'and choose a direction worth exploring.',
+                 "I'm right here\n"
+                 "to guide you.",
+                style: TextStyle(
+                  color: _text,
+                  fontSize: 29,
+                  height: 1.05,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.6,
+                ),
+              ),
+              const SizedBox(height: 11),
+              const Text(
+                "Explore careers, discover companies and\n"
+                "understand the world behind your future.",
                 style: TextStyle(
                   color: _muted,
                   fontSize: 12,
                   height: 1.45,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 17),
               Row(
-                children: [
+                children: const [
                   _MiniPill(
                     icon: Icons.work_outline_rounded,
                     label: 'Careers',
                     color: _violetBright,
                   ),
-                  const SizedBox(width: 7),
-                  _MiniPill(
-                    icon: Icons.trending_up_rounded,
-                    label: 'Market',
-                    color: _cyan,
-                  ),
-                  const SizedBox(width: 7),
+                  SizedBox(width: 7),
                   _MiniPill(
                     icon: Icons.business_outlined,
                     label: 'Companies',
                     color: _mint,
+                  ),
+                  SizedBox(width: 7),
+                  _MiniPill(
+                    icon: Icons.insights_rounded,
+                    label: 'Insights',
+                    color: _cyan,
                   ),
                 ],
               ),
@@ -415,7 +447,7 @@ class _HomeScreenState extends State<HomeScreen> {
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
-          hintText: 'What do you want to become?',
+          hintText: 'Search a career or company',
           hintStyle: const TextStyle(
             color: _muted,
             fontSize: 13,
@@ -444,7 +476,105 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    ).animate().fadeIn(duration: 450.ms, delay: 100.ms);
+    ).animate().fadeIn(
+          duration: 450.ms,
+          delay: 100.ms,
+        );
+  }
+
+  Widget _buildCareerWorldSignal() {
+    final insight = _snapshot.insights.isNotEmpty
+        ? _snapshot.insights.first
+        : null;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(21),
+        border: Border.all(color: _cyan.withOpacity(0.16)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: _cyan.withOpacity(0.09),
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: _cyan.withOpacity(0.18)),
+            ),
+            child: const Icon(
+              Icons.public_rounded,
+              color: _cyan,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'CAREER WORLD',
+                      style: TextStyle(
+                        color: _cyan,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.15,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _amber.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: const Text(
+                        'REFERENCE',
+                        style: TextStyle(
+                          color: _amber,
+                          fontSize: 7,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'Which company will be next?',
+                  style: TextStyle(
+                    color: _text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  insight?.summary ??
+                      'Explore career areas, companies and the skills connected to different roles.',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 10.5,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 350.ms);
   }
 
   Widget _buildSectionHeader({
@@ -517,105 +647,143 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCareerExplorer() {
-    final featured = <_CareerPreview>[
-      const _CareerPreview(
-        icon: Icons.psychology_rounded,
-        title: 'AI Engineer',
-        subtitle: 'Build intelligent systems',
-        accent: _violetBright,
-      ),
-      const _CareerPreview(
-        icon: Icons.analytics_rounded,
-        title: 'Data Scientist',
-        subtitle: 'Turn data into decisions',
-        accent: _cyan,
-      ),
-      const _CareerPreview(
-        icon: Icons.memory_rounded,
-        title: 'LLM Engineer',
-        subtitle: 'Build with language models',
-        accent: _pink,
-      ),
-    ];
+  Widget _buildCareerExplorer(
+    List<HomeCareer> careers,
+  ) {
+    if (careers.isEmpty) {
+      return _EmptyCard(
+        icon: Icons.search_off_rounded,
+        title: 'No careers found',
+        subtitle: 'Try another career or company search.',
+      );
+    }
 
     return SizedBox(
-      height: 174,
+      height: 184,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: featured.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 11),
+        itemCount: careers.length,
+        separatorBuilder: (_, __) {
+          return const SizedBox(width: 11);
+        },
         itemBuilder: (context, index) {
-          final career = featured[index];
+          final career = careers[index];
 
-          return _CareerPreviewCard(
+          return _CareerCard(
             career: career,
-            onTap: () {
-              // UI-only step: keep this card visual for now.
-              // Real career-detail routing/data is intentionally added
-              // in the next step.
-            },
+            onTap: () => _showCareer(career),
           )
               .animate()
               .fadeIn(
-                delay: Duration(milliseconds: 120 + index * 70),
-                duration: 350.ms,
+                delay: Duration(
+                  milliseconds: 80 + index * 55,
+                ),
+                duration: 320.ms,
               )
-              .slideX(begin: 0.04);
+              .slideX(begin: 0.035);
         },
       ),
     );
   }
 
   Widget _buildCareerAreas() {
-    const areas = <_CareerArea>[
-      _CareerArea(
-        icon: Icons.auto_awesome_rounded,
-        title: 'AI & ML',
-        accent: _violetBright,
-      ),
-      _CareerArea(
-        icon: Icons.bar_chart_rounded,
-        title: 'Data',
-        accent: _cyan,
-      ),
-      _CareerArea(
-        icon: Icons.code_rounded,
-        title: 'Software',
-        accent: _mint,
-      ),
-      _CareerArea(
-        icon: Icons.shield_outlined,
-        title: 'Security',
-        accent: _amber,
-      ),
-      _CareerArea(
-        icon: Icons.design_services_outlined,
-        title: 'Creative',
-        accent: _pink,
-      ),
-    ];
+    final areas = _snapshot.areas;
 
     return SizedBox(
-      height: 88,
+      height: 98,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         itemCount: areas.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 9),
+        separatorBuilder: (_, __) {
+          return const SizedBox(width: 9);
+        },
         itemBuilder: (context, index) {
           final area = areas[index];
 
-          return _CareerAreaCard(area: area)
+          return _CareerAreaCard(
+            area: area,
+            onTap: () {
+              setState(() {
+                _search = area.title;
+              });
+            },
+          )
               .animate()
               .fadeIn(
-                delay: Duration(milliseconds: index * 45),
+                delay: Duration(
+                  milliseconds: index * 45,
+                ),
                 duration: 300.ms,
               )
               .slideY(begin: 0.04);
         },
       ),
+    );
+  }
+
+  Widget _buildCompanies(
+    List<HomeCompany> companies,
+  ) {
+    if (companies.isEmpty) {
+      return const _EmptyCard(
+        icon: Icons.business_outlined,
+        title: 'No companies found',
+        subtitle: 'Try another company name.',
+      );
+    }
+
+    return SizedBox(
+      height: 154,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: companies.length,
+        separatorBuilder: (_, __) {
+          return const SizedBox(width: 10);
+        },
+        itemBuilder: (context, index) {
+          final company = companies[index];
+
+          return _CompanyCard(
+            company: company,
+            onTap: () => _showCompany(company),
+          )
+              .animate()
+              .fadeIn(
+                delay: Duration(
+                  milliseconds: index * 45,
+                ),
+                duration: 300.ms,
+              )
+              .slideX(begin: 0.03);
+        },
+      ),
+    );
+  }
+
+  Widget _buildInsights() {
+    final insights = _snapshot.insights;
+
+    return Column(
+      children: [
+        for (var i = 0; i < insights.length; i++) ...[
+          _InsightCard(
+            insight: insights[i],
+          )
+              .animate()
+              .fadeIn(
+                delay: Duration(
+                  milliseconds: i * 70,
+                ),
+                duration: 320.ms,
+              )
+              .slideY(begin: 0.03),
+          if (i != insights.length - 1)
+            const SizedBox(height: 10),
+        ],
+      ],
     );
   }
 
@@ -631,7 +799,7 @@ class _HomeScreenState extends State<HomeScreen> {
             color: _surface,
             borderRadius: BorderRadius.circular(21),
             border: Border.all(
-              color: _mint.withOpacity(0.16),
+              color: _pink.withOpacity(0.16),
             ),
           ),
           child: Row(
@@ -669,7 +837,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Need help choosing a direction? Start a conversation.',
+                      'Want a conversation about your career direction?',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -705,40 +873,87 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildOpportunityStatus() {
+    final jobs = _snapshot.jobs;
+    final hiring = _snapshot.hiring;
+    final salaries = _snapshot.salaries;
+
+    final bool hasLiveJobs = jobs.any(
+      (job) => job.meta.isLive,
+    );
+
+    final bool hasLiveHiring = hiring.any(
+      (item) => item.meta.isLive,
+    );
+
+    final bool hasSalary = salaries.any(
+      (salary) => salary.meta.isLive,
+    );
+
+    final bool hasLiveMarketData =
+        hasLiveJobs || hasLiveHiring || hasSalary;
+
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
         color: _surface,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(21),
         border: Border.all(
-          color: _border,
+          color: hasLiveMarketData
+              ? _mint.withOpacity(0.22)
+              : _border,
         ),
       ),
-      child: const Column(
+      child: Row(
         children: [
-          Icon(
-            Icons.search_off_rounded,
-            color: _muted,
-            size: 42,
-          ),
-          SizedBox(height: 12),
-          Text(
-            'No matching profiles found',
-            style: TextStyle(
-              color: _text,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+          Container(
+            width: 43,
+            height: 43,
+            decoration: BoxDecoration(
+              color: hasLiveMarketData
+                  ? _mint.withOpacity(0.10)
+                  : _amber.withOpacity(0.09),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              hasLiveMarketData
+                  ? Icons.public_rounded
+                  : Icons.info_outline_rounded,
+              color: hasLiveMarketData
+                  ? _mint
+                  : _amber,
             ),
           ),
-          SizedBox(height: 6),
-          Text(
-            'Try another career, company, location, or skill.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _muted,
-              fontSize: 11,
-              height: 1.4,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasLiveMarketData
+                      ? 'Live opportunity data available'
+                      : 'Live job data is not connected yet',
+                  style: const TextStyle(
+                    color: _text,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hasLiveMarketData
+                      ? 'Current opportunity information is shown only '
+                          'when a verified source provides it.'
+                      : 'The information above is career and company '
+                          'reference data. We will add verified live '
+                          'job sources next.',
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 10.5,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -746,6 +961,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// SMALL UI COMPONENTS
+// -----------------------------------------------------------------------------
 
 class _IconButton extends StatelessWidget {
   final IconData icon;
@@ -777,8 +996,8 @@ class _IconButton extends StatelessWidget {
                 color: _border,
               ),
             ),
-            child: Icon(
-              icon,
+            child: const Icon(
+              Icons.notifications_none_rounded,
               color: _violetBright,
               size: 21,
             ),
@@ -837,25 +1056,11 @@ class _MiniPill extends StatelessWidget {
   }
 }
 
-class _CareerPreview {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color accent;
-
-  const _CareerPreview({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.accent,
-  });
-}
-
-class _CareerPreviewCard extends StatelessWidget {
-  final _CareerPreview career;
+class _CareerCard extends StatelessWidget {
+  final HomeCareer career;
   final VoidCallback onTap;
 
-  const _CareerPreviewCard({
+  const _CareerCard({
     required this.career,
     required this.onTap,
   });
@@ -868,13 +1073,13 @@ class _CareerPreviewCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
         child: Container(
-          width: 218,
+          width: 225,
           padding: const EdgeInsets.all(17),
           decoration: BoxDecoration(
             color: _surface,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: career.accent.withOpacity(0.18),
+              color: _violetBright.withOpacity(0.17),
             ),
             boxShadow: [
               BoxShadow(
@@ -889,31 +1094,14 @@ class _CareerPreviewCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: LinearGradient(
-                        colors: [
-                          career.accent.withOpacity(0.28),
-                          _surface2,
-                        ],
-                      ),
-                      border: Border.all(
-                        color: career.accent.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Icon(
-                      career.icon,
-                      color: career.accent,
-                      size: 21,
-                    ),
+                  _CareerIcon(
+                    icon: career.icon,
+                    color: _violetBright,
                   ),
                   const Spacer(),
-                  Icon(
+                  const Icon(
                     Icons.arrow_outward_rounded,
-                    color: career.accent.withOpacity(0.75),
+                    color: _violetBright,
                     size: 17,
                   ),
                 ],
@@ -931,19 +1119,20 @@ class _CareerPreviewCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                career.subtitle,
-                maxLines: 1,
+                career.shortDescription,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: _muted,
                   fontSize: 10,
+                  height: 1.35,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Explore →',
-                style: TextStyle(
-                  color: career.accent,
+                style: const TextStyle(
+                  color: _violetBright,
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                 ),
@@ -956,71 +1145,147 @@ class _CareerPreviewCard extends StatelessWidget {
   }
 }
 
-class _CareerArea {
-  final IconData icon;
-  final String title;
-  final Color accent;
+class _CareerIcon extends StatelessWidget {
+  final String? icon;
+  final Color color;
+  final double size;
 
-  const _CareerArea({
+  const _CareerIcon({
     required this.icon,
-    required this.title,
-    required this.accent,
-  });
-}
-
-class _CareerAreaCard extends StatelessWidget {
-  final _CareerArea area;
-
-  const _CareerAreaCard({
-    required this.area,
+    required this.color,
+    this.size = 42,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 108,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 12,
-      ),
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(14),
+        color: color.withOpacity(0.10),
         border: Border.all(
-          color: _border,
+          color: color.withOpacity(0.18),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            area.icon,
-            color: area.accent,
-            size: 20,
+      child: Center(
+        child: Text(
+          icon ?? '💼',
+          style: TextStyle(
+            fontSize: size * 0.43,
           ),
-          const Spacer(),
-          Text(
-            area.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _text,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _JobCard extends StatelessWidget {
-  final Job job;
+class _CareerAreaCard extends StatelessWidget {
+  final HomeCareerArea area;
   final VoidCallback onTap;
 
-  const _JobCard({
-    required this.job,
+  const _CareerAreaCard({
+    required this.area,
+    required this.onTap,
+  });
+
+  IconData _iconForArea() {
+    switch (area.id) {
+      case 'ai_ml':
+        return Icons.auto_awesome_rounded;
+      case 'data':
+        return Icons.bar_chart_rounded;
+      case 'software':
+        return Icons.code_rounded;
+      case 'security':
+        return Icons.shield_outlined;
+      case 'creative':
+        return Icons.design_services_outlined;
+      default:
+        return Icons.explore_rounded;
+    }
+  }
+
+  Color _colorForArea() {
+    switch (area.id) {
+      case 'ai_ml':
+        return _violetBright;
+      case 'data':
+        return _cyan;
+      case 'software':
+        return _mint;
+      case 'security':
+        return _amber;
+      case 'creative':
+        return _pink;
+      default:
+        return _violetBright;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _colorForArea();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(17),
+        child: Container(
+          width: 116,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 11,
+            vertical: 12,
+          ),
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(
+              color: _border,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                _iconForArea(),
+                color: color,
+                size: 21,
+              ),
+              const Spacer(),
+              Text(
+                area.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _text,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '${area.careerIds.length} careers',
+                style: const TextStyle(
+                  color: _muted,
+                  fontSize: 8.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompanyCard extends StatelessWidget {
+  final HomeCompany company;
+  final VoidCallback onTap;
+
+  const _CompanyCard({
+    required this.company,
     required this.onTap,
   });
 
@@ -1032,7 +1297,7 @@ class _JobCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          width: 190,
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
             color: _surface,
@@ -1041,107 +1306,50 @@ class _JobCard extends StatelessWidget {
               color: _border,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: _surface2,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(
-                    color: _border,
+              Row(
+                children: [
+                  _CompanyIcon(
+                    company: company,
                   ),
-                ),
-                child: Center(
-                  child: Text(
-                    job.icon,
-                    style: const TextStyle(fontSize: 23),
+                  const Spacer(),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: _mint,
+                    size: 17,
                   ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                company.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _text,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      job.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _text,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${job.company} · ${job.location}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _muted,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      job.salary,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _violetBright,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Wrap(
-                      spacing: 5,
-                      runSpacing: 4,
-                      children: job.skills.take(3).map((skill) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _violet.withOpacity(0.09),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: _violet.withOpacity(0.12),
-                            ),
-                          ),
-                          child: Text(
-                            skill,
-                            style: const TextStyle(
-                              color: _violetBright,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
+              const SizedBox(height: 4),
+              Text(
+                company.country ?? 'Company information',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _muted,
+                  fontSize: 10,
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: _violet.withOpacity(0.10),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _violet.withOpacity(0.18),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: _violetBright,
-                  size: 16,
+              const SizedBox(height: 7),
+              const Text(
+                'Reference information',
+                style: TextStyle(
+                  color: _mint,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -1151,3 +1359,568 @@ class _JobCard extends StatelessWidget {
     );
   }
 }
+
+class _CompanyIcon extends StatelessWidget {
+  final HomeCompany company;
+  final double size;
+
+  const _CompanyIcon({
+    required this.company,
+    this.size = 43,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final value = company.logo?.trim();
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: _surface2,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _border,
+        ),
+      ),
+      child: Center(
+        child: value == null || value.isEmpty
+            ? Text(
+                company.name.isEmpty
+                    ? '?'
+                    : company.name.characters.first.toUpperCase(),
+                style: const TextStyle(
+                  color: _text,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              )
+            : Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 19,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _InsightCard extends StatelessWidget {
+  final HomeCareerInsight insight;
+
+  const _InsightCard({
+    required this.insight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(
+          color: _border,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: _amber.withOpacity(0.09),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.lightbulb_outline_rounded,
+              color: _amber,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  insight.title,
+                  style: const TextStyle(
+                    color: _text,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  insight.summary,
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 10.5,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _ReferenceBadge(
+                  meta: insight.meta,
+                  compact: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoLabel extends StatelessWidget {
+  final String title;
+  final String value;
+  final Color color;
+
+  const _InfoLabel({
+    required this.title,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _surface2,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: color,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            value,
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 11,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChipSection extends StatelessWidget {
+  final String title;
+  final List<String> items;
+  final Color color;
+
+  const _ChipSection({
+    required this.title,
+    required this.items,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: color,
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: items.map((item) {
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 9,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: color.withOpacity(0.13),
+                ),
+              ),
+              child: Text(
+                item,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReferenceBadge extends StatelessWidget {
+  final HomeDataMeta meta;
+  final bool compact;
+
+  const _ReferenceBadge({
+    required this.meta,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+
+    switch (meta.status) {
+      case HomeDataStatus.live:
+        color = _mint;
+        break;
+      case HomeDataStatus.reference:
+        color = _cyan;
+        break;
+      case HomeDataStatus.unavailable:
+        color = _amber;
+        break;
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 9,
+        vertical: compact ? 4 : 6,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: color.withOpacity(0.13),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            meta.status == HomeDataStatus.live
+                ? Icons.public_rounded
+                : meta.status == HomeDataStatus.reference
+                    ? Icons.menu_book_rounded
+                    : Icons.info_outline_rounded,
+            color: color,
+            size: compact ? 11 : 13,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            meta.statusLabel,
+            style: TextStyle(
+              color: color,
+              fontSize: compact ? 8 : 9,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SmallFact extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _SmallFact({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: _surface2,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: _border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 17,
+          ),
+          const SizedBox(height: 7),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 7,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 9.5,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _EmptyCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _border,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: _muted,
+            size: 34,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              color: _text,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 10.5,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CareerGuideLogo extends StatelessWidget {
+  final double size;
+
+  const _CareerGuideLogo({
+    this.size = 24,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _CareerGuideLogoPainter(),
+      ),
+    );
+  }
+}
+
+class _CareerGuideLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = size.width / 2 * 0.92;
+
+    Offset hexPoint(double angleDeg) {
+      final a = angleDeg * math.pi / 180;
+      return Offset(
+        cx + r * math.cos(a),
+        cy + r * math.sin(a),
+      );
+    }
+
+    final hexPath = Path()
+      ..moveTo(hexPoint(-90).dx, hexPoint(-90).dy)
+      ..lineTo(hexPoint(-30).dx, hexPoint(-30).dy)
+      ..lineTo(hexPoint(30).dx, hexPoint(30).dy)
+      ..lineTo(hexPoint(90).dx, hexPoint(90).dy)
+      ..lineTo(hexPoint(150).dx, hexPoint(150).dy)
+      ..lineTo(hexPoint(210).dx, hexPoint(210).dy)
+      ..close();
+
+    canvas.drawPath(
+      hexPath,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF241454),
+            Color(0xFF150E33),
+            Color(0xFF0B0B16),
+          ],
+        ).createShader(
+          Rect.fromCircle(
+            center: Offset(cx, cy),
+            radius: r,
+          ),
+        ),
+    );
+
+    canvas.drawPath(
+      hexPath,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * 0.045
+        ..color = const Color(0xFF8B5CF6).withOpacity(0.55),
+    );
+
+    final baseY = cy + r * 0.42;
+
+    final bars = [
+      (
+        x: cx - r * 0.34,
+        width: r * 0.19,
+        height: r * 0.32,
+        opacity: 0.55,
+      ),
+      (
+        x: cx - r * 0.06,
+        width: r * 0.19,
+        height: r * 0.62,
+        opacity: 0.78,
+      ),
+      (
+        x: cx + r * 0.22,
+        width: r * 0.19,
+        height: r * 0.98,
+        opacity: 1.0,
+      ),
+    ];
+
+    for (final bar in bars) {
+      final rect = Rect.fromLTWH(
+        bar.x,
+        baseY - bar.height,
+        bar.width,
+        bar.height,
+      );
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          rect,
+          Radius.circular(bar.width * 0.18),
+        ),
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.bottomLeft,
+            end: Alignment.topRight,
+            colors: [
+              const Color(0xFF7C3AED).withOpacity(bar.opacity),
+              const Color(0xFF22D3EE).withOpacity(bar.opacity),
+            ],
+          ).createShader(rect),
+      );
+    }
+
+    final last = bars.last;
+    final spark = Offset(
+      last.x + last.width / 2,
+      baseY - last.height - r * 0.06,
+    );
+    final sparkRadius = r * 0.10;
+
+    canvas.drawCircle(
+      spark,
+      sparkRadius * 2.4,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFF67E8F9).withOpacity(0.45),
+            Colors.transparent,
+          ],
+        ).createShader(
+          Rect.fromCircle(
+            center: spark,
+            radius: sparkRadius * 2.4,
+          ),
+        ),
+    );
+
+    canvas.drawCircle(
+      spark,
+      sparkRadius,
+      Paint()..color = const Color(0xFFA5F3FC),
+    );
+
+    canvas.drawCircle(
+      Offset(
+        spark.dx - sparkRadius * 0.3,
+        spark.dy - sparkRadius * 0.3,
+      ),
+      sparkRadius * 0.3,
+      Paint()..color = Colors.white.withOpacity(0.9),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+

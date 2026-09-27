@@ -8,6 +8,21 @@ class Job {
   final String icon;
   final String applyUrl;
 
+  /// Stable identifier for saved jobs, applications and future job tracking.
+  ///
+  /// Existing static jobs remain backward-compatible: when [id] is not
+  /// supplied, a deterministic ID is generated from company + title +
+  /// location.
+  final String? _id;
+
+  /// Canonical career identifier used to connect a job with the app's
+  /// existing career architecture.
+  ///
+  /// When [careerId] is not supplied, it is derived conservatively from
+  /// the job title. Unknown roles return `other` rather than inventing a
+  /// career mapping.
+  final String? _careerId;
+
   const Job({
     required this.title,
     required this.company,
@@ -17,7 +32,118 @@ class Job {
     required this.type,
     required this.icon,
     required this.applyUrl,
-  });
+    String? id,
+    String? careerId,
+  })  : _id = id,
+        _careerId = careerId;
+
+  /// Stable job identity.
+  ///
+  /// Prefer an explicit backend/source ID when one exists. For the current
+  /// static/reference dataset, this deterministic fallback prevents job
+  /// titles from being used as IDs.
+  String get id {
+    final explicitId = _id?.trim();
+    if (explicitId != null && explicitId.isNotEmpty) {
+      return explicitId;
+    }
+
+    return _buildStableJobId(
+      company: company,
+      title: title,
+      location: location,
+    );
+  }
+
+  /// Canonical career ID.
+  ///
+  /// Explicit IDs always win. The fallback only maps titles that clearly
+  /// correspond to the existing career IDs used by the app.
+  String get careerId {
+    final explicitCareerId = _careerId?.trim();
+    if (explicitCareerId != null && explicitCareerId.isNotEmpty) {
+      return explicitCareerId;
+    }
+
+    return _deriveCareerId(title);
+  }
+
+  static String _buildStableJobId({
+    required String company,
+    required String title,
+    required String location,
+  }) {
+    final companyPart = _slug(company);
+    final titlePart = _slug(title);
+    final locationPart = _slug(location);
+
+    return '$companyPart-$titlePart-$locationPart';
+  }
+
+  static String _slug(String value) {
+    final slug = value
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+
+    return slug.isEmpty ? 'unknown' : slug;
+  }
+
+  static String _deriveCareerId(String title) {
+    final value = title.toLowerCase().trim();
+
+    // Keep these mappings aligned with the existing Copilot career IDs.
+    if (value.contains('llm')) {
+      return 'llm_engineer';
+    }
+
+    if (value.contains('machine learning') ||
+        value.contains('ml engineer') ||
+        value.contains('machine-learning')) {
+      return 'ml_engineer';
+    }
+
+    if (value.contains('data scientist') ||
+        value.contains('data science')) {
+      return 'data_scientist';
+    }
+
+    if (value.contains('computer vision') ||
+        value.contains('cv engineer') ||
+        value.contains('vision engineer')) {
+      return 'cv_engineer';
+    }
+
+    if (value.contains('prompt engineer') ||
+        value.contains('prompt engineering')) {
+      return 'prompt_engineer';
+    }
+
+    if (value.contains('ai researcher') ||
+        value.contains('ai research') ||
+        value.contains('research scientist')) {
+      return 'ai_researcher';
+    }
+
+    if (value.contains('ai product manager') ||
+        value.contains('ai product')) {
+      return 'ai_product_manager';
+    }
+
+    if (value.contains('ai engineer') ||
+        value.contains('artificial intelligence')) {
+      return 'ai_engineer';
+    }
+
+    if (value.contains('software engineer') ||
+        value.contains('software developer')) {
+      return 'software_engineer';
+    }
+
+    return 'other';
+  }
 }
 
 class Course {
