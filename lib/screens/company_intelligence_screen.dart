@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/home_market_models.dart';
 import '../services/home_market_service.dart';
 import '../services/career_company_relationship_service.dart';
+import '../services/verified_company_data.dart';
+import '../services/verified_company_skills_step6e3.dart';
 import 'career_intelligence_screen.dart';
 
 const _bg = Color(0xFF080B14);
@@ -30,6 +32,10 @@ class CompanyIntelligenceScreen extends StatelessWidget {
   static const HomeMarketService _marketService = HomeMarketService();
   static const CareerCompanyRelationshipService _relationshipService =
       CareerCompanyRelationshipService();
+  static const VerifiedCompanyDataService _verifiedCompanyService =
+      VerifiedCompanyDataService();
+  static const VerifiedCompanySkillsService _verifiedSkillsService =
+      VerifiedCompanySkillsService();
 
   final HomeCompany company;
 
@@ -40,6 +46,13 @@ class CompanyIntelligenceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final verified = _verifiedProfile;
+    final description = _verifiedDescription;
+    final headquarters = _verifiedHeadquarters;
+    final engineeringAreas = _verifiedEngineeringAreas;
+    final roleFamilies = _verifiedRoleFamilies;
+    final verifiedSkills = _verifiedSkillProfile;
+
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
@@ -78,13 +91,13 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                   const SizedBox(height: 14),
                   _careerLayer(),
                   const SizedBox(height: 12),
-                  if (_hasText(company.description)) ...[
+                  if (_hasText(description)) ...[
                     _SectionCard(
                       icon: Icons.auto_awesome_rounded,
                       iconColor: _cyan,
                       title: 'What this company does',
                       child: Text(
-                        company.description!.trim(),
+                        description!.trim(),
                         style: const TextStyle(
                           color: _text,
                           fontSize: 13,
@@ -95,7 +108,7 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                   ],
                   if (company.country != null ||
-                      company.headquarters != null) ...[
+                      _hasText(headquarters)) ...[
                     _SectionCard(
                       icon: Icons.public_rounded,
                       iconColor: _violetBright,
@@ -112,14 +125,14 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                               ),
                             ),
                           if (_hasText(company.country) &&
-                              _hasText(company.headquarters))
+                              _hasText(headquarters))
                             const SizedBox(width: 10),
-                          if (_hasText(company.headquarters))
+                          if (_hasText(headquarters))
                             Expanded(
                               child: _FactTile(
                                 icon: Icons.location_on_outlined,
                                 label: 'HEADQUARTERS',
-                                value: company.headquarters!.trim(),
+                                value: headquarters!.trim(),
                                 color: _violetBright,
                               ),
                             ),
@@ -128,25 +141,25 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  if (company.focusAreas.isNotEmpty) ...[
+                  if (engineeringAreas.isNotEmpty) ...[
                     _SectionCard(
                       icon: Icons.track_changes_rounded,
                       iconColor: _mint,
                       title: 'Engineering / focus areas',
                       child: _ChipWrap(
-                        items: company.focusAreas,
+                        items: engineeringAreas,
                         color: _mint,
                       ),
                     ),
                     const SizedBox(height: 12),
                   ],
-                  if (company.notableRoles.isNotEmpty) ...[
+                  if (roleFamilies.isNotEmpty) ...[
                     _SectionCard(
                       icon: Icons.work_outline_rounded,
                       iconColor: _amber,
                       title: 'Notable roles',
                       child: _ChipWrap(
-                        items: company.notableRoles,
+                        items: roleFamilies,
                         color: _amber,
                       ),
                     ),
@@ -156,11 +169,16 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     icon: Icons.psychology_alt_outlined,
                     iconColor: _pink,
                     title: 'Skills & technologies',
-                    child: const _NotConnectedBlock(
-                      message:
-                          'Company-specific skill requirements are not connected yet. '
-                          'They will be added only from verified company/job sources.',
-                    ),
+                    child: verifiedSkills == null
+                        ? const _NotConnectedBlock(
+                            message:
+                                'Verified company-specific skills are not connected '
+                                'for this company yet. No skill requirement is '
+                                'invented when verified evidence is unavailable.',
+                          )
+                        : _VerifiedSkillsContent(
+                            profile: verifiedSkills,
+                          ),
                   ),
                   const SizedBox(height: 12),
                   _SectionCard(
@@ -193,10 +211,10 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     title: 'Next data connection',
                     child: const _NotConnectedBlock(
                       message:
-                          'Verified company careers pages and public job feeds '
-                          'will be connected through the market-data layer later. '
-                          'The UI is ready for that data without changing the '
-                          'company profile architecture.',
+                          'Verified company reference data and observed '
+                          'company skill signals are now connected. Current hiring '
+                          'and salary remain separate data layers and will only appear '
+                          'after their sources are independently verified.',
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -242,6 +260,30 @@ class CompanyIntelligenceScreen extends StatelessWidget {
               ],
             ),
     );
+  }
+
+  VerifiedCompanyProfile? get _verifiedProfile {
+    return _verifiedCompanyService.byCompanyName(company.name);
+  }
+
+  VerifiedCompanySkillProfile? get _verifiedSkillProfile {
+    return _verifiedSkillsService.byCompanyName(company.name);
+  }
+
+  String? get _verifiedDescription {
+    return _verifiedProfile?.description ?? company.description;
+  }
+
+  String? get _verifiedHeadquarters {
+    return _verifiedProfile?.headquarters ?? company.headquarters;
+  }
+
+  List<String> get _verifiedEngineeringAreas {
+    return _verifiedProfile?.engineeringAreas ?? company.focusAreas;
+  }
+
+  List<String> get _verifiedRoleFamilies {
+    return _verifiedProfile?.roleFamilies ?? company.notableRoles;
   }
 
   static bool _hasText(String? value) {
@@ -383,6 +425,354 @@ class _HeroCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerifiedSourceCard extends StatelessWidget {
+  final VerifiedCompanyProfile profile;
+
+  const _VerifiedSourceCard({required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    final verifiedDate =
+        profile.lastVerified.toIso8601String().split('T').first;
+
+    return _SectionCard(
+      icon: Icons.verified_rounded,
+      iconColor: _mint,
+      title: 'Verified company reference',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            profile.sourceLabel,
+            style: const TextStyle(
+              color: _mint,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Last verified: $verifiedDate',
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 10.5,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _VerifiedLinkRow(
+            label: 'Official website',
+            value: profile.officialWebsite,
+          ),
+          const SizedBox(height: 8),
+          _VerifiedLinkRow(
+            label: 'Careers website',
+            value: profile.careersWebsite,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerifiedLinkRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _VerifiedLinkRow({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: _surface2,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 8.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .8,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _text,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerifiedSkillsContent extends StatelessWidget {
+  final VerifiedCompanySkillProfile profile;
+
+  const _VerifiedSkillsContent({
+    required this.profile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final verifiedDate =
+        profile.lastVerified.toIso8601String().split('T').first;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Observed in reviewed official company/job sources',
+          style: TextStyle(
+            color: _muted,
+            fontSize: 10.5,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (profile.skills.isNotEmpty) ...[
+          const _SkillGroupLabel(
+            icon: Icons.code_rounded,
+            title: 'Core skills',
+            color: _pink,
+          ),
+          const SizedBox(height: 8),
+          _SkillChipWrap(
+            items: profile.skills,
+            color: _pink,
+          ),
+          const SizedBox(height: 14),
+        ],
+        if (profile.technologies.isNotEmpty) ...[
+          const _SkillGroupLabel(
+            icon: Icons.memory_rounded,
+            title: 'Technologies & tools',
+            color: _cyan,
+          ),
+          const SizedBox(height: 8),
+          _SkillChipWrap(
+            items: profile.technologies,
+            color: _cyan,
+          ),
+          const SizedBox(height: 14),
+        ],
+        if (profile.engineeringConcepts.isNotEmpty) ...[
+          const _SkillGroupLabel(
+            icon: Icons.account_tree_rounded,
+            title: 'Engineering concepts',
+            color: _violetBright,
+          ),
+          const SizedBox(height: 8),
+          _SkillChipWrap(
+            items: profile.engineeringConcepts,
+            color: _violetBright,
+          ),
+          const SizedBox(height: 14),
+        ],
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _surface2,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.verified_outlined,
+                color: _mint,
+                size: 17,
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  '${profile.sourceLabel}\nLast verified: $verifiedDate',
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 10,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'These signals describe skills observed in selected reviewed '
+          'postings. They are not universal requirements for every role '
+          'and do not mean the company is hiring for every listed skill now.',
+          style: TextStyle(
+            color: _muted,
+            fontSize: 9.5,
+            height: 1.5,
+          ),
+        ),
+        if (profile.sourceUrls.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _VerifiedSourceList(
+            sourceUrls: profile.sourceUrls,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SkillGroupLabel extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+
+  const _SkillGroupLabel({
+    required this.icon,
+    required this.title,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: color,
+          size: 16,
+        ),
+        const SizedBox(width: 7),
+        Text(
+          title,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SkillChipWrap extends StatelessWidget {
+  final List<String> items;
+  final Color color;
+
+  const _SkillChipWrap({
+    required this.items,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 7,
+      runSpacing: 7,
+      children: [
+        for (final item in items)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 9,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: color.withOpacity(.07),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: color.withOpacity(.18),
+              ),
+            ),
+            child: Text(
+              item,
+              style: TextStyle(
+                color: color,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _VerifiedSourceList extends StatelessWidget {
+  final List<String> sourceUrls;
+
+  const _VerifiedSourceList({
+    required this.sourceUrls,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: _surface2,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.source_outlined,
+                color: _muted,
+                size: 16,
+              ),
+              SizedBox(width: 7),
+              Text(
+                'Reviewed source pages',
+                style: TextStyle(
+                  color: _text,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (var index = 0; index < sourceUrls.length; index++) ...[
+            Text(
+              '${index + 1}. ${sourceUrls[index]}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 9,
+                height: 1.4,
+              ),
+            ),
+            if (index != sourceUrls.length - 1)
+              const SizedBox(height: 5),
+          ],
         ],
       ),
     );
@@ -653,8 +1043,9 @@ class _ReferenceFooter extends StatelessWidget {
       ),
       child: Text(
         'Truth rule: reference data is shown as reference data. '
-        'Live hiring, salary, and company-specific skill requirements '
-        'will be displayed only after verified sources are connected.',
+        'Company skill signals are shown only when supported by reviewed '
+        'verified sources. Live hiring and salary remain separate verified '
+        'data layers.',
         style: TextStyle(
           color: _muted,
           fontSize: 10,
