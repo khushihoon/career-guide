@@ -12,6 +12,26 @@
 // • Falls back to a safe loading/insufficient-data state when the richer
 //   CopilotContext is not available yet.
 //
+// ──────────────────────────────────────────────────────────────────────
+// PHASE 4 FIX — AUTHORITATIVE XP DISPLAY (this revision)
+// ──────────────────────────────────────────────────────────────────────
+// PROBLEM FOUND:
+//   _StatsStrip displayed `state.totalXp` — CopilotState's COMPATIBILITY
+//   getter, explicitly documented in copilot_models.dart as NOT
+//   authoritative (it only sums local `progressHistory`, so it misses
+//   any XP earned via quizzes/challenges/projects/rewards/quests that
+//   didn't flow through a daily-goal completion that day). Meanwhile
+//   copilot_hub_screen.dart's own stats strip correctly displays
+//   `ctrl.authoritativeTotalXp`. Net effect: the Progress screen and the
+//   Hub could show two different XP totals for the same user at the
+//   same moment — a real "authoritative XP must be consistent across
+//   every screen" violation.
+//
+// FIX APPLIED:
+//   _StatsStrip now receives and displays `ctrl.authoritativeTotalXp`
+//   (the same authoritative source the Hub already uses), instead of
+//   the compatibility getter. No other behaviour changed.
+//
 // CURRENT PIPELINE
 // Exploration → Assessment → Learning → Practice → Projects →
 // Portfolio → CV Ready → Interview Prep → Job Search → Job Ready → Growth
@@ -105,7 +125,7 @@ class ProgressScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              _StatsStrip(state: state)
+              _StatsStrip(state: state, authoritativeXp: ctrl.authoritativeTotalXp)
                   .animate()
                   .fadeIn(delay: 50.ms),
 
@@ -365,7 +385,15 @@ class _CareerHeader extends StatelessWidget {
 class _StatsStrip extends StatelessWidget {
   final CopilotState state;
 
-  const _StatsStrip({required this.state});
+  /// Authoritative lifetime XP, sourced from
+  /// `CopilotController.authoritativeTotalXp` (backed by
+  /// `users/{uid}.totalXp`). PHASE 4 FIX: this replaces the previous
+  /// use of `state.totalXp` (a non-authoritative compatibility getter
+  /// that only sums local progressHistory), so this screen now shows
+  /// the exact same XP number as the Hub and every other screen.
+  final int authoritativeXp;
+
+  const _StatsStrip({required this.state, required this.authoritativeXp});
 
   @override
   Widget build(BuildContext context) {
@@ -373,7 +401,7 @@ class _StatsStrip extends StatelessWidget {
       children: [
         _tile('🔥', '${state.currentStreak}', 'Day Streak'),
         const SizedBox(width: 10),
-        _tile('⚡', '${state.totalXp}', 'XP'),
+        _tile('⚡', '$authoritativeXp', 'XP'),
         const SizedBox(width: 10),
         _tile('📅', '${state.progressHistory.length}', 'Active Days'),
       ],

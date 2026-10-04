@@ -12,10 +12,23 @@
 //       The dashboard does NOT trust `user.xpPoints` as the
 //       authoritative Copilot XP value. It reads the authoritative
 //       lifetime XP through CopilotController's existing public API
-//       (`ctrl.state.totalXp`, which the current controller keeps in
-//       sync with users/{uid}.totalXp via its own authoritative cache)
 //       and falls back safely to 0 when that value is not yet
 //       available. It never writes, mutates, or recomputes XP.
+//
+//       ── PHASE 5 FIX (this revision) ──────────────────────────────
+//       PROBLEM FOUND: `_authoritativeXp()` read `ctrl?.state.totalXp`
+//       — CopilotState's COMPATIBILITY getter, explicitly documented
+//       in copilot_models.dart as NOT authoritative (it only sums
+//       local progressHistory). The surrounding comment claimed this
+//       was "the authoritative Copilot value", which was incorrect —
+//       the exact same class of bug found and fixed in
+//       progress_screen.dart's _StatsStrip during Phase 4. Net effect:
+//       this legacy dashboard could show yet a third different XP
+//       number from the Hub and the Progress screen.
+//       FIX: now reads `ctrl?.authoritativeTotalXp` (the same
+//       authoritative source — backed by users/{uid}.totalXp — that
+//       the Hub and Progress screen use), so all three screens now
+//       agree.
 //
 //   • Career
 //       The dashboard does NOT trust `user.selectedCareerPath` as the
@@ -119,15 +132,17 @@ class _CareerDashboardScreenState extends State<CareerDashboardScreen> {
   /// Returns the authoritative lifetime XP value exposed by the current
   /// Copilot architecture, or 0 when it is genuinely unavailable.
   ///
-  /// This delegates exclusively to CopilotController.state.totalXp —
-  /// the same authoritative value the current Copilot system already
-  /// keeps in sync with users/{uid}.totalXp — and never uses the legacy
+  /// PHASE 5 FIX: this now delegates to
+  /// `CopilotController.authoritativeTotalXp` — the same authoritative
+  /// value the Hub and Progress screen already use — instead of the
+  /// non-authoritative `state.totalXp` compatibility getter this method
+  /// incorrectly used before. It still never uses the legacy
   /// UserProfile.xpPoints field, which is not an authoritative Copilot
   /// source.
   int _authoritativeXp() {
     try {
       final ctrl = CopilotProvider.maybeOf(context);
-      final xp   = ctrl?.state.totalXp ?? 0;
+      final xp   = ctrl?.authoritativeTotalXp ?? 0;
       return xp < 0 ? 0 : xp;
     } catch (_) {
       return 0;
@@ -696,4 +711,4 @@ class _CareerDashboardScreenState extends State<CareerDashboardScreen> {
       ],
     );
   }
-} 
+}

@@ -1,4 +1,8 @@
-enum HomeDataStatus { reference, live, unavailable }
+enum HomeDataStatus {
+  reference,
+  live,
+  unavailable,
+}
 
 enum HomeDataType {
   career,
@@ -16,10 +20,14 @@ class HomeSourceInfo {
   final String? url;
   final String? note;
 
+  /// Whether this source is an official/verified source for the data.
+  final bool isOfficial;
+
   const HomeSourceInfo({
     required this.name,
     this.url,
     this.note,
+    this.isOfficial = false,
   });
 }
 
@@ -27,7 +35,13 @@ class HomeDataMeta {
   final HomeDataStatus status;
   final HomeDataType type;
   final HomeSourceInfo? source;
+
+  /// When live/observed information was collected.
   final DateTime? observedAt;
+
+  /// When reference information was last verified.
+  final DateTime? lastVerifiedAt;
+
   final String? note;
 
   const HomeDataMeta({
@@ -35,18 +49,24 @@ class HomeDataMeta {
     required this.type,
     this.source,
     this.observedAt,
+    this.lastVerifiedAt,
     this.note,
   });
 
   bool get isLive => status == HomeDataStatus.live;
+
   bool get isReference => status == HomeDataStatus.reference;
+
+  bool get isUnavailable => status == HomeDataStatus.unavailable;
 
   String get statusLabel {
     switch (status) {
       case HomeDataStatus.live:
         return 'LIVE';
+
       case HomeDataStatus.reference:
         return 'REFERENCE';
+
       case HomeDataStatus.unavailable:
         return 'UNAVAILABLE';
     }
@@ -59,11 +79,15 @@ class HomeCareer {
   final String shortDescription;
   final String? overview;
   final String? icon;
+
   final List<String> workAreas;
   final List<String> commonSkills;
   final List<String> tools;
   final List<String> industries;
+
+  /// Canonical company IDs related to this career.
   final List<String> relatedCompanyIds;
+
   final HomeDataMeta meta;
 
   const HomeCareer({
@@ -98,20 +122,30 @@ class HomeCareerArea {
 }
 
 class HomeCompany {
+  /// Canonical company ID.
   final String id;
+
   final String name;
   final String? country;
   final String? headquarters;
   final String? description;
   final String? logo;
+
   final List<String> focusAreas;
   final List<String> notableRoles;
+
+  /// Canonical career IDs related to this company.
   final List<String> relatedCareerIds;
+
   final List<String> products;
   final List<String> industries;
   final List<String> engineeringAreas;
+
   final String? website;
+
+  /// Official company careers URL.
   final String? careersUrl;
+
   final HomeDataMeta meta;
 
   const HomeCompany({
@@ -138,7 +172,10 @@ class HomeHiringSnapshot {
   final String companyId;
   final String title;
   final String summary;
+
+  /// Only meaningful as a current opening count when meta.status == live.
   final int? openingCount;
+
   final HomeDataMeta meta;
 
   const HomeHiringSnapshot({
@@ -157,12 +194,22 @@ class HomeJobOpportunity {
   final String companyId;
   final String companyName;
   final String location;
+
   final String? workplaceType;
   final String? employmentType;
   final String? salary;
+
   final List<String> skills;
+
   final String? description;
   final String? applyUrl;
+
+  /// Publication time supplied by the live source when available.
+  final DateTime? publishedAt;
+
+  /// Original source URL/evidence URL.
+  final String? sourceUrl;
+
   final HomeDataMeta meta;
 
   const HomeJobOpportunity({
@@ -177,6 +224,8 @@ class HomeJobOpportunity {
     this.skills = const [],
     this.description,
     this.applyUrl,
+    this.publishedAt,
+    this.sourceUrl,
     required this.meta,
   });
 }
@@ -185,8 +234,10 @@ class HomeSkillSignal {
   final String id;
   final String name;
   final String summary;
+
   final List<String> relatedCareerIds;
   final List<String> relatedCompanyIds;
+
   final HomeDataMeta meta;
 
   const HomeSkillSignal({
@@ -203,7 +254,9 @@ class HomeCareerInsight {
   final String id;
   final String title;
   final String summary;
+
   final List<String> relatedCareerIds;
+
   final HomeDataMeta meta;
 
   const HomeCareerInsight({
@@ -217,13 +270,31 @@ class HomeCareerInsight {
 
 class HomeSalaryInfo {
   final String id;
+
+  /// Canonical career ID.
   final String careerId;
+
+  /// Optional canonical company ID.
   final String? companyId;
+
   final String? currency;
   final String? period;
+
   final double? min;
   final double? max;
+
   final String? label;
+
+  /// Country/region associated with this salary information.
+  final String? country;
+
+  /// More specific salary geography when available.
+  final String? location;
+
+  /// Experience context, for example:
+  /// entry, junior, mid, senior, staff.
+  final String? experienceLevel;
+
   final HomeDataMeta meta;
 
   const HomeSalaryInfo({
@@ -235,12 +306,18 @@ class HomeSalaryInfo {
     this.min,
     this.max,
     this.label,
+    this.country,
+    this.location,
+    this.experienceLevel,
     required this.meta,
   });
 
   String get salaryLabel {
     final value = label?.trim();
-    return value == null || value.isEmpty ? 'Salary not disclosed' : value;
+
+    return value == null || value.isEmpty
+        ? 'Salary not disclosed'
+        : value;
   }
 }
 

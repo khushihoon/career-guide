@@ -909,28 +909,52 @@ class CopilotController extends ChangeNotifier {
   ///
   /// Priority order for a skill's current level:
   ///   1. explicit UserSkillProfile level,
-  ///   2. per-topic evidence from CopilotContext.learningProgress,
+  ///   2. REAL evidence from the structured career-event ledger (see
+  ///      _fetchDemonstratedTopicEvidence / evidenceFallback below),
   ///   3. no evidence → null ("not demonstrated"), never invented.
+  ///
+  /// ──────────────────────────────────────────────────────────────────
+  /// BUG FIX — "Fix This Gap" never actually closed a gap
+  /// ──────────────────────────────────────────────────────────────────
+  /// PROBLEM FOUND: `evidenceFallback` previously always returned null
+  /// unconditionally — a permanent stub. This meant a skill gap could
+  /// ONLY close by the user manually re-editing their skill profile;
+  /// completing the actual "Fix This Gap" course (quizzes, challenges,
+  /// project) — which course_engine_screen.dart already records as real
+  /// evidence in the structured event ledger — was silently ignored.
+  /// Net effect: "Fix This Gap" → complete the course → next analysis
+  /// regenerated the EXACT same gap, forever (not just "next day" — every
+  /// single time), because no code path ever read the evidence that was
+  /// already being correctly persisted.
+  ///
+  /// FIX: evidenceFallback now derives a level from a genuine COUNT of
+  /// correctly-answered quiz/challenge events and project/lesson
+  /// completions recorded for a matching topic (via
+  /// _fetchDemonstratedTopicEvidence + _evidenceCountFor). Thresholds are
+  /// deliberately conservative (1+/3+/6+ pieces of evidence →
+  /// Beginner/Intermediate/Advanced) so a single quiz answer cannot fake
+  /// mastery, and the result is deterministic — re-running analysis with
+  /// the exact same evidence always yields the exact same level; it can
+  /// never keep climbing just because analysis reran. The explicit
+  /// profile level is never regressed by this — the higher of the two is
+  /// used (see _higherLevel).
   List<SkillGap> _mockGapsFor(UserSkillProfile profile,
-      {CopilotContext? context}) {
+      {CopilotContext? context, Map<String, int> topicEvidence = const {}}) {
     final requiredSkills = _requiredSkillsFor(profile, context: context);
 
     SkillLevel? evidenceFallback(String skillName) {
-      final lp = context?.learningProgress;
-      if (lp == null) return null;
-      // The current LearningProgressContext model does not expose
-      // per-skill strong / weak evidence counts, and no existing field
-      // on it can be used to derive them without inventing data or
-      // changing another file. To keep gap reporting honest, treat the
-      // skill as "not demonstrated" and let the explicit
-      // UserSkillProfile level be the only source of truth.
-      return null;
+      final count = _evidenceCountFor(skillName, topicEvidence);
+      if (count <= 0) return null;
+      if (count >= 6) return SkillLevel.advanced;
+      if (count >= 3) return SkillLevel.intermediate;
+      return SkillLevel.beginner;
     }
 
     final gaps = <SkillGap>[];
     for (final req in requiredSkills) {
       final explicit = _lvl(profile, req.name);
-      final inferred = explicit ?? evidenceFallback(req.name);
+      final evidenceBased = evidenceFallback(req.name);
+      final inferred = _higherLevel(explicit, evidenceBased);
       final cur = inferred?.value ?? 0;
       if (cur < req.required.value) {
         gaps.add(SkillGap(
@@ -948,6 +972,75 @@ class CopilotController extends ChangeNotifier {
 
     gaps.sort((a, b) => a.priority.compareTo(b.priority));
     return gaps;
+  }
+
+  /// Real, non-fabricated per-topic evidence for [careerId], derived
+  /// purely from the existing structured event ledger
+  /// (`copilot_learning_progress/{careerId}/events`). Returns a map of
+  /// lowercased topic text → count of genuinely correct/complete events
+  /// recorded for that topic:
+  ///   • quiz / challenge events count ONLY when their stored `correct`
+  ///     field is exactly `true` (a `quiz_miss:`/`challenge_miss:` wrong
+  ///     answer is weakness evidence, never mastery evidence, and is
+  ///     correctly excluded here).
+  ///   • project / lesson events always count — course_engine_screen.dart
+  ///     only ever records these on genuine completion.
+  /// This is a pure, bounded (limit 200) READ over existing evidence. It
+  /// never writes, never estimates, and returns an empty map (never
+  /// invented data) when no careerId is available or the read fails.
+  Future<Map<String, int>> _fetchDemonstratedTopicEvidence(
+    String uid,
+    String? careerId,
+  ) async {
+    if (careerId == null || careerId.isEmpty) return const {};
+    try {
+      final events = await CopilotFirestoreService.getCareerEvents(
+        uid,
+        careerId,
+        limit: 200,
+      );
+      final counts = <String, int>{};
+      for (final event in events) {
+        final topic = event['topic'];
+        if (topic is! String || topic.trim().isEmpty) continue;
+        final correct = event['correct'];
+        final eventType = event['eventType'];
+        final isRealCompletion = correct == true ||
+            eventType == CopilotEventType.project ||
+            eventType == CopilotEventType.lesson;
+        if (!isRealCompletion) continue;
+        final key = topic.trim().toLowerCase();
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+      return counts;
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Fuzzy, case-insensitive containment match between a skill name and
+  /// recorded topic strings — mirrors the same matching semantics
+  /// SkillGapScreen already uses when resolving a course for a skill gap
+  /// (_resolveRealCourse/_findInList), so a skill gap and the course
+  /// whose evidence should close it agree on what "the same topic" means.
+  int _evidenceCountFor(String skillName, Map<String, int> topicEvidence) {
+    final needle = skillName.trim().toLowerCase();
+    if (needle.isEmpty) return 0;
+    var total = 0;
+    for (final entry in topicEvidence.entries) {
+      if (entry.key.contains(needle) || needle.contains(entry.key)) {
+        total += entry.value;
+      }
+    }
+    return total;
+  }
+
+  /// Never regresses below the explicitly-claimed profile level; real
+  /// evidence can only raise the effective level, never lower it.
+  SkillLevel? _higherLevel(SkillLevel? a, SkillLevel? b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return a.value >= b.value ? a : b;
   }
 
   SkillLevel? _lvl(UserSkillProfile profile, String skill) {

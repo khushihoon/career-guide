@@ -5,6 +5,7 @@ import '../services/home_market_service.dart';
 import '../services/career_company_relationship_service.dart';
 import '../services/verified_company_data.dart';
 import '../services/verified_company_skills_step6e3.dart';
+import 'company_intelligence_dynamic_panel.dart';
 import 'career_intelligence_screen.dart';
 
 const _bg = Color(0xFF080B14);
@@ -22,18 +23,61 @@ const _pink = Color(0xFFF472B6);
 const _muted = Color(0xFF8D96AB);
 const _text = Color(0xFFF7F8FC);
 
-/// Step 6C — Company Intelligence
+/// Step 6E-4 — Company Intelligence
 ///
 /// This screen is intentionally driven only by data that currently exists in
 /// HomeCompany. It does not invent live hiring, salary, roles, or skills.
-/// Those will be connected in later data-layer steps when verified sources
-/// are available.
+/// Dynamic normalized source data is connected through the Step 6E-4 engine.
+///
+/// Step 6E-4 UI contract:
+/// - verified_company_data.dart remains the reference company layer;
+/// - verified_company_skills_step6e3.dart remains the reviewed reference
+///   skill layer;
+/// - CompanyIntelligenceDynamicPanel is the normalized source layer;
+/// - live opportunities and compensation are displayed only when a normalized
+///   source snapshot contains them;
+/// - the absence of a snapshot is a valid state and must never be filled by
+///   guessed company skills, salary, or hiring claims.
+///
+/// The screen therefore stays reusable for any company record. Adding a new
+/// company does not require adding another screen class. The future backend
+/// ingestion worker only needs to publish normalized provider payloads into
+/// CompanyIntelligenceRepository.
+//
+// The UI intentionally does not contain provider-specific parsing logic.
+// Greenhouse, Lever, Ashby, SmartRecruiters and future providers are handled
+// by services/data adapters outside this screen. This keeps the presentation
+// layer stable while the source ecosystem evolves.
+//
+// The same screen can therefore represent: reference-only company data,
+// reviewed observed skill data, current normalized opportunities, and
+// verified compensation data without changing its public constructor.
+//
+// This separation is especially important for a worldwide application because
+// companies may use different ATS providers, different currencies, different
+// salary disclosure policies, and different publishing schedules.
+//
+// No UI label in this screen should imply that a company is hiring merely
+// because a reference career relationship exists.
+//
+// No salary figure should be rendered merely because a role normally has a
+// salary. A numeric figure must come from a connected source snapshot.
+//
+// No skill should be rendered as a company requirement merely because the
+// company operates in AI, software, data, or another technology area.
+// Observed skills come from the normalized evidence pipeline or the explicitly
+// labeled verified reference batch.
+//
+
 class CompanyIntelligenceScreen extends StatelessWidget {
   static const HomeMarketService _marketService = HomeMarketService();
+
   static const CareerCompanyRelationshipService _relationshipService =
       CareerCompanyRelationshipService();
+
   static const VerifiedCompanyDataService _verifiedCompanyService =
       VerifiedCompanyDataService();
+
   static const VerifiedCompanySkillsService _verifiedSkillsService =
       VerifiedCompanySkillsService();
 
@@ -86,11 +130,22 @@ class CompanyIntelligenceScreen extends StatelessWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _HeroCard(company: company),
+
                   const SizedBox(height: 14),
-                  _TruthBadge(),
+
+                  const _TruthBadge(),
+
+                  if (verified != null) ...[
+                    const SizedBox(height: 12),
+                    _VerifiedSourceCard(profile: verified),
+                  ],
+
                   const SizedBox(height: 14),
+
                   _careerLayer(),
+
                   const SizedBox(height: 12),
+
                   if (_hasText(description)) ...[
                     _SectionCard(
                       icon: Icons.auto_awesome_rounded,
@@ -107,6 +162,7 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
+
                   if (company.country != null ||
                       _hasText(headquarters)) ...[
                     _SectionCard(
@@ -141,6 +197,7 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
+
                   if (engineeringAreas.isNotEmpty) ...[
                     _SectionCard(
                       icon: Icons.track_changes_rounded,
@@ -153,6 +210,7 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
+
                   if (roleFamilies.isNotEmpty) ...[
                     _SectionCard(
                       icon: Icons.work_outline_rounded,
@@ -165,60 +223,30 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  _SectionCard(
-                    icon: Icons.psychology_alt_outlined,
-                    iconColor: _pink,
-                    title: 'Skills & technologies',
-                    child: verifiedSkills == null
-                        ? const _NotConnectedBlock(
-                            message:
-                                'Verified company-specific skills are not connected '
-                                'for this company yet. No skill requirement is '
-                                'invented when verified evidence is unavailable.',
-                          )
-                        : _VerifiedSkillsContent(
-                            profile: verifiedSkills,
-                          ),
+
+                  CompanyIntelligenceDynamicPanel(
+                    company: company,
+                    verifiedFallback: verifiedSkills,
                   ),
+
                   const SizedBox(height: 12),
+
                   _SectionCard(
-                    icon: Icons.payments_outlined,
-                    iconColor: _amber,
-                    title: 'Salary intelligence',
-                    child: const _NotConnectedBlock(
-                      message:
-                          'Verified company salary data is not connected yet. '
-                          'No salary number is shown here until the source, '
-                          'currency, period, and date are verified.',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _SectionCard(
-                    icon: Icons.work_history_outlined,
-                    iconColor: _cyan,
-                    title: 'Current opportunities',
-                    child: const _NotConnectedBlock(
-                      message:
-                          'Current hiring is not connected yet. '
-                          'This company profile must never be interpreted as '
-                          'proof that the company is hiring right now.',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _SectionCard(
-                    icon: Icons.link_rounded,
+                    icon: Icons.layers_outlined,
                     iconColor: _violetBright,
-                    title: 'Next data connection',
+                    title: 'Data status',
                     child: const _NotConnectedBlock(
                       message:
-                          'Verified company reference data and observed '
-                          'company skill signals are now connected. Current hiring '
-                          'and salary remain separate data layers and will only appear '
-                          'after their sources are independently verified.',
+                          'Reference company information and reviewed skill '
+                          'signals are shown separately from live intelligence. '
+                          'Current jobs and compensation appear only when '
+                          'supported by a normalized source snapshot.',
                     ),
                   ),
+
                   const SizedBox(height: 14),
-                  _ReferenceFooter(),
+
+                  const _ReferenceFooter(),
                 ]),
               ),
             ),
@@ -249,13 +277,18 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Reference relationships show career areas where this company can be relevant. They do not mean the company is hiring now.',
-                    style: TextStyle(color: _muted, fontSize: 11, height: 1.45),
+                    style: TextStyle(
+                      color: _muted,
+                      fontSize: 11,
+                      height: 1.45,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
                 for (final career in careers) ...[
                   _CareerRelationshipTile(career: career),
-                  if (career != careers.last) const SizedBox(height: 8),
+                  if (career != careers.last)
+                    const SizedBox(height: 8),
                 ],
               ],
             ),
@@ -294,7 +327,9 @@ class CompanyIntelligenceScreen extends StatelessWidget {
 class _CareerRelationshipTile extends StatelessWidget {
   final HomeCareer career;
 
-  const _CareerRelationshipTile({required this.career});
+  const _CareerRelationshipTile({
+    required this.career,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -303,7 +338,9 @@ class _CareerRelationshipTile extends StatelessWidget {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => CareerIntelligenceScreen(career: career),
+          builder: (_) => CareerIntelligenceScreen(
+            career: career,
+          ),
         ),
       ),
       child: Ink(
@@ -315,7 +352,11 @@ class _CareerRelationshipTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.work_outline_rounded, color: _mint, size: 19),
+            const Icon(
+              Icons.work_outline_rounded,
+              color: _mint,
+              size: 19,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -327,7 +368,11 @@ class _CareerRelationshipTile extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded, color: _muted, size: 14),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: _muted,
+              size: 14,
+            ),
           ],
         ),
       ),
@@ -338,7 +383,9 @@ class _CareerRelationshipTile extends StatelessWidget {
 class _HeroCard extends StatelessWidget {
   final HomeCompany company;
 
-  const _HeroCard({required this.company});
+  const _HeroCard({
+    required this.company,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -434,7 +481,9 @@ class _HeroCard extends StatelessWidget {
 class _VerifiedSourceCard extends StatelessWidget {
   final VerifiedCompanyProfile profile;
 
-  const _VerifiedSourceCard({required this.profile});
+  const _VerifiedSourceCard({
+    required this.profile,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -780,6 +829,8 @@ class _VerifiedSourceList extends StatelessWidget {
 }
 
 class _TruthBadge extends StatelessWidget {
+  const _TruthBadge();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -920,7 +971,11 @@ class _FactTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 18),
+          Icon(
+            icon,
+            color: color,
+            size: 18,
+          ),
           const SizedBox(height: 8),
           Text(
             label,
@@ -1034,6 +1089,8 @@ class _NotConnectedBlock extends StatelessWidget {
 }
 
 class _ReferenceFooter extends StatelessWidget {
+  const _ReferenceFooter();
+
   @override
   Widget build(BuildContext context) {
     return const Padding(

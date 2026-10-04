@@ -110,7 +110,21 @@
 // concurrent duplicate refreshes. _claimingReward and _goalsInFlight
 // prevent double-tap and concurrent actions.
 //
-// All previous behaviour is preserved:
+// ──────────────────────────────────────────────────────────────────────
+// PHASE 5 FIX — LEARNING PROGRESS CARD REMOVED FROM HUB (this revision)
+// ──────────────────────────────────────────────────────────────────────
+// The product spec explicitly requires: "REMOVE the Learning Progress
+// card from the Copilot Hub. Detailed learning progress belongs in the
+// Learn/Course area." The Hub previously rendered a
+// `_LearningProgressCard` sliver (completed/total lessons + career XP)
+// directly beneath Today's Goals. That card and its now-unused private
+// widget class have been removed. The underlying data it read
+// (`ctrl.learningProgress`, `ctrl.careerTotalXp`) is untouched and still
+// owned end-to-end by CopilotController — only this screen's rendering
+// of it was removed, exactly as instructed. Detailed learning progress
+// continues to live on the existing Learn/Course screens.
+//
+// All previous behaviour is otherwise preserved:
 //   • Next Move, Roadmap, AI Memory, Daily Reward, Surprise Reward,
 //     Achievements, Leaderboard, Analytics, Pull-to-refresh, navigation.
 //   • Optional services still fail independently.
@@ -803,7 +817,7 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
             ).animate().fadeIn(delay: 160.ms),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 18)),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
           // ── Daily Quests Preview ─────────────────────────────────
           SliverToBoxAdapter(
@@ -1083,74 +1097,6 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
 // ════════════════════════════════════════════════════════════════════
 
 // ── Stats Strip ───────────────────────────────────────────────────────
-class _LearningProgressCard extends StatelessWidget {
-  final CopilotController ctrl;
-
-  const _LearningProgressCard({required this.ctrl});
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = ctrl.learningProgress;
-    final completed = progress?.completedCount ?? 0;
-    final total = progress?.totalLessons ?? 0;
-    final careerXp = ctrl.careerTotalXp;
-    final ratio = total <= 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2A2A40)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.school_rounded, color: Color(0xFFA78BFA), size: 20),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Learning Progress',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-              ),
-              Text(
-                '+$careerXp career XP',
-                style: const TextStyle(color: Color(0xFFA78BFA), fontSize: 12, fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            total > 0 ? '$completed / $total lessons completed' : '$completed lessons completed',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          if (total > 0) ...[
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: ratio,
-                minHeight: 7,
-                backgroundColor: Color(0xFF2A2A40),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF7C3AED)),
-              ),
-            ),
-          ],
-          const SizedBox(height: 7),
-          Text(
-            'This is the same career-scoped learning evidence used by the Learn tab.',
-            style: const TextStyle(color: Color(0xFF888899), fontSize: 10, height: 1.4),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StatsStrip extends StatelessWidget {
   final CopilotState state;
   final int rank;
