@@ -12,6 +12,20 @@ import 'verified_company_data.dart';
 ///
 /// Provider identity is normalized through the canonical company registry
 /// before normalized postings are created.
+///
+/// TRUTH RULES FOR THIS LAYER:
+/// - Missing provider fields stay null. An empty string is never stored as if
+///   it were a value (no blank location / team / apply URL).
+/// - `publishedAt` is the provider's publication time. It is never filled with
+///   a "last updated" time when a publication time exists.
+/// - `applyUrl` is a human apply/job page. A provider API URL is never used as
+///   an apply link.
+/// - Postings the provider marks as not listed are skipped.
+/// - A salary is kept only with its own numbers; nothing is estimated. The
+///   period is normalized to year / month / week / day / hour, or left empty
+///   when the provider does not say.
+/// - Stored raw metadata is slimmed to small scalar fields so the local cache
+///   does not duplicate whole job descriptions.
 abstract interface class CompanySourceAdapter {
   CompanySourceType get sourceType;
 
@@ -73,11 +87,17 @@ class GreenhouseSourceAdapter implements CompanySourceAdapter {
       idKeys: const ['id'],
       titleKeys: const ['title'],
       descriptionKeys: const ['content', 'description'],
-      locationKeys: const ['location.name', 'location'],
-      departmentKeys: const ['department.name', 'department'],
+      locationKeys: const ['location.name', 'offices.0.name', 'location'],
+      departmentKeys: const [
+        'departments.0.name',
+        'department.name',
+        'department',
+      ],
       teamKeys: const ['team.name', 'team'],
       applyUrlKeys: const ['absolute_url', 'applyUrl'],
-      publishedAtKeys: const ['updated_at', 'created_at'],
+      // `first_published` is the real publication time. `updated_at` is only
+      // a fallback when the provider does not supply it.
+      publishedAtKeys: const ['first_published', 'updated_at', 'created_at'],
       employmentTypeKeys: const ['employment_type', 'employmentType'],
       workplaceTypeKeys: const ['workplace_type', 'workplaceType'],
       compensationKeys: const ['compensation', 'salaryRange', 'salary'],
@@ -174,9 +194,12 @@ class AshbySourceAdapter implements CompanySourceAdapter {
 
       final map = Map<String, dynamic>.from(raw);
 
+      // Skip postings the provider marks as not listed.
+      if (map['isListed'] == false) continue;
+
       final id = _JsonJobParser._stringAt(
         map,
-        const ['jobUrl', 'id', 'jobId'],
+        const ['id', 'jobUrl', 'jobId'],
       );
 
       final title = _JsonJobParser._stringAt(
@@ -186,6 +209,13 @@ class AshbySourceAdapter implements CompanySourceAdapter {
 
       if (id.isEmpty || title.isEmpty) continue;
 
+      final location = _JsonJobParser._nullable(
+        _JsonJobParser._stringAt(
+          map,
+          const ['location'],
+        ),
+      );
+
       final compensation = _ashbyCompensation(
         map['compensation'] is Map
             ? Map<String, dynamic>.from(map['compensation'])
@@ -193,12 +223,21 @@ class AshbySourceAdapter implements CompanySourceAdapter {
                 ? Map<String, dynamic>.from(compensationRoot)
                 : null,
         sourceUrl: sourceUrl,
-        location: _JsonJobParser._stringAt(
-          map,
-          const ['location'],
-        ),
+        location: location,
         observedAt: fetchedAt ?? DateTime.now(),
       );
+
+      var workplaceType = _JsonJobParser._nullable(
+        _JsonJobParser._stringAt(
+          map,
+          const ['workplaceType'],
+        ),
+      );
+
+      // Only an explicit provider flag may turn into "Remote".
+      if (workplaceType == null && map['isRemote'] == true) {
+        workplaceType = 'Remote';
+      }
 
       result.add(
         NormalizedJobPosting(
@@ -214,29 +253,31 @@ class AshbySourceAdapter implements CompanySourceAdapter {
               'description',
             ],
           ),
-          location: _JsonJobParser._stringAt(
-            map,
-            const ['location'],
+          location: location,
+          department: _JsonJobParser._nullable(
+            _JsonJobParser._stringAt(
+              map,
+              const ['department'],
+            ),
           ),
-          department: _JsonJobParser._stringAt(
-            map,
-            const ['department'],
+          team: _JsonJobParser._nullable(
+            _JsonJobParser._stringAt(
+              map,
+              const ['team'],
+            ),
           ),
-          team: _JsonJobParser._stringAt(
-            map,
-            const ['team'],
+          employmentType: _JsonJobParser._nullable(
+            _JsonJobParser._stringAt(
+              map,
+              const ['employmentType'],
+            ),
           ),
-          employmentType: _JsonJobParser._stringAt(
-            map,
-            const ['employmentType'],
-          ),
-          workplaceType: _JsonJobParser._stringAt(
-            map,
-            const ['workplaceType'],
-          ),
-          applyUrl: _JsonJobParser._stringAt(
-            map,
-            const ['applyUrl', 'jobUrl'],
+          workplaceType: workplaceType,
+          applyUrl: _JsonJobParser._nullable(
+            _JsonJobParser._stringAt(
+              map,
+              const ['applyUrl', 'jobUrl'],
+            ),
           ),
           publishedAt: _JsonJobParser._dateAt(
             map,
@@ -245,7 +286,7 @@ class AshbySourceAdapter implements CompanySourceAdapter {
           sourceType: sourceType,
           sourceUrl: sourceUrl,
           compensation: compensation,
-          rawMetadata: map,
+          rawMetadata: _JsonJobParser._slimMetadata(map),
         ),
       );
     }
@@ -285,7 +326,9 @@ class AshbySourceAdapter implements CompanySourceAdapter {
           minimum: min,
           maximum: max,
           currency: map['currencyCode']?.toString() ?? '',
-          period: map['interval']?.toString() ?? '',
+          period: _JsonJobParser._normalizePeriod(
+            map['interval']?.toString() ?? '',
+          ),
           location: location,
           sourceUrl: sourceUrl,
           observedAt: observedAt,
@@ -330,6 +373,7 @@ class SmartRecruitersSourceAdapter implements CompanySourceAdapter {
         'description',
       ],
       locationKeys: const [
+        'location.fullLocation',
         'location.city',
         'location',
       ],
@@ -341,8 +385,9 @@ class SmartRecruitersSourceAdapter implements CompanySourceAdapter {
         'function.label',
         'function',
       ],
+      // The list endpoint's `ref` is an API URL, not a page a person can open
+      // to apply, so it is intentionally NOT used here.
       applyUrlKeys: const [
-        'ref',
         'applyUrl',
       ],
       publishedAtKeys: const [
@@ -458,7 +503,7 @@ class _JsonJobParser {
             ),
             observedAt: fetchedAt ?? DateTime.now(),
           ),
-          rawMetadata: map,
+          rawMetadata: _slimMetadata(map),
         ),
       );
     }
@@ -473,6 +518,34 @@ class _JsonJobParser {
     required String? location,
     required DateTime observedAt,
   }) {
+    // Greenhouse pay transparency: `pay_input_ranges` with amounts in cents.
+    final ranges = map['pay_input_ranges'];
+
+    if (ranges is List) {
+      for (final item in ranges) {
+        if (item is! Map) continue;
+
+        final minCents = item['min_cents'];
+        final maxCents = item['max_cents'];
+
+        final min = minCents is num ? minCents / 100 : null;
+        final max = maxCents is num ? maxCents / 100 : null;
+
+        if (min == null && max == null) continue;
+
+        return CompanyCompensation(
+          minimum: min?.toDouble(),
+          maximum: max?.toDouble(),
+          currency: item['currency_type']?.toString() ?? '',
+          // The provider does not state the period here, so none is assumed.
+          period: '',
+          location: location,
+          sourceUrl: sourceUrl,
+          observedAt: observedAt,
+        );
+      }
+    }
+
     for (final key in keys) {
       final value = _valueAt(map, key);
 
@@ -499,9 +572,11 @@ class _JsonJobParser {
         currency: compensation['currency']?.toString() ??
             compensation['currencyCode']?.toString() ??
             '',
-        period: compensation['interval']?.toString() ??
-            compensation['period']?.toString() ??
-            '',
+        period: _normalizePeriod(
+          compensation['interval']?.toString() ??
+              compensation['period']?.toString() ??
+              '',
+        ),
         location: location,
         sourceUrl: sourceUrl,
         observedAt: observedAt,
@@ -509,6 +584,40 @@ class _JsonJobParser {
     }
 
     return null;
+  }
+
+  /// Normalizes provider period text ("1 YEAR", "per-hour", "Monthly") to one
+  /// of year / month / week / day / hour. Unknown text is returned empty
+  /// rather than guessed.
+  static String _normalizePeriod(String raw) {
+    final value = raw.trim().toLowerCase();
+
+    if (value.isEmpty) return '';
+    if (value.contains('year') || value.contains('annual')) return 'year';
+    if (value.contains('month')) return 'month';
+    if (value.contains('week')) return 'week';
+    if (value.contains('day') || value.contains('daily')) return 'day';
+    if (value.contains('hour')) return 'hour';
+
+    return '';
+  }
+
+  /// Keeps only small scalar fields (ids, flags, short labels, URLs) so the
+  /// cache does not store whole descriptions twice.
+  static Map<String, dynamic> _slimMetadata(Map<String, dynamic> map) {
+    final result = <String, dynamic>{};
+
+    for (final entry in map.entries) {
+      final value = entry.value;
+
+      if (value == null || value is bool || value is num) {
+        result[entry.key] = value;
+      } else if (value is String && value.length <= 200) {
+        result[entry.key] = value;
+      }
+    }
+
+    return result;
   }
 
   static dynamic _decode(String payload) {
@@ -532,6 +641,14 @@ class _JsonJobParser {
 
       if (value is num) {
         return value.toString();
+      }
+
+      // A provider "remote" flag set to true means a remote posting.
+      if (value is bool) {
+        if (value && key.toLowerCase().endsWith('remote')) {
+          return 'Remote';
+        }
+        continue;
       }
 
       if (value is Map) {
@@ -580,6 +697,8 @@ class _JsonJobParser {
     return null;
   }
 
+  /// Reads a dotted path. A numeric segment indexes into a list
+  /// (for example `departments.0.name`).
   static dynamic _valueAt(
     Map<String, dynamic> map,
     String path,
@@ -589,6 +708,14 @@ class _JsonJobParser {
     for (final segment in path.split('.')) {
       if (current is Map && current.containsKey(segment)) {
         current = current[segment];
+      } else if (current is List) {
+        final index = int.tryParse(segment);
+
+        if (index == null || index < 0 || index >= current.length) {
+          return null;
+        }
+
+        current = current[index];
       } else {
         return null;
       }
@@ -606,9 +733,11 @@ class _JsonJobParser {
 
 /// Canonical company identity used by every provider adapter.
 ///
-/// Verified companies use the canonical registry ID/name.
-/// Unknown companies remain supported through deterministic IDs and the
-/// supplied company name.
+/// Identity comes from the authoritative verified registry
+/// ([VerifiedCompanyData.canonicalIdentity]): verified companies and the
+/// approved product→company aliases. Unknown companies remain supported
+/// through deterministic IDs ([CompanyIntelligenceIds]) and the supplied
+/// company name, so every layer uses the same ID format.
 class _CompanyIdentity {
   final String companyId;
   final String companyName;
@@ -625,25 +754,21 @@ class _CompanyIdentity {
     final trimmedId = companyId.trim();
     final trimmedName = companyName.trim();
 
-    final verifiedFromId = VerifiedCompanyData.find(
-      trimmedId,
-    );
+    final byId = VerifiedCompanyData.canonicalIdentity(trimmedId);
 
-    if (verifiedFromId != null) {
+    if (byId != null) {
       return _CompanyIdentity(
-        companyId: verifiedFromId.companyId,
-        companyName: verifiedFromId.companyName,
+        companyId: byId.companyId,
+        companyName: byId.companyName,
       );
     }
 
-    final verifiedFromName = VerifiedCompanyData.find(
-      trimmedName,
-    );
+    final byName = VerifiedCompanyData.canonicalIdentity(trimmedName);
 
-    if (verifiedFromName != null) {
+    if (byName != null) {
       return _CompanyIdentity(
-        companyId: verifiedFromName.companyId,
-        companyName: verifiedFromName.companyName,
+        companyId: byName.companyId,
+        companyName: byName.companyName,
       );
     }
 
@@ -653,7 +778,7 @@ class _CompanyIdentity {
 
     final fallbackName = trimmedName.isNotEmpty
         ? trimmedName
-        : (stableId == 'unknown-company'
+        : (stableId == CompanyIntelligenceIds.unknownCompanyId
             ? 'Unknown Company'
             : stableId);
 

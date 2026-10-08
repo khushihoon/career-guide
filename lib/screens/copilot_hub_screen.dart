@@ -168,12 +168,12 @@ class CopilotHubScreen extends StatefulWidget {
 
 class _CopilotHubScreenState extends State<CopilotHubScreen> {
   // ── Design tokens ──────────────────────────────────────────────────
-  static const _bg        = Color(0xFF0F0F1A);
-  static const _surface   = Color(0xFF1A1A2E);
-  static const _border    = Color(0xFF2A2A40);
-  static const _primary   = Color(0xFF7C3AED);
-  static const _secondary = Color(0xFFA78BFA);
-  static const _muted     = Color(0xFF888899);
+  static const _bg        = Color(0xFF0A0C16);
+  static const _surface   = Color(0xFF151929);
+  static const _border    = Color(0xFF262B42);
+  static const _primary   = Color(0xFF8B5CF6);
+  static const _secondary = Color(0xFFC4B5FD);
+  static const _muted     = Color(0xFF9297AC);
 
   // ── Services ───────────────────────────────────────────────────────
   final _achievementService = AchievementService();
@@ -1115,9 +1115,9 @@ class _StatsStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: const Color(0xFF151929),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2A2A40)),
+        border: Border.all(color: const Color(0xFF262B42)),
       ),
       child: Row(
         children: [
@@ -1147,7 +1147,7 @@ class _StatsStrip extends StatelessWidget {
                 overflow: TextOverflow.ellipsis),
             Text(label,
                 style:
-                    const TextStyle(color: Color(0xFF888899), fontSize: 10),
+                    const TextStyle(color: Color(0xFF9297AC), fontSize: 10),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
           ],
@@ -1155,7 +1155,7 @@ class _StatsStrip extends StatelessWidget {
       );
 
   Widget _div() => Container(
-      width: 1, height: 30, color: const Color(0xFF2A2A40));
+      width: 1, height: 30, color: const Color(0xFF262B42));
 }
 
 // ── YOUR NEXT MOVE ────────────────────────────────────────────────────
@@ -1253,10 +1253,10 @@ class _NextMoveCard extends StatelessWidget {
     if (action == null) {
       return GlassCard(
         padding: const EdgeInsets.all(18),
-        borderColor: const Color(0xFF7C3AED).withOpacity(0.35),
+        borderColor: const Color(0xFF8B5CF6).withOpacity(0.35),
         gradientColors: [
-          const Color(0xFF7C3AED).withOpacity(0.14),
-          const Color(0xFF7C3AED).withOpacity(0.04),
+          const Color(0xFF8B5CF6).withOpacity(0.14),
+          const Color(0xFF8B5CF6).withOpacity(0.04),
         ],
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1279,7 +1279,7 @@ class _NextMoveCard extends StatelessWidget {
             if (here != null) ...[
               Text('📍 $here',
                   style: const TextStyle(
-                      color: Color(0xFFA78BFA), fontSize: 12),
+                      color: Color(0xFFC4B5FD), fontSize: 12),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis),
               const SizedBox(height: 8),
@@ -1297,7 +1297,7 @@ class _NextMoveCard extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => onOpen(null),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED),
+                  backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -1318,10 +1318,10 @@ class _NextMoveCard extends StatelessWidget {
 
     return GlassCard(
       padding: const EdgeInsets.all(18),
-      borderColor: const Color(0xFF7C3AED).withOpacity(0.35),
+      borderColor: const Color(0xFF8B5CF6).withOpacity(0.35),
       gradientColors: [
-        const Color(0xFF7C3AED).withOpacity(0.14),
-        const Color(0xFF7C3AED).withOpacity(0.04),
+        const Color(0xFF8B5CF6).withOpacity(0.14),
+        const Color(0xFF8B5CF6).withOpacity(0.04),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1342,12 +1342,12 @@ class _NextMoveCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF7C3AED).withOpacity(0.20),
+                  color: const Color(0xFF8B5CF6).withOpacity(0.20),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(_typeLabel(action.type),
                     style: const TextStyle(
-                        color: Color(0xFFA78BFA),
+                        color: Color(0xFFC4B5FD),
                         fontSize: 10,
                         fontWeight: FontWeight.w600)),
               ),
@@ -1358,7 +1358,7 @@ class _NextMoveCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text('📍 $here',
                 style: const TextStyle(
-                    color: Color(0xFFA78BFA), fontSize: 12),
+                    color: Color(0xFFC4B5FD), fontSize: 12),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
           ],
@@ -1401,7 +1401,7 @@ class _NextMoveCard extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () => onOpen(action),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED),
+                backgroundColor: const Color(0xFF8B5CF6),
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -1436,13 +1436,13 @@ class _RecommendationsPreview extends StatelessWidget {
 
   Color _colorFor(RecommendationCategory c) {
     switch (c) {
-      case RecommendationCategory.skillGap:       return const Color(0xFFEF4444);
+      case RecommendationCategory.skillGap:       return const Color(0xFFF87171);
       case RecommendationCategory.learningPath:   return const Color(0xFF60A5FA);
-      case RecommendationCategory.project:        return const Color(0xFFF59E0B);
-      case RecommendationCategory.interviewPrep:  return const Color(0xFFA78BFA);
-      case RecommendationCategory.jobMatch:       return const Color(0xFF4ADE80);
-      case RecommendationCategory.streakNudge:    return const Color(0xFFF97316);
-      default:                                     return const Color(0xFFA78BFA);
+      case RecommendationCategory.project:        return const Color(0xFFFBBF24);
+      case RecommendationCategory.interviewPrep:  return const Color(0xFFC4B5FD);
+      case RecommendationCategory.jobMatch:       return const Color(0xFF34D399);
+      case RecommendationCategory.streakNudge:    return const Color(0xFFFB923C);
+      default:                                     return const Color(0xFFC4B5FD);
     }
   }
 
@@ -1477,9 +1477,9 @@ class _RecommendationsPreview extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
+              color: const Color(0xFF151929),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF2A2A40)),
+              border: Border.all(color: const Color(0xFF262B42)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1513,7 +1513,7 @@ class _RecommendationsPreview extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(r.description,
                             style: const TextStyle(
-                                color: Color(0xFF888899),
+                                color: Color(0xFF9297AC),
                                 fontSize: 11,
                                 height: 1.4),
                             maxLines: 3,
@@ -1530,7 +1530,7 @@ class _RecommendationsPreview extends StatelessWidget {
                     child: const Padding(
                       padding: EdgeInsets.only(left: 6, top: 2),
                       child: Icon(Icons.close,
-                          size: 14, color: Color(0xFF888899)),
+                          size: 14, color: Color(0xFF9297AC)),
                     ),
                   ),
                 ),
@@ -1570,15 +1570,15 @@ class _DailyGoalsCard extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: const Color(0xFF151929),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF2A2A40)),
+          border: Border.all(color: const Color(0xFF262B42)),
         ),
         child: const Center(
           child: Text(
             "No goals yet — pull down to generate today's goals.",
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF888899), fontSize: 13),
+            style: TextStyle(color: Color(0xFF9297AC), fontSize: 13),
           ),
         ),
       );
@@ -1590,9 +1590,9 @@ class _DailyGoalsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
+        color: const Color(0xFF151929),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2A2A40)),
+        border: Border.all(color: const Color(0xFF262B42)),
       ),
       child: Column(
         children: [
@@ -1600,7 +1600,7 @@ class _DailyGoalsCard extends StatelessWidget {
             children: [
               Text('$completed/$total done',
                   style: const TextStyle(
-                      color: Color(0xFF888899), fontSize: 12)),
+                      color: Color(0xFF9297AC), fontSize: 12)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1609,9 +1609,9 @@ class _DailyGoalsCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: total == 0 ? 0 : completed / total,
               minHeight: 5,
-              backgroundColor: const Color(0xFF2A2A40),
+              backgroundColor: const Color(0xFF262B42),
               valueColor:
-                  const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
+                  const AlwaysStoppedAnimation(Color(0xFF8B5CF6)),
             ),
           ),
           const SizedBox(height: 12),
@@ -1645,13 +1645,13 @@ class _GoalTile extends StatelessWidget {
               height: 24,
               decoration: BoxDecoration(
                 color: goal.isCompleted
-                    ? const Color(0xFF7C3AED)
+                    ? const Color(0xFF8B5CF6)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: goal.isCompleted
-                      ? const Color(0xFF7C3AED)
-                      : const Color(0xFF444455),
+                      ? const Color(0xFF8B5CF6)
+                      : const Color(0xFF4B5169),
                   width: 1.5,
                 ),
               ),
@@ -1668,7 +1668,7 @@ class _GoalTile extends StatelessWidget {
                 goal.title,
                 style: TextStyle(
                   color: goal.isCompleted
-                      ? const Color(0xFF888899)
+                      ? const Color(0xFF9297AC)
                       : Colors.white,
                   fontSize: 13,
                   decoration: goal.isCompleted
@@ -1683,12 +1683,12 @@ class _GoalTile extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFF7C3AED).withOpacity(0.15),
+                color: const Color(0xFF8B5CF6).withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text('+${goal.xpReward}',
                   style: const TextStyle(
-                      color: Color(0xFFA78BFA), fontSize: 10)),
+                      color: Color(0xFFC4B5FD), fontSize: 10)),
             ),
           ],
         ),
@@ -1711,13 +1711,13 @@ class _QuestsPreview extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: const Color(0xFF151929),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF2A2A40)),
+          border: Border.all(color: const Color(0xFF262B42)),
         ),
         child: const Center(
           child: Text('No daily quests available right now.',
-              style: TextStyle(color: Color(0xFF888899), fontSize: 13)),
+              style: TextStyle(color: Color(0xFF9297AC), fontSize: 13)),
         ),
       );
     }
@@ -1745,13 +1745,13 @@ class _RoadmapPreview extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: const Color(0xFF151929),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF2A2A40)),
+          border: Border.all(color: const Color(0xFF262B42)),
         ),
         child: const Center(
           child: Text('Roadmap not generated yet',
-              style: TextStyle(color: Color(0xFF888899), fontSize: 13)),
+              style: TextStyle(color: Color(0xFF9297AC), fontSize: 13)),
         ),
       );
     }
@@ -1764,15 +1764,15 @@ class _RoadmapPreview extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF7C3AED).withOpacity(0.14),
-            const Color(0xFFA78BFA).withOpacity(0.07),
+            const Color(0xFF8B5CF6).withOpacity(0.14),
+            const Color(0xFFC4B5FD).withOpacity(0.07),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border:
-            Border.all(color: const Color(0xFF7C3AED).withOpacity(0.3)),
+            Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1790,7 +1790,7 @@ class _RoadmapPreview extends StatelessWidget {
               ),
               Text('${(pct * 100).toInt()}%',
                   style: const TextStyle(
-                      color: Color(0xFFA78BFA),
+                      color: Color(0xFFC4B5FD),
                       fontWeight: FontWeight.bold)),
             ],
           ),
@@ -1800,9 +1800,9 @@ class _RoadmapPreview extends StatelessWidget {
             child: LinearProgressIndicator(
               value: pct,
               minHeight: 6,
-              backgroundColor: const Color(0xFF2A2A40),
+              backgroundColor: const Color(0xFF262B42),
               valueColor:
-                  const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
+                  const AlwaysStoppedAnimation(Color(0xFF8B5CF6)),
             ),
           ),
           if (phase != null) ...[
@@ -1812,7 +1812,7 @@ class _RoadmapPreview extends StatelessWidget {
                 Container(
                     width: 7, height: 7,
                     decoration: const BoxDecoration(
-                        color: Color(0xFF7C3AED),
+                        color: Color(0xFF8B5CF6),
                         shape: BoxShape.circle)),
                 const SizedBox(width: 8),
                 Expanded(
@@ -1829,7 +1829,7 @@ class _RoadmapPreview extends StatelessWidget {
             const SizedBox(height: 4),
             Text(phase.description,
                 style: const TextStyle(
-                    color: Color(0xFF888899),
+                    color: Color(0xFF9297AC),
                     fontSize: 11,
                     height: 1.4),
                 maxLines: 2,
@@ -1856,9 +1856,9 @@ class _LeaderboardTeaser extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       gradientColors: [
         const Color(0xFF1E1040),
-        const Color(0xFF7C3AED).withOpacity(0.12),
+        const Color(0xFF8B5CF6).withOpacity(0.12),
       ],
-      borderColor: const Color(0xFF7C3AED).withOpacity(0.3),
+      borderColor: const Color(0xFF8B5CF6).withOpacity(0.3),
       child: Row(
         children: [
           const Text('🏆', style: TextStyle(fontSize: 28)),
@@ -1884,7 +1884,7 @@ class _LeaderboardTeaser extends StatelessWidget {
                       ? 'Keep earning XP to climb the ranks'
                       : 'Complete goals to start ranking',
                   style: const TextStyle(
-                      color: Color(0xFF888899), fontSize: 11),
+                      color: Color(0xFF9297AC), fontSize: 11),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1892,7 +1892,7 @@ class _LeaderboardTeaser extends StatelessWidget {
             ),
           ),
           const Icon(Icons.chevron_right,
-              color: Color(0xFFA78BFA), size: 20),
+              color: Color(0xFFC4B5FD), size: 20),
         ],
       ),
     );
@@ -1958,13 +1958,13 @@ class _QuickActions extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
+              color: const Color(0xFF151929),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF2A2A40)),
+              border: Border.all(color: const Color(0xFF262B42)),
             ),
             child: Column(
               children: [
-                Icon(icon, color: const Color(0xFFA78BFA), size: 20),
+                Icon(icon, color: const Color(0xFFC4B5FD), size: 20),
                 const SizedBox(height: 6),
                 Text(label,
                     style: const TextStyle(

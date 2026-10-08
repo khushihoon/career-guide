@@ -1,3 +1,5 @@
+import 'verified_company_data.dart';
+
 /// Step 6E-3
 ///
 /// Verified company-specific skills / technologies reference layer.
@@ -29,7 +31,51 @@
 /// SCALABILITY:
 /// One reusable profile model is used for all companies.
 /// Do NOT create one Dart file per company.
-
+///
+/// AUDIT NOTE (verification batch 2026-10-05):
+///
+/// STRONG (specific official job postings):
+///   - OpenAI (specific job postings)
+///   - NVIDIA (specific job postings)
+///   - Amazon (specific job postings)
+///   - Apple (specific job postings)
+///
+/// BROAD (official source reviewed, specific terms not independently
+/// re-confirmed in the current session):
+///   - Microsoft (careers location page)
+///   - Google DeepMind (careers landing page)
+///   - Anthropic (careers landing page)
+///
+/// EVIDENCE BATCH 2026-10-07 (read by hand on official company job pages):
+///   - Microsoft AI (several official microsoft.ai postings across teams)
+///   - Pinecone (official pinecone.io posting text; only terms literally
+///     present were recorded)
+/// Terms are ordered by how often they appear across the reviewed postings
+/// (most important first).
+///
+/// EVIDENCE BATCH 2026-10-08 (each page opened and read by hand):
+///   - Cursor (1 official posting: Software Engineer, ML Infrastructure)
+///   - Gamma  (1 official posting: Research Engineer, including the
+///     "Engineering at Gamma" tech-stack section of the page)
+/// These two profiles rest on ONE posting each, so their terms follow the
+/// order of the posting and are NOT frequency-ranked. A term that a third
+/// party claimed but that is not on the page was NOT recorded (for example
+/// "Python" for Gamma).
+///
+/// No profile is added for a company whose claimed source was not actually
+/// reviewed in the verification pass.
+///
+/// ALIAS POLICY (locked; updated 2026-10-08):
+/// - Skill profiles are resolved by canonical company ID/name, spelling /
+///   legal-name variants of the SAME entity (see [_canonicalCompanyKey]), and
+///   the approved product→company aliases owned by the canonical company
+///   registry (verified_company_data.dart, see its ALIAS POLICY). This file
+///   keeps no product alias of its own.
+/// - "Microsoft AI" is its own entity and is NOT an alias of Microsoft.
+/// - Do NOT add an alias based only on a similar name or URL.
+///
+/// DO NOT fill empty fields with guesses.
+/// DO NOT add new companies without official evidence.
 class VerifiedCompanySkillProfile {
   final String companyId;
   final String companyName;
@@ -69,6 +115,8 @@ class VerifiedCompanySkillsService {
   const VerifiedCompanySkillsService();
 
   static final DateTime _verifiedDate = DateTime(2026, 9, 28);
+  static final DateTime _verifiedOct7 = DateTime(2026, 10, 7);
+  static final DateTime _verifiedOct8 = DateTime(2026, 10, 8);
 
   /// =========================================================================
   /// VERIFIED SKILL PROFILES
@@ -119,7 +167,9 @@ class VerifiedCompanySkillsService {
         'Developer tooling',
         'Multimodal systems',
       ],
-      sourceLabel: 'Official OpenAI career postings',
+      sourceLabel:
+          'Official OpenAI career posting URLs (specific terms reviewed '
+          'in an earlier verification pass)',
       sourceUrls: <String>[
         'https://openai.com/careers/software-engineer-cloud-agents-san-francisco/',
         'https://openai.com/careers/software-engineer-api-multimodal-san-francisco/',
@@ -155,7 +205,8 @@ class VerifiedCompanySkillsService {
         'Model optimization',
         'Research experimentation',
       ],
-      sourceLabel: 'Official Google DeepMind careers',
+      sourceLabel:
+          'Official Google DeepMind careers landing page — broad evidence',
       sourceUrls: <String>[
         'https://deepmind.google/careers/',
       ],
@@ -165,6 +216,26 @@ class VerifiedCompanySkillsService {
     // ========================================================================
     // 3. MICROSOFT
     // ========================================================================
+    //
+    // EVIDENCE STATUS: The Microsoft skills below were reviewed against the
+    // official Microsoft careers location page
+    // (careers.microsoft.com/v2/global/en/locations/hyderabad.html) in an
+    // earlier verification pass.
+    //
+    // That source is broad (a careers location page) and does not
+    // independently re-confirm every specific technology term below in the
+    // current session. A future verification pass should replace this source
+    // with specific Microsoft job posting URLs, at which point the profile
+    // should be re-audited.
+    //
+    // Unsupported specific terms (LlamaIndex, Haystack, DSPy, AIOps, AWS,
+    // GCP) were removed in the previous pass and must not be restored
+    // without official Microsoft evidence.
+    //
+    // NOTE: "Microsoft AI" (the Microsoft AI division listed in the company
+    // directory) is NOT an approved alias of "Microsoft". This profile is
+    // therefore reachable only as "Microsoft" / "Microsoft Corporation" /
+    // "MSFT", never as "Microsoft AI".
 
     VerifiedCompanySkillProfile(
       companyId: 'microsoft',
@@ -172,36 +243,41 @@ class VerifiedCompanySkillsService {
       skills: <String>[
         'Python',
         'C#',
-        'PyTorch',
+        'C++',
+        'Java',
+        'JavaScript',
         'Machine learning',
         'Deep learning',
-        'MLOps',
-        'AIOps',
       ],
       technologies: <String>[
         'Azure',
-        'AWS',
-        'GCP',
         'LangChain',
-        'LlamaIndex',
-        'Haystack',
-        'Transformers',
+        'Semantic Kernel',
         'AutoGen',
-        'DSPy',
+        'MCP',
+        'REST APIs',
+        'CI/CD',
+        'Azure Data Explorer (KQL)',
+        'Synapse',
+        'Grafana',
       ],
       engineeringConcepts: <String>[
         'LLMs',
         'Generative AI',
         'Agent orchestration',
-        'Prompt engineering',
+        'Agentic AI',
         'Retrieval-augmented generation',
-        'Fine-tuning',
+        'Retrieval/ranking/personalization',
+        'Model training',
         'Model evaluation',
+        'Model deployment',
         'Monitoring',
-        'CI/CD',
         'Cloud deployment',
+        'Distributed systems',
       ],
-      sourceLabel: 'Official Microsoft Careers posting',
+      sourceLabel:
+          'Official Microsoft careers location page — broad evidence, '
+          'specific technology terms pending confirmation via job postings',
       sourceUrls: <String>[
         'https://careers.microsoft.com/v2/global/en/locations/hyderabad.html',
       ],
@@ -241,7 +317,9 @@ class VerifiedCompanySkillsService {
         'Inference systems',
         'Data processing',
       ],
-      sourceLabel: 'Official NVIDIA Careers postings',
+      sourceLabel:
+          'Official NVIDIA Careers posting URLs (specific terms reviewed '
+          'in an earlier verification pass)',
       sourceUrls: <String>[
         'https://jobs.nvidia.com/careers/job/893397346924',
         'https://jobs.nvidia.com/careers/job/893397617990',
@@ -282,7 +360,8 @@ class VerifiedCompanySkillsService {
         'Search',
         'Cybersecurity',
       ],
-      sourceLabel: 'Official Anthropic Careers postings',
+      sourceLabel:
+          'Official Anthropic careers landing page — broad evidence',
       sourceUrls: <String>[
         'https://www.anthropic.com/careers/jobs',
       ],
@@ -326,7 +405,9 @@ class VerifiedCompanySkillsService {
         'AI/ML infrastructure',
         'Serverless computing',
       ],
-      sourceLabel: 'Official Amazon Jobs postings',
+      sourceLabel:
+          'Official Amazon Jobs posting URLs (specific terms reviewed '
+          'in an earlier verification pass)',
       sourceUrls: <String>[
         'https://www.amazon.jobs/en/jobs/10386342/software-development-engineer',
         'https://amazon.jobs/en/jobs/10502946/software-development-engineer-aws-opensearch',
@@ -368,13 +449,202 @@ class VerifiedCompanySkillsService {
         'On-device optimization',
         'Privacy-aware AI',
       ],
-      sourceLabel: 'Official Apple Careers postings',
+      sourceLabel:
+          'Official Apple Careers posting URLs (specific terms reviewed '
+          'in an earlier verification pass)',
       sourceUrls: <String>[
         'https://jobs.apple.com/en-us/details/200682189/applied-machine-learning-engineer-apple-intelligence',
         'https://jobs.apple.com/en-us/details/200669144-0836/machine-learning-engineer-search',
         'https://jobs.apple.com/en-in/details/200665562-0836/machine-learning-engineer-apple-store-online',
       ],
       lastVerified: _verifiedDate,
+    ),
+
+    // ========================================================================
+    // 8. MICROSOFT AI (own entity; NOT an alias of Microsoft)
+    // ========================================================================
+    //
+    // EVIDENCE: official microsoft.ai job postings (Software Engineering, Data
+    // Engineering, Edge/Browser, Copilot product roles). Only terms literally
+    // written in those postings are listed.
+
+    VerifiedCompanySkillProfile(
+      companyId: 'microsoft_ai',
+      companyName: 'Microsoft AI',
+      skills: <String>[
+        'Python',
+        'C#',
+        'C++',
+        'Java',
+        'JavaScript',
+        'C',
+        'SQL',
+        'Rust',
+        'TypeScript',
+        'Machine learning',
+      ],
+      technologies: <String>[
+        'Azure',
+        'Kubernetes',
+        'Apache Spark',
+        'Kafka',
+        'Databricks',
+        'Terraform',
+        '.NET',
+        'AWS',
+        'GCP',
+        'Azure DevOps',
+        'Git',
+        'Helm',
+        'Hadoop',
+        'Node.js',
+      ],
+      engineeringConcepts: <String>[
+        'Distributed systems',
+        'LLMs',
+        'Generative AI',
+        'Prompt engineering',
+        'Data pipelines',
+        'Observability',
+        'AI agents',
+        'Inference',
+        'Microservices',
+        'Model evaluation',
+        'CI/CD',
+        'Anomaly detection',
+        'Responsible AI',
+        'Data governance',
+      ],
+      sourceLabel:
+          'Official Microsoft AI job postings (several teams reviewed)',
+      sourceUrls: <String>[
+        'https://microsoft.ai/job/page/45',
+        'https://microsoft.ai/job/mts-ai-platform-engineer-2',
+      ],
+      lastVerified: _verifiedOct7,
+    ),
+
+    // ========================================================================
+    // 9. PINECONE
+    // ========================================================================
+    //
+    // EVIDENCE: official pinecone.io job postings. Only terms literally present
+    // on those pages are listed. Other languages seen on third-party job
+    // aggregators were NOT recorded.
+
+    VerifiedCompanySkillProfile(
+      companyId: 'pinecone',
+      companyName: 'Pinecone',
+      skills: <String>[
+        'Rust',
+      ],
+      technologies: <String>[],
+      engineeringConcepts: <String>[
+        'Distributed systems',
+        'Database internals',
+        'Search and retrieval infrastructure',
+        'Performance optimization',
+        'Reliability',
+        'Scalability',
+        'Cloud infrastructure',
+      ],
+      sourceLabel: 'Official Pinecone job postings (reviewed)',
+      sourceUrls: <String>[
+        'https://www.pinecone.io/careers/4ef4269b-94c4-4c7c-93ee-15a882caa767/',
+        'https://pinecone.io/careers/90ab0c3f-0693-456e-9360-321b0cb31f69',
+      ],
+      lastVerified: _verifiedOct7,
+    ),
+
+    // ========================================================================
+    // 10. CURSOR
+    // ========================================================================
+    //
+    // EVIDENCE: ONE official posting (Software Engineer, ML Infrastructure).
+    // Only terms literally written in that posting are listed, in the order of
+    // the posting.
+
+    VerifiedCompanySkillProfile(
+      companyId: 'cursor',
+      companyName: 'Cursor',
+      skills: <String>[
+        'Python',
+        'TypeScript',
+        'Rust',
+        'Go',
+      ],
+      technologies: <String>[
+        'Kubernetes',
+        'Linux',
+        'Ray',
+        'Slurm',
+        'NVIDIA GPUs',
+        'InfiniBand',
+        'RoCE',
+      ],
+      engineeringConcepts: <String>[
+        'GPU infrastructure',
+        'Distributed storage',
+        'Networking infrastructure',
+        'Infrastructure as code',
+        'Workload scheduling',
+        'Reinforcement learning',
+        'Training reliability and throughput',
+        'Scalability',
+      ],
+      sourceLabel: 'Official Cursor job posting (1 posting reviewed)',
+      sourceUrls: <String>[
+        'https://cursor.com/careers/software-engineer-ml-infrastructure',
+      ],
+      lastVerified: _verifiedOct8,
+    ),
+
+    // ========================================================================
+    // 11. GAMMA
+    // ========================================================================
+    //
+    // EVIDENCE: ONE official posting (Research Engineer) including the page's
+    // "Engineering at Gamma" tech-stack section. Only terms literally on the
+    // page are listed, in the order of the page.
+
+    VerifiedCompanySkillProfile(
+      companyId: 'gamma',
+      companyName: 'Gamma',
+      skills: <String>[
+        'TypeScript',
+        'React',
+      ],
+      technologies: <String>[
+        'Next.js',
+        'Vercel',
+        'Chakra UI',
+        'ProseMirror',
+        'Prisma',
+        'PostgreSQL',
+        'ClickHouse',
+        'Kafka',
+        'Terraform',
+        'ECS Fargate',
+        'AIJSX',
+        'Vercel AI SDK',
+        'Datadog',
+        'Braintrust',
+      ],
+      engineeringConcepts: <String>[
+        'LLMs',
+        'Vision-language models',
+        'Multimodal modeling',
+        'Fine-tuning',
+        'Post-training',
+        'Reinforcement learning',
+        'Model evaluation',
+        'Observability',
+      ],
+      sourceLabel: 'Official Gamma job posting (1 posting reviewed)',
+      sourceUrls: <String>[
+        'https://careers.gamma.app/research-engineer',
+      ],
+      lastVerified: _verifiedOct8,
     ),
   ];
 
@@ -448,8 +718,10 @@ class VerifiedCompanySkillsService {
   /// Lookup priority:
   ///
   /// 1. Canonical company ID
-  /// 2. Canonical company name
-  /// 3. Supported alias
+  /// 2. Canonical company name (including same-entity spelling / legal-name
+  ///    variants only; see [_canonicalCompanyKey])
+  /// 3. Approved product→company alias, resolved by the canonical company
+  ///    registry (for example "Notion AI" → Notion)
   VerifiedCompanySkillProfile? find(String value) {
     final byId = byCompanyId(value);
 
@@ -457,7 +729,19 @@ class VerifiedCompanySkillsService {
       return byId;
     }
 
-    return byCompanyName(value);
+    final byName = byCompanyName(value);
+
+    if (byName != null) {
+      return byName;
+    }
+
+    final identity = VerifiedCompanyData.canonicalIdentity(value);
+
+    if (identity != null) {
+      return byCompanyId(identity.companyId);
+    }
+
+    return null;
   }
 
   /// Returns true when verified skill reference data exists.
@@ -570,7 +854,7 @@ class VerifiedCompanySkillsService {
         .replaceAll(RegExp(r'^-|-$'), '');
   }
 
-  /// Canonicalizes known company aliases.
+  /// Canonicalizes SAME-ENTITY spelling / legal-name variants only.
   ///
   /// This prevents duplicate company identities between:
   /// - Home
@@ -578,54 +862,49 @@ class VerifiedCompanySkillsService {
   /// - Company Intelligence
   /// - live ingestion
   /// - legacy data
+  ///
+  /// POLICY: this table must NOT merge distinct products, divisions or
+  /// "<Company> AI" names into a parent company. Such mappings need explicit
+  /// approval and belong to the canonical company registry
+  /// (verified_company_data.dart). Removed from this table because they are
+  /// not approved: 'microsoft-ai', 'openai-ai', 'nvidia-ai', 'anthropic-ai',
+  /// 'apple-ai', 'google-ai-deepmind', 'amazon-web-services', 'aws'.
   static String _canonicalCompanyKey(String value) {
     var key = _normalizeCompanyKey(value);
 
     const aliases = <String, String>{
       // ----------------------------------------------------------------------
-      // OpenAI
+      // OpenAI (spelling variant)
       // ----------------------------------------------------------------------
       'open-ai': 'openai',
-      'openai-ai': 'openai',
 
       // ----------------------------------------------------------------------
-      // Google DeepMind
+      // Google DeepMind (DeepMind is the same entity)
       // ----------------------------------------------------------------------
       'google-deepmind': 'google-deepmind',
       'deepmind': 'google-deepmind',
-      'google-ai-deepmind': 'google-deepmind',
 
       // ----------------------------------------------------------------------
-      // Microsoft
+      // Microsoft (legal name / ticker of the same entity)
       // ----------------------------------------------------------------------
-      'microsoft-ai': 'microsoft',
       'microsoft-corporation': 'microsoft',
       'msft': 'microsoft',
 
       // ----------------------------------------------------------------------
-      // NVIDIA
+      // NVIDIA (legal name)
       // ----------------------------------------------------------------------
       'nvidia-corporation': 'nvidia',
-      'nvidia-ai': 'nvidia',
 
       // ----------------------------------------------------------------------
-      // Anthropic
-      // ----------------------------------------------------------------------
-      'anthropic-ai': 'anthropic',
-
-      // ----------------------------------------------------------------------
-      // Amazon
+      // Amazon (legal / domain name)
       // ----------------------------------------------------------------------
       'amazon-com': 'amazon',
-      'amazon-web-services': 'amazon',
-      'aws': 'amazon',
 
       // ----------------------------------------------------------------------
-      // Apple
+      // Apple (legal name)
       // ----------------------------------------------------------------------
       'apple-inc': 'apple',
       'apple-incorporated': 'apple',
-      'apple-ai': 'apple',
     };
 
     key = aliases[key] ?? key;

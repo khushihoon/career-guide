@@ -1,5 +1,7 @@
 import '../models/home_market_models.dart';
+import 'verified_company_data.dart';
 
+/// career_company_relationship_service.dart
 /// Step 6D — Global Career ↔ Company reference relationship layer.
 ///
 /// IMPORTANT:
@@ -7,13 +9,28 @@ import '../models/home_market_models.dart';
 /// - A company appearing here means the company is relevant to the career
 ///   family in the app's career-discovery model; it does NOT mean the company
 ///   is hiring right now.
-/// - Live openings, verified job-derived skills and salary data remain
-///   separate data concerns and must be connected from verified sources.
+/// - A relationship is NOT evidence for skills, salary or hiring. Live
+///   openings, verified job-derived skills and salary data remain separate
+///   data concerns and must be connected from verified sources.
 ///
 /// The mapping intentionally uses the actual company names available in the
 /// current HomeMarket company directory (for example, "Google DeepMind"
-/// rather than a separate "Google" placeholder). This prevents exact-name
-/// mismatches that previously caused only OpenAI to appear.
+/// rather than a separate "Google" placeholder).
+///
+/// COMPANY IDENTITY (locked):
+/// - Company identity is resolved through the authoritative verified registry
+///   ([VerifiedCompanyData.canonicalIdentity]). This file keeps NO alias table
+///   of its own.
+/// - Only the approved canonicalizations of the registry's ALIAS POLICY apply
+///   (for example Salesforce Einstein → Salesforce, Notion AI → Notion,
+///   Meta AI → Meta, Tesla AI → Tesla). "Microsoft AI" is its own entity and
+///   names such as "Google" are NOT merged with a parent/sibling company here.
+///
+/// CAREER KEYS:
+/// - Map keys are the lower-cased career TITLES used by HomeMarketService
+///   (for example "mlops / ai infrastructure engineer"). A key that does not
+///   match a career title silently produces zero companies, so keys must be
+///   kept in sync with `HomeMarketService.getCareers()` titles.
 class CareerCompanyRelationshipService {
   const CareerCompanyRelationshipService();
 
@@ -45,6 +62,9 @@ class CareerCompanyRelationshipService {
       'Perplexity AI',
       'You.com',
     ],
+    // NOTE: no HomeCareer with the title "Web Developer" exists yet, so this
+    // entry is currently unused. It is kept as curated data for when that
+    // career is added.
     'web developer': [
       'GitHub (Copilot)',
       'Cursor',
@@ -327,7 +347,11 @@ class CareerCompanyRelationshipService {
       'Moveworks',
       'Harvey AI',
     ],
-    'mlops / ai infrastructure': [
+    // Key fixed: must equal the lower-cased HomeCareer title
+    // "MLOps / AI Infrastructure Engineer". The previous key
+    // ("mlops / ai infrastructure") never matched, so this career had zero
+    // companies.
+    'mlops / ai infrastructure engineer': [
       'Microsoft AI',
       'Google DeepMind',
       'Meta AI',
@@ -385,7 +409,10 @@ class CareerCompanyRelationshipService {
       'Meta AI',
       'Sakana AI',
     ],
-    'ai security': [
+    // Key fixed: must equal the lower-cased HomeCareer title
+    // "AI Security Engineer". The previous key ("ai security") never matched,
+    // so this career had zero companies.
+    'ai security engineer': [
       'OpenAI',
       'Anthropic',
       'Google DeepMind',
@@ -403,12 +430,28 @@ class CareerCompanyRelationshipService {
     ],
   };
 
+  /// Canonical company keys per career key, computed once.
+  ///
+  /// Both sides of every comparison (relationship names and directory
+  /// companies) go through [_canonicalCompanyKey], so matching stays
+  /// consistent and cheap.
+  static final Map<String, Set<String>> _careerToCompanyKeys =
+      <String, Set<String>>{
+    for (final entry in _careerToCompanyNames.entries)
+      entry.key: entry.value.map(_canonicalCompanyKey).toSet(),
+  };
+
   List<HomeCompany> companiesForCareer(
     HomeCareer career,
     List<HomeCompany> companies,
   ) {
-    final wanted = _careerToCompanyNames[_key(career.title)] ?? const <String>[];
-    return _resolveCompanies(wanted, companies);
+    final wantedKeys = _careerToCompanyKeys[_key(career.title)];
+
+    if (wantedKeys == null || wantedKeys.isEmpty) {
+      return const <HomeCompany>[];
+    }
+
+    return _resolveCompanies(wantedKeys, companies);
   }
 
   List<HomeCareer> careersForCompany(
@@ -419,8 +462,9 @@ class CareerCompanyRelationshipService {
     final result = <HomeCareer>[];
 
     for (final career in careers) {
-      final names = _careerToCompanyNames[_key(career.title)] ?? const <String>[];
-      if (names.any((name) => _canonicalCompanyKey(name) == companyKey)) {
+      final keys = _careerToCompanyKeys[_key(career.title)];
+
+      if (keys != null && keys.contains(companyKey)) {
         result.add(career);
       }
     }
@@ -429,18 +473,16 @@ class CareerCompanyRelationshipService {
   }
 
   static List<HomeCompany> _resolveCompanies(
-    List<String> wanted,
+    Set<String> wantedKeys,
     List<HomeCompany> companies,
   ) {
-    final wantedKeys = wanted.map(_canonicalCompanyKey).toSet();
+    final seen = <String>{};
     final result = <HomeCompany>[];
 
     for (final company in companies) {
-      if (wantedKeys.contains(_canonicalCompanyKey(company.name)) &&
-          !result.any(
-            (item) =>
-                _canonicalCompanyKey(item.name) == _canonicalCompanyKey(company.name),
-          )) {
+      final key = _canonicalCompanyKey(company.name);
+
+      if (wantedKeys.contains(key) && seen.add(key)) {
         result.add(company);
       }
     }
@@ -448,32 +490,23 @@ class CareerCompanyRelationshipService {
     return result;
   }
 
-  /// Normalizes company aliases so future directory naming changes do not
-  /// silently break the relationship layer.
+  /// Canonical company key.
+  ///
+  /// Identity comes from the authoritative verified registry:
+  /// - verified companies resolve to their canonical company ID;
+  /// - approved canonicalizations resolve to the parent identity (see the
+  ///   registry's ALIAS POLICY, for example Notion AI → notion,
+  ///   Adobe Firefly → adobe);
+  /// - every other name keeps its own normalized name. No other alias is
+  ///   applied.
   static String _canonicalCompanyKey(String value) {
-    var key = _key(value);
+    final identity = VerifiedCompanyData.canonicalIdentity(value);
 
-    const aliases = <String, String>{
-      'google': 'google deepmind',
-      'google ai': 'google deepmind',
-      'deepmind': 'google deepmind',
-      'microsoft': 'microsoft ai',
-      'microsoft ai': 'microsoft ai',
-      'amazon': 'amazon',
-      'aws': 'amazon',
-      'adobe': 'adobe firefly',
-      'nvidia': 'nvidia',
-      'tesla': 'tesla ai',
-      'meta': 'meta ai',
-      'meta ai': 'meta ai',
-      'coreweave': 'coreweave',
-      'coreweave inc': 'coreweave',
-      'salesforce': 'salesforce einstein',
-      'servicenow': 'servicenow ai',
-    };
+    if (identity != null) {
+      return identity.companyId;
+    }
 
-    key = aliases[key] ?? key;
-    return key;
+    return _key(value);
   }
 
   static String _key(String value) =>

@@ -68,6 +68,22 @@ const _text = Color(0xFFF7F8FC);
 // Observed skills come from the normalized evidence pipeline or the explicitly
 // labeled verified reference batch.
 //
+// Internal verification metadata (for example `lastVerified`) is kept in the
+// data layer and is intentionally NOT rendered in this screen.
+//
+// SECTION ORDER (every company, every section always present; a section
+// without evidence shows an explicit "unavailable" state, never a guess):
+//   1. Company identity (hero + verified website / careers links)
+//   2. Connected careers
+//   3. What this company does
+//   4. Engineering / focus areas (+ notable roles when verified)
+//   5. Skills & technologies        \
+//   6. Engineering concepts          |  rendered by
+//   7. Reviewed sources              |  CompanyIntelligenceDynamicPanel
+//   8. Salary intelligence           |
+//   9. Current opportunities         |
+//  10. Data status: reference vs live /
+//
 
 class CompanyIntelligenceScreen extends StatelessWidget {
   static const HomeMarketService _marketService = HomeMarketService();
@@ -146,22 +162,25 @@ class CompanyIntelligenceScreen extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  if (_hasText(description)) ...[
-                    _SectionCard(
-                      icon: Icons.auto_awesome_rounded,
-                      iconColor: _cyan,
-                      title: 'What this company does',
-                      child: Text(
-                        description!.trim(),
-                        style: const TextStyle(
-                          color: _text,
-                          fontSize: 13,
-                          height: 1.55,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                  _SectionCard(
+                    icon: Icons.auto_awesome_rounded,
+                    iconColor: _cyan,
+                    title: 'What this company does',
+                    child: _hasText(description)
+                        ? Text(
+                            description!.trim(),
+                            style: const TextStyle(
+                              color: _text,
+                              fontSize: 13,
+                              height: 1.55,
+                            ),
+                          )
+                        : const _NotConnectedBlock(
+                            message:
+                                'A verified description is not available for this company yet. Nothing is guessed.',
+                          ),
+                  ),
+                  const SizedBox(height: 12),
 
                   if (company.country != null ||
                       _hasText(headquarters)) ...[
@@ -198,50 +217,46 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                   ],
 
-                  if (engineeringAreas.isNotEmpty) ...[
-                    _SectionCard(
-                      icon: Icons.track_changes_rounded,
-                      iconColor: _mint,
-                      title: 'Engineering / focus areas',
-                      child: _ChipWrap(
-                        items: engineeringAreas,
-                        color: _mint,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-
-                  if (roleFamilies.isNotEmpty) ...[
-                    _SectionCard(
-                      icon: Icons.work_outline_rounded,
-                      iconColor: _amber,
-                      title: 'Notable roles',
-                      child: _ChipWrap(
-                        items: roleFamilies,
-                        color: _amber,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                  _SectionCard(
+                    icon: Icons.track_changes_rounded,
+                    iconColor: _mint,
+                    title: 'Engineering / focus areas',
+                    child: (engineeringAreas.isEmpty && roleFamilies.isEmpty)
+                        ? const _NotConnectedBlock(
+                            message:
+                                'Verified engineering or focus areas are not available for this company yet. Nothing is guessed.',
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (engineeringAreas.isNotEmpty)
+                                _ChipWrap(
+                                  items: engineeringAreas,
+                                  color: _mint,
+                                ),
+                              if (engineeringAreas.isNotEmpty &&
+                                  roleFamilies.isNotEmpty)
+                                const SizedBox(height: 14),
+                              if (roleFamilies.isNotEmpty) ...[
+                                const _SkillGroupLabel(
+                                  icon: Icons.work_outline_rounded,
+                                  title: 'Notable roles',
+                                  color: _amber,
+                                ),
+                                const SizedBox(height: 8),
+                                _ChipWrap(
+                                  items: roleFamilies,
+                                  color: _amber,
+                                ),
+                              ],
+                            ],
+                          ),
+                  ),
+                  const SizedBox(height: 12),
 
                   CompanyIntelligenceDynamicPanel(
                     company: company,
                     verifiedFallback: verifiedSkills,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  _SectionCard(
-                    icon: Icons.layers_outlined,
-                    iconColor: _violetBright,
-                    title: 'Data status',
-                    child: const _NotConnectedBlock(
-                      message:
-                          'Reference company information and reviewed skill '
-                          'signals are shown separately from live intelligence. '
-                          'Current jobs and compensation appear only when '
-                          'supported by a normalized source snapshot.',
-                    ),
                   ),
 
                   const SizedBox(height: 14),
@@ -296,11 +311,13 @@ class CompanyIntelligenceScreen extends StatelessWidget {
   }
 
   VerifiedCompanyProfile? get _verifiedProfile {
-    return _verifiedCompanyService.byCompanyName(company.name);
+    return _verifiedCompanyService.find(company.name) ??
+        _verifiedCompanyService.find(company.id);
   }
 
   VerifiedCompanySkillProfile? get _verifiedSkillProfile {
-    return _verifiedSkillsService.byCompanyName(company.name);
+    return _verifiedSkillsService.find(company.name) ??
+        _verifiedSkillsService.find(company.id);
   }
 
   String? get _verifiedDescription {
@@ -316,7 +333,9 @@ class CompanyIntelligenceScreen extends StatelessWidget {
   }
 
   List<String> get _verifiedRoleFamilies {
-    return _verifiedProfile?.roleFamilies ?? company.notableRoles;
+    // Roles come only from the verified profile. Career relationships are
+    // reference links and are shown in "Careers connected to this company".
+    return _verifiedProfile?.roleFamilies ?? const <String>[];
   }
 
   static bool _hasText(String? value) {
@@ -487,9 +506,6 @@ class _VerifiedSourceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final verifiedDate =
-        profile.lastVerified.toIso8601String().split('T').first;
-
     return _SectionCard(
       icon: Icons.verified_rounded,
       iconColor: _mint,
@@ -503,15 +519,6 @@ class _VerifiedSourceCard extends StatelessWidget {
               color: _mint,
               fontSize: 12,
               fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Last verified: $verifiedDate',
-            style: const TextStyle(
-              color: _muted,
-              fontSize: 10.5,
-              height: 1.4,
             ),
           ),
           const SizedBox(height: 12),
@@ -587,9 +594,6 @@ class _VerifiedSkillsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final verifiedDate =
-        profile.lastVerified.toIso8601String().split('T').first;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -660,7 +664,7 @@ class _VerifiedSkillsContent extends StatelessWidget {
               const SizedBox(width: 9),
               Expanded(
                 child: Text(
-                  '${profile.sourceLabel}\nLast verified: $verifiedDate',
+                  profile.sourceLabel,
                   style: const TextStyle(
                     color: _muted,
                     fontSize: 10,

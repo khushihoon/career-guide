@@ -5,6 +5,19 @@ import 'company_reference_registry.dart';
 import 'career_company_relationship_service.dart';
 import 'verified_company_skills_step6e3.dart';
 
+/// Home market service.
+///
+/// COMPANY DIRECTORY RULES (locked):
+/// - `company_reference_registry.dart` defines the Home company universe
+///   (names + evidence metadata).
+/// - `verified_company_data.dart` is the AUTHORITY for canonical identity and
+///   verified reference intelligence. A company is "official / verified" here
+///   ONLY when the verified registry contains it. `sourceChecked` in the
+///   reference registry is evidence metadata, never a verification claim.
+/// - Missing data stays missing (null / empty). No placeholder text is ever
+///   produced as if it were company information.
+/// - Reference data is never live hiring data. Jobs, hiring snapshots and
+///   salaries stay empty until a verified live pipeline provides them.
 class HomeMarketService {
   const HomeMarketService();
 
@@ -13,6 +26,11 @@ class HomeMarketService {
 
   static const VerifiedCompanySkillsService _companySkillsService =
       VerifiedCompanySkillsService();
+
+  /// The company directory is static reference data, so it is built once and
+  /// reused (Home search, lookups and career→company queries all need it).
+  /// A hot RESTART rebuilds it; a hot RELOAD keeps the cached value.
+  static List<HomeCompany>? _companiesCache;
 
   HomeMarketSnapshot getSnapshot() {
     return HomeMarketSnapshot(
@@ -706,45 +724,57 @@ class HomeMarketService {
   // ---------------------------------------------------------------------------
 
   List<HomeCompany> getCompanies() {
-    // The career ↔ company relationship file is the complete reference
-    // universe. The evidence registry supplies source-backed details when
-    // available. Pending companies are still visible as reference entries,
-    // but are explicitly marked as not source-verified yet.
-    final companies = companyReferenceEvidence
+    // The reference registry defines the Home company universe. The verified
+    // registry (authority) supplies verified identity and details. Companies
+    // without verified details stay visible as reference entries with missing
+    // fields left empty.
+    final cached = _companiesCache;
+    if (cached != null) {
+      // Return an independent copy so callers cannot alter the cached list.
+      return List<HomeCompany>.of(cached, growable: false);
+    }
+
+    final built = companyReferenceEvidence
         .map(_toHomeCompanyFromReference)
+        .map(_withCanonicalRelationships)
         .toList(growable: false);
 
-    return companies.map(_withCanonicalRelationships).toList(growable: false);
+    _companiesCache = built;
+
+    return List<HomeCompany>.of(built, growable: false);
   }
 
   HomeCompany _toHomeCompanyFromReference(
     CompanyReferenceEvidence company,
   ) {
-    final sourceUrl = company.careersWebsite.isNotEmpty
-        ? company.careersWebsite
-        : company.officialWebsite;
+    // The verified registry is the authority for "official / verified".
+    // `sourceChecked` is only evidence metadata and never marks a company
+    // as verified.
+    final verified = VerifiedCompanyData.find(company.canonicalName);
 
-    final source = HomeSourceInfo(
-      name: company.sourceChecked
-          ? 'Official company / careers source'
-          : 'Career-company relationship reference',
-      url: sourceUrl,
-      note: company.sourceChecked
-          ? 'Source-backed company reference information. This is not live hiring data.'
-          : 'Company is present in the career relationship map. Official source verification is pending.',
-      isOfficial: company.sourceChecked,
-    );
+    final source = _sourceInfoFor(company, verified);
+
+    final String metaNote;
+    if (verified != null) {
+      metaNote =
+          'Verified reference information. It does not mean the company is hiring now.';
+    } else if (company.sourceChecked) {
+      metaNote =
+          'Reference information from a recorded official source that is not yet verified. It does not mean the company is hiring now.';
+    } else {
+      metaNote =
+          'Relationship reference only. No official company details have been recorded yet.';
+    }
 
     final meta = HomeDataMeta(
       status: HomeDataStatus.reference,
       type: HomeDataType.company,
       source: source,
-      note: company.sourceChecked
-          ? 'Source-backed reference information. It does not mean the company is hiring now.'
-          : 'Relationship reference only. Official company details are still being verified.',
+      note: metaNote,
     );
 
     final companyId = _companyId(company.canonicalName);
+
     final preliminaryCareers = _relationshipService
         .careersForCompany(
           _referenceHomeCompany(
@@ -757,24 +787,68 @@ class HomeMarketService {
         .map((career) => career.id)
         .toList(growable: false);
 
+    // Verified details win; otherwise the recorded (unverified) evidence is
+    // used; otherwise the field stays empty. No placeholder text.
+    final verifiedAreas = verified?.engineeringAreas ?? const <String>[];
+    final areas = verifiedAreas.isNotEmpty
+        ? verifiedAreas
+        : company.evidenceAreas;
+
     return HomeCompany(
       id: companyId,
       name: company.canonicalName,
       country: null,
-      headquarters: null,
-      description: company.description.isNotEmpty
-          ? company.description
-          : 'Company relationship reference. Detailed official profile is pending verification.',
+      headquarters: _nonEmpty(verified?.headquarters),
+      description: _nonEmpty(verified?.description) ??
+          _nonEmpty(company.description),
       logo: null,
-      focusAreas: List<String>.unmodifiable(company.evidenceAreas),
+      focusAreas: List<String>.unmodifiable(areas),
       notableRoles: preliminaryCareers.map(_careerTitle).toList(growable: false),
       relatedCareerIds: preliminaryCareers,
       products: const [],
       industries: const [],
-      engineeringAreas: List<String>.unmodifiable(company.evidenceAreas),
-      website: company.officialWebsite,
-      careersUrl: company.careersWebsite,
+      engineeringAreas: List<String>.unmodifiable(areas),
+      website: _nonEmpty(verified?.officialWebsite) ?? company.officialWebsite,
+      careersUrl:
+          _nonEmpty(verified?.careersWebsite) ?? company.careersWebsite,
       meta: meta,
+    );
+  }
+
+  HomeSourceInfo _sourceInfoFor(
+    CompanyReferenceEvidence company,
+    VerifiedCompanyProfile? verified,
+  ) {
+    if (verified != null) {
+      return HomeSourceInfo(
+        name: verified.sourceLabel,
+        url: _nonEmpty(verified.careersWebsite) ??
+            _nonEmpty(verified.officialWebsite),
+        note:
+            'Verified company reference information. This is not live hiring data.',
+        isOfficial: true,
+      );
+    }
+
+    final recordedUrl = _nonEmpty(company.careersWebsite) ??
+        _nonEmpty(company.officialWebsite);
+
+    if (company.sourceChecked) {
+      return HomeSourceInfo(
+        name: 'Official company source recorded (not yet verified)',
+        url: recordedUrl,
+        note:
+            'An official company source is recorded for this company, but its details have not been promoted to the verified registry yet. This is not live hiring data.',
+        isOfficial: false,
+      );
+    }
+
+    return HomeSourceInfo(
+      name: 'Career-company relationship reference',
+      url: recordedUrl,
+      note:
+          'Company is present in the career relationship map. No official source has been recorded yet.',
+      isOfficial: false,
     );
   }
 
@@ -1165,10 +1239,9 @@ class HomeMarketService {
 
   // ---------------------------------------------------------------------------
   // COMPANY RELATIONSHIP COMPATIBILITY
-  // ---------------------------------------------------------------------------
   //
-  // Canonical Career ↔ Company relationships now live in:
-  // career_company_relationship_service_global.dart
+  // Canonical Career ↔ Company relationships live in:
+  // career_company_relationship_service.dart
   //
   // This compatibility helper remains for companies that have not yet been
   // fully represented by the canonical relationship layer.
@@ -1227,11 +1300,14 @@ class HomeMarketService {
   // COMPANY ID
   // ---------------------------------------------------------------------------
 
+  /// Canonical company ID. The verified registry is the authority; this also
+  /// honours approved profile-less canonicalizations (for example
+  /// Adobe Firefly → Adobe). Unknown companies get a deterministic slug.
   String _companyId(String name) {
-    final verified = VerifiedCompanyData.find(name);
+    final identity = VerifiedCompanyData.canonicalIdentity(name);
 
-    if (verified != null) {
-      return verified.companyId;
+    if (identity != null) {
+      return identity.companyId;
     }
 
     return name
@@ -1267,6 +1343,13 @@ class HomeMarketService {
     final career = getCareerById(id);
 
     return career?.title ?? id;
+  }
+
+  /// Returns the trimmed value, or null when it is null/blank.
+  static String? _nonEmpty(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
   }
 
   static String _normalizeId(String value) {

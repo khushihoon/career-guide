@@ -1,12 +1,78 @@
 /// Career Guide — Verified Company Reference Data
 ///
 /// Evidence-safe registry:
-/// - Only companies with an official source checked in the current verification pass
-///   are included in `_profiles`.
+/// - Only companies with an official source checked in the current verification
+///   pass are included in `_profiles`.
 /// - Skills/roles are only populated when the official career/source material
 ///   supports them.
 /// - Current openings remain LIVE data and are not implied by this registry.
 /// - Do not treat an empty field as a missing guess to be filled automatically.
+///
+/// AUTHORITY (locked):
+/// - This file is the AUTHORITATIVE registry for canonical company identity and
+///   verified reference intelligence.
+/// - `company_verification_queue.dart` is workflow data only and never
+///   overrides this file.
+/// - `sourceChecked` in `company_reference_registry.dart` is evidence metadata,
+///   not an independent authority. On conflict, this registry wins.
+///
+/// ALIAS POLICY (locked; updated 2026-10-08 by explicit owner approval):
+/// - Approved product→company canonicalizations (the product name resolves to
+///   the parent company identity):
+///     Salesforce Einstein   → Salesforce      (profile alias)
+///     ServiceNow AI         → ServiceNow      (profile alias)
+///     Notion AI             → Notion          (profile alias)
+///     Meta AI               → Meta            (profile alias)
+///     Suno AI               → Suno            (profile alias)
+///     Adobe Firefly         → Adobe           (profile-less)
+///     GitHub (Copilot)      → GitHub          (profile-less)
+///     Canva AI              → Canva           (profile-less)
+///     Duolingo Max          → Duolingo        (profile-less)
+///     Khanmigo (Khan Academy) → Khan Academy  (profile-less)
+///     Tesla AI              → Tesla           (profile-less)
+///   Profile-less entries live in `_approvedProfileLessCanonicalizations`.
+///   They give identity only; the parent shows reference data only after the
+///   parent has a verified profile.
+/// - NOT an alias: Microsoft AI. It is its own entity (own official site and
+///   job postings) and is never merged into Microsoft.
+/// - Never add an alias only because of a similar name or URL.
+///
+/// AUDIT NOTE (verification batch 2026-10-05):
+/// - Approved product→company canonicalizations this batch:
+///     Salesforce Einstein → salesforce
+///     ServiceNow AI       → servicenow
+/// - Adobe Firefly → Adobe is APPROVED as a relationship canonicalization,
+///   but Adobe is NOT registered here because no official Adobe-owned evidence
+///   was verified in this batch. Do not create an empty Adobe profile.
+///   The identity (not a profile) is exposed through
+///   [VerifiedCompanyDataService.canonicalIdentity].
+/// - (Superseded on 2026-10-08: Notion AI → Notion and Meta AI → Meta are now
+///   approved, see ALIAS POLICY.)
+/// - The relationship-layer scope (~98 companies) is broader than this
+///   verified registry. Companies not present here remain PENDING_VERIFICATION
+///   and must not be fabricated.
+/// - Companies added with sources that were not actually reviewed have been
+///   removed and returned to the verification queue rather than being
+///   represented as verified.
+///
+/// NOTE ON APPROVED ALIASES:
+/// - "Notion AI", "Meta AI" and "Suno AI" now resolve to the "Notion", "Meta"
+///   and "Suno" profiles. The "Meta" profile cites the Meta AI careers page
+///   (ai.meta.com), which fits the Meta AI alias.
+/// - "GitHub (Copilot)", "Canva AI", "Duolingo Max", "Khanmigo (Khan Academy)",
+///   "Tesla AI" and "Adobe Firefly" resolve to their parent identity, but the
+///   parent has no verified profile yet, so they stay in the verification queue.
+/// - "Microsoft AI" has its OWN profile and is not an alias of "Microsoft".
+///
+/// EVIDENCE BATCH 2026-10-07 (profiles added, each opened and read by hand on
+/// official company pages): Microsoft AI, Luma AI, Letta (MemGPT), Harvey AI,
+/// Pinecone. Fields not confirmed on an official page were left empty.
+///
+/// REGISTRY CONSISTENCY:
+/// - This file lists ONLY companies whose verification claim is supported.
+/// - Any company listed here must NOT appear in
+///   company_verification_queue.dart.
+/// - Any company NOT listed here should appear in the verification queue.
 class VerifiedCompanyProfile {
   final String companyId;
   final String companyName;
@@ -37,10 +103,107 @@ class VerifiedCompanyProfile {
   });
 }
 
+/// Canonical identity of a company as defined by this registry.
+///
+/// This is identity only. It carries no skills, roles, salary or hiring
+/// information and never implies that a verified profile exists
+/// ([hasVerifiedProfile] says so explicitly).
+class CompanyCanonicalIdentity {
+  final String companyId;
+  final String companyName;
+
+  /// True when a verified reference profile exists for this identity.
+  final bool hasVerifiedProfile;
+
+  const CompanyCanonicalIdentity({
+    required this.companyId,
+    required this.companyName,
+    required this.hasVerifiedProfile,
+  });
+}
+
 class VerifiedCompanyDataService {
   const VerifiedCompanyDataService();
 
   static final DateTime _verifiedDate = DateTime(2026, 10, 1);
+  static final DateTime _verifiedOct7 = DateTime(2026, 10, 7);
+
+  /// Approved product→company canonicalizations whose parent company has NO
+  /// verified profile yet (keys are normalized with [_normalize]). See the
+  /// ALIAS POLICY in the file header for the full approved list.
+  ///
+  /// Only explicitly approved entries belong here. Do NOT add an entry only
+  /// because of a similar name or URL, and do NOT create an empty profile to
+  /// represent these companies.
+  static const Map<String, CompanyCanonicalIdentity>
+      _approvedProfileLessCanonicalizations =
+      <String, CompanyCanonicalIdentity>{
+    'adobe_firefly': CompanyCanonicalIdentity(
+      companyId: 'adobe',
+      companyName: 'Adobe',
+      hasVerifiedProfile: false,
+    ),
+    'adobe': CompanyCanonicalIdentity(
+      companyId: 'adobe',
+      companyName: 'Adobe',
+      hasVerifiedProfile: false,
+    ),
+    'github_copilot': CompanyCanonicalIdentity(
+      companyId: 'github',
+      companyName: 'GitHub',
+      hasVerifiedProfile: false,
+    ),
+    'github': CompanyCanonicalIdentity(
+      companyId: 'github',
+      companyName: 'GitHub',
+      hasVerifiedProfile: false,
+    ),
+    'canva_ai': CompanyCanonicalIdentity(
+      companyId: 'canva',
+      companyName: 'Canva',
+      hasVerifiedProfile: false,
+    ),
+    'canva': CompanyCanonicalIdentity(
+      companyId: 'canva',
+      companyName: 'Canva',
+      hasVerifiedProfile: false,
+    ),
+    'duolingo_max': CompanyCanonicalIdentity(
+      companyId: 'duolingo',
+      companyName: 'Duolingo',
+      hasVerifiedProfile: false,
+    ),
+    'duolingo': CompanyCanonicalIdentity(
+      companyId: 'duolingo',
+      companyName: 'Duolingo',
+      hasVerifiedProfile: false,
+    ),
+    'khanmigo_khan_academy': CompanyCanonicalIdentity(
+      companyId: 'khan_academy',
+      companyName: 'Khan Academy',
+      hasVerifiedProfile: false,
+    ),
+    'khanmigo': CompanyCanonicalIdentity(
+      companyId: 'khan_academy',
+      companyName: 'Khan Academy',
+      hasVerifiedProfile: false,
+    ),
+    'khan_academy': CompanyCanonicalIdentity(
+      companyId: 'khan_academy',
+      companyName: 'Khan Academy',
+      hasVerifiedProfile: false,
+    ),
+    'tesla_ai': CompanyCanonicalIdentity(
+      companyId: 'tesla',
+      companyName: 'Tesla',
+      hasVerifiedProfile: false,
+    ),
+    'tesla': CompanyCanonicalIdentity(
+      companyId: 'tesla',
+      companyName: 'Tesla',
+      hasVerifiedProfile: false,
+    ),
+  };
 
   static final List<VerifiedCompanyProfile> _profiles = [
     VerifiedCompanyProfile(
@@ -306,29 +469,6 @@ class VerifiedCompanyDataService {
       lastVerified: _verifiedDate,
     ),
     VerifiedCompanyProfile(
-      companyId: 'tabnine',
-      companyName: 'Tabnine',
-      officialWebsite: 'https://www.tabnine.com',
-      careersWebsite: 'https://www.tabnine.com/careers/',
-      headquarters: '',
-      description: 'AI-assisted software development company.',
-      engineeringAreas: [
-        'AI-assisted Software Development',
-        'Developer Tools',
-      ],
-      roleFamilies: [
-        'AI/Software Engineering',
-      ],
-      sourceLabel: 'Tabnine Careers',
-      sourceUrls: [
-        'https://www.tabnine.com/careers/',
-      ],
-      aliases: [
-        'Tabnine',
-      ],
-      lastVerified: _verifiedDate,
-    ),
-    VerifiedCompanyProfile(
       companyId: 'cognition_ai',
       companyName: 'Cognition AI',
       officialWebsite: 'https://cognition.com',
@@ -375,6 +515,7 @@ class VerifiedCompanyDataService {
       ],
       aliases: [
         'Notion',
+        'Notion AI',
       ],
       lastVerified: _verifiedDate,
     ),
@@ -402,6 +543,7 @@ class VerifiedCompanyDataService {
       ],
       aliases: [
         'Salesforce',
+        'Salesforce Einstein',
       ],
       lastVerified: _verifiedDate,
     ),
@@ -428,6 +570,7 @@ class VerifiedCompanyDataService {
       ],
       aliases: [
         'ServiceNow',
+        'ServiceNow AI',
       ],
       lastVerified: _verifiedDate,
     ),
@@ -452,6 +595,7 @@ class VerifiedCompanyDataService {
       ],
       aliases: [
         'Meta',
+        'Meta AI',
       ],
       lastVerified: _verifiedDate,
     ),
@@ -584,62 +728,7 @@ class VerifiedCompanyDataService {
       ],
       aliases: [
         'Suno',
-      ],
-      lastVerified: _verifiedDate,
-    ),
-    VerifiedCompanyProfile(
-      companyId: 'elevenlabs',
-      companyName: 'ElevenLabs',
-      officialWebsite: 'https://elevenlabs.io',
-      careersWebsite: 'https://elevenlabs.io/careers/positions',
-      headquarters: '',
-      description: 'AI voice and audio technology company.',
-      engineeringAreas: [
-        'AI Audio',
-        'Machine Learning',
-        'Software Engineering',
-        'AI Safety',
-      ],
-      roleFamilies: [
-        'Full-Stack Engineer',
-        'Data Scientist - AI Safety',
-        'Safety Engineer',
-      ],
-      sourceLabel: 'ElevenLabs Careers',
-      sourceUrls: [
-        'https://elevenlabs.io/careers/positions',
-      ],
-      aliases: [
-        'ElevenLabs',
-      ],
-      lastVerified: _verifiedDate,
-    ),
-    VerifiedCompanyProfile(
-      companyId: 'scale_ai',
-      companyName: 'Scale AI',
-      officialWebsite: 'https://scale.com',
-      careersWebsite: 'https://scale.com/careers',
-      headquarters: '',
-      description: 'AI data and infrastructure company supporting AI model development and deployment.',
-      engineeringAreas: [
-        'AI Data',
-        'LLM',
-        'Generative AI',
-        'Computer Vision',
-        'Infrastructure',
-      ],
-      roleFamilies: [
-        'Machine Learning Engineer',
-        'Machine Learning Research Engineer',
-        'Infrastructure Software Engineer',
-        'Software Engineer',
-      ],
-      sourceLabel: 'Scale AI Careers',
-      sourceUrls: [
-        'https://scale.com/careers',
-      ],
-      aliases: [
-        'Scale AI',
+        'Suno AI',
       ],
       lastVerified: _verifiedDate,
     ),
@@ -740,42 +829,13 @@ class VerifiedCompanyDataService {
         'Machine Learning',
         'Research',
       ],
-      roleFamilies: [
-      ],
+      roleFamilies: [],
       sourceLabel: 'AI21 Careers',
       sourceUrls: [
         'https://www.ai21.com/careers/',
       ],
       aliases: [
         'AI21 Labs',
-      ],
-      lastVerified: _verifiedDate,
-    ),
-    VerifiedCompanyProfile(
-      companyId: 'xai',
-      companyName: 'xAI',
-      officialWebsite: 'https://x.ai',
-      careersWebsite: 'https://x.ai/careers/open-roles',
-      headquarters: '',
-      description: 'AI company developing AI systems and related infrastructure.',
-      engineeringAreas: [
-        'AI',
-        'Machine Learning',
-        'Infrastructure',
-        'Software Engineering',
-      ],
-      roleFamilies: [
-        'Machine Learning Engineer',
-        'ML Infrastructure Engineer',
-        'Software Engineer',
-        'Network Engineer',
-      ],
-      sourceLabel: 'xAI Careers',
-      sourceUrls: [
-        'https://x.ai/careers/open-roles',
-      ],
-      aliases: [
-        'xAI',
       ],
       lastVerified: _verifiedDate,
     ),
@@ -839,8 +899,7 @@ class VerifiedCompanyDataService {
         'Data',
         'Precision Medicine',
       ],
-      roleFamilies: [
-      ],
+      roleFamilies: [],
       sourceLabel: 'Tempus Careers',
       sourceUrls: [
         'https://www.tempus.com/careers/',
@@ -914,8 +973,7 @@ class VerifiedCompanyDataService {
         'Machine Learning',
         'Data Quality',
       ],
-      roleFamilies: [
-      ],
+      roleFamilies: [],
       sourceLabel: 'Cleanlab',
       sourceUrls: [
         'https://cleanlab.ai/about/',
@@ -1001,8 +1059,7 @@ class VerifiedCompanyDataService {
         'Enterprise AI',
         'Machine Learning',
       ],
-      roleFamilies: [
-      ],
+      roleFamilies: [],
       sourceLabel: 'DataRobot Careers',
       sourceUrls: [
         'https://www.datarobot.com/careers/',
@@ -1012,7 +1069,148 @@ class VerifiedCompanyDataService {
       ],
       lastVerified: _verifiedDate,
     ),
-
+    VerifiedCompanyProfile(
+      companyId: 'microsoft_ai',
+      companyName: 'Microsoft AI',
+      officialWebsite: 'https://microsoft.ai',
+      careersWebsite: 'https://microsoft.ai/careers/',
+      headquarters: '',
+      description: 'Microsoft\'s AI organization, building the Copilot personal AI and the platform, inference and data systems behind it.',
+      engineeringAreas: [
+        'Software Engineering',
+        'Data Engineering',
+        'AI Platform',
+        'Search',
+        'Browser (Edge)',
+        'Data, Security & Privacy',
+        'Copilot',
+      ],
+      roleFamilies: [
+        'Member of Technical Staff, AI Platform Engineer',
+        'Member of Technical Staff - Data Engineer',
+        'Member of Technical Staff - Principal Data Infrastructure Engineer',
+        'Member of Technical Staff - Software Engineer & Machine Learning',
+        'Senior Software Engineer (Bing GenAI)',
+        'Senior Backend Engineer (Edge)',
+        'Senior Product Manager, Copilot AI',
+      ],
+      sourceLabel: 'Microsoft AI Careers',
+      sourceUrls: [
+        'https://microsoft.ai/job/page/45',
+      ],
+      aliases: [
+        'Microsoft AI',
+      ],
+      lastVerified: _verifiedOct7,
+    ),
+    VerifiedCompanyProfile(
+      companyId: 'luma_ai',
+      companyName: 'Luma AI',
+      officialWebsite: 'https://lumalabs.ai',
+      careersWebsite: 'https://lumalabs.ai/careers',
+      headquarters: 'Redwood City, CA',
+      description: 'Builds multimodal AI that can generate, understand and operate in the physical world.',
+      engineeringAreas: [
+        'Research & AI',
+        'Frontier Research',
+        'Compute',
+        'Engineering',
+        'Product',
+      ],
+      roleFamilies: [
+        'Research Scientist / Engineer - Reinforcement Learning',
+        'Research Scientist - World Model',
+        'Research Scientist / Engineer - Performance Optimization',
+        'Research Scientist / Engineer - Training Infrastructure',
+        'Software Engineer, Inference',
+        'Software Engineer - Data Infrastructure',
+        'Robotics Engineer',
+        'Staff Security Software Engineer',
+      ],
+      sourceLabel: 'Luma Careers',
+      sourceUrls: [
+        'https://lumalabs.ai/careers',
+      ],
+      aliases: [
+        'Luma AI',
+      ],
+      lastVerified: _verifiedOct7,
+    ),
+    VerifiedCompanyProfile(
+      companyId: 'letta_memgpt',
+      companyName: 'Letta (MemGPT)',
+      officialWebsite: 'https://www.letta.com',
+      careersWebsite: 'https://www.letta.com/join-us/',
+      headquarters: 'San Francisco, CA',
+      description: 'Builds experiential AI agents that form memories, forge identity and keep learning.',
+      engineeringAreas: [
+        'Research',
+        'Engineering',
+        'Agent Memory',
+        'Continual Learning',
+      ],
+      roleFamilies: [
+        'Research Engineer / Scientist, Memory',
+        'Research Engineer / Scientist, Post-Training',
+        'Research Engineer / Scientist, Self-Improvement',
+        'Software Engineer, Agent Harness',
+      ],
+      sourceLabel: 'Letta Careers',
+      sourceUrls: [
+        'https://www.letta.com/join-us/',
+      ],
+      aliases: [
+        'Letta (MemGPT)',
+      ],
+      lastVerified: _verifiedOct7,
+    ),
+    VerifiedCompanyProfile(
+      companyId: 'harvey_ai',
+      companyName: 'Harvey AI',
+      officialWebsite: 'https://www.harvey.ai',
+      careersWebsite: 'https://www.harvey.ai/careers',
+      headquarters: '',
+      description: 'AI platform for law firms, in-house legal teams and professional services.',
+      engineeringAreas: [],
+      roleFamilies: [],
+      sourceLabel: 'Harvey Careers',
+      sourceUrls: [
+        'https://www.harvey.ai/careers',
+      ],
+      aliases: [
+        'Harvey AI',
+      ],
+      lastVerified: _verifiedOct7,
+    ),
+    VerifiedCompanyProfile(
+      companyId: 'pinecone',
+      companyName: 'Pinecone',
+      officialWebsite: 'https://www.pinecone.io',
+      careersWebsite: 'https://www.pinecone.io/careers/',
+      headquarters: 'New York, NY',
+      description: 'Knowledge infrastructure for AI: a vector database and knowledge engine for AI applications.',
+      engineeringAreas: [
+        'Databases',
+        'Cloud Infrastructure',
+        'Search',
+        'Information Retrieval',
+        'AI',
+      ],
+      roleFamilies: [
+        'Senior/Staff Software Engineer, Database Team',
+        'Senior/Staff Software Engineer, Search & Retrieval Infrastructure',
+        'Senior/Staff Software Engineer, Experience Platform',
+        'Staff/Principal Product Manager, Database',
+      ],
+      sourceLabel: 'Pinecone Careers',
+      sourceUrls: [
+        'https://www.pinecone.io/careers/',
+      ],
+      aliases: [
+        'Pinecone',
+      ],
+      lastVerified: _verifiedOct7,
+    ),
   ];
 
   List<VerifiedCompanyProfile> get all => List.unmodifiable(_profiles);
@@ -1061,6 +1259,31 @@ class VerifiedCompanyDataService {
 
   bool isVerified(String value) => find(value) != null;
 
+  /// Returns the canonical identity of a company, or null when the value is
+  /// neither a verified company (by ID, name or approved alias) nor an
+  /// approved profile-less canonicalization (for example Adobe Firefly →
+  /// Adobe).
+  ///
+  /// This is the single place other layers (relationship layer, company
+  /// intelligence IDs, cache keys) should ask for canonical identity, instead
+  /// of keeping their own alias tables. It returns identity only; it never
+  /// implies skills, roles, salary or hiring evidence.
+  CompanyCanonicalIdentity? canonicalIdentity(String value) {
+    final key = _normalize(value);
+    if (key.isEmpty) return null;
+
+    final profile = find(key);
+    if (profile != null) {
+      return CompanyCanonicalIdentity(
+        companyId: profile.companyId,
+        companyName: profile.companyName,
+        hasVerifiedProfile: true,
+      );
+    }
+
+    return _approvedProfileLessCanonicalizations[key];
+  }
+
   DateTime? lastVerified(String value) => find(value)?.lastVerified;
 
   List<String> sourceUrlsFor(String value) {
@@ -1094,6 +1317,11 @@ class VerifiedCompanyData {
   static VerifiedCompanyProfile? find(String value) => _service.find(value);
 
   static bool isVerified(String value) => _service.isVerified(value);
+
+  /// Canonical identity (verified company or approved profile-less
+  /// canonicalization such as Adobe Firefly → Adobe). Identity only.
+  static CompanyCanonicalIdentity? canonicalIdentity(String value) =>
+      _service.canonicalIdentity(value);
 
   static DateTime? lastVerified(String value) => _service.lastVerified(value);
 

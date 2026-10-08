@@ -9,6 +9,21 @@ import 'company_intelligence_models.dart';
 /// The extracted signals represent observed evidence from the supplied
 /// postings. They are not a replacement for the verified reference skill
 /// profiles.
+///
+/// MATCHING RULES (truth rules):
+/// - Every term is matched as a WHOLE WORD / phrase (never as a substring), so
+///   "java" does not match "javascript", "rag" does not match "leverage" or
+///   "storage", "git" does not match "digital", "rust" does not match "trust",
+///   "aws" does not match "laws", "scala" does not match "scalable".
+/// - A trailing plural "s" is accepted ("LLMs", "REST APIs").
+/// - Hyphens are treated as spaces ("fine-tuning" = "fine tuning").
+/// - HTML tags/entities and URLs are removed before matching, so markup or a
+///   link such as github.com/... never creates a skill.
+/// - Ambiguous everyday words are NOT used as bare terms ("swift", "spark",
+///   "ray"). They count only in an unambiguous form (for example "SwiftUI",
+///   "Apache Spark", "Ray Serve").
+/// - Evidence URLs point to the specific posting when it has an apply URL,
+///   otherwise to the source URL.
 class CompanySkillExtractionService {
   const CompanySkillExtractionService();
 
@@ -25,7 +40,9 @@ class CompanySkillExtractionService {
     'sql': 'SQL',
     'scala': 'Scala',
     'kotlin': 'Kotlin',
-    'swift': 'Swift',
+    'swiftui': 'Swift',
+    'swift programming': 'Swift',
+    'swift language': 'Swift',
     'machine learning': 'Machine Learning',
     'deep learning': 'Deep Learning',
     'computer vision': 'Computer Vision',
@@ -60,7 +77,10 @@ class CompanySkillExtractionService {
     'azure': 'Azure',
     'google cloud': 'Google Cloud',
     'gcp': 'Google Cloud',
-    'spark': 'Apache Spark',
+    'apache spark': 'Apache Spark',
+    'pyspark': 'Apache Spark',
+    'spark sql': 'Apache Spark',
+    'spark streaming': 'Apache Spark',
     'kafka': 'Apache Kafka',
     'postgresql': 'PostgreSQL',
     'mysql': 'MySQL',
@@ -76,7 +96,12 @@ class CompanySkillExtractionService {
     'retrieval augmented generation': 'RAG',
     'vector database': 'Vector Databases',
     'vector search': 'Vector Search',
-    'ray': 'Ray',
+    'ray serve': 'Ray',
+    'ray train': 'Ray',
+    'ray tune': 'Ray',
+    'ray data': 'Ray',
+    'ray cluster': 'Ray',
+    'ray core': 'Ray',
     'slurm': 'Slurm',
     'langchain': 'LangChain',
     'llamaindex': 'LlamaIndex',
@@ -108,6 +133,9 @@ class CompanySkillExtractionService {
     'gpu': 'GPU Computing',
   };
 
+  /// Compiled whole-word patterns, built once per term.
+  static final Map<String, RegExp> _patterns = <String, RegExp>{};
+
   CompanySkillExtractionResult extract(
     Iterable<NormalizedJobPosting> postings, {
     DateTime? observedAt,
@@ -121,10 +149,12 @@ class CompanySkillExtractionService {
 
     for (final posting in postingList) {
       final searchable = _normalize(
-        '${posting.title}\n'
-        '${posting.description}\n'
-        '${posting.department ?? ''}\n'
-        '${posting.team ?? ''}',
+        _plainText(
+          '${posting.title}\n'
+          '${posting.description}\n'
+          '${posting.department ?? ''}\n'
+          '${posting.team ?? ''}',
+        ),
       );
 
       if (searchable.isEmpty) continue;
@@ -180,11 +210,12 @@ class CompanySkillExtractionService {
 
       evidence.add(
         posting.id,
-        posting.sourceUrl,
+        _evidenceUrl(posting),
       );
     }
   }
 
+  /// Whole-word / whole-phrase match. A trailing plural "s" is accepted.
   bool _containsTerm(
     String text,
     String term,
@@ -195,17 +226,49 @@ class CompanySkillExtractionService {
       return false;
     }
 
-    // Short terms such as "go", "c++", or "c#" need boundary matching
-    // to reduce accidental substring matches.
-    if (normalizedTerm.length <= 2) {
-      return RegExp(
+    final pattern = _patterns.putIfAbsent(
+      normalizedTerm,
+      () => RegExp(
         r'(?<![a-z0-9])' +
             RegExp.escape(normalizedTerm) +
-            r'(?![a-z0-9])',
-      ).hasMatch(text);
+            r'(?:s)?(?![a-z0-9])',
+      ),
+    );
+
+    return pattern.hasMatch(text);
+  }
+
+  /// Evidence points to the specific posting when possible.
+  String _evidenceUrl(NormalizedJobPosting posting) {
+    final apply = posting.applyUrl?.trim();
+
+    if (apply != null && apply.isNotEmpty) {
+      return apply;
     }
 
-    return text.contains(normalizedTerm);
+    return posting.sourceUrl;
+  }
+
+  /// Converts raw posting text (possibly HTML or escaped HTML) into plain
+  /// text: decodes entities, removes tags, decodes again, removes URLs.
+  String _plainText(String value) {
+    var text = _decodeEntities(value);
+    text = text.replaceAll(RegExp(r'<[^>]*>'), ' ');
+    text = _decodeEntities(text);
+    text = text.replaceAll(RegExp(r'https?://\S+'), ' ');
+    text = text.replaceAll(RegExp(r'www\.\S+'), ' ');
+    return text;
+  }
+
+  String _decodeEntities(String value) {
+    return value
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&#x27;', "'")
+        .replaceAll('&amp;', '&');
   }
 
   String _normalize(String value) {
@@ -215,6 +278,7 @@ class CompanySkillExtractionService {
           RegExp(r'[\u2010-\u2015]'),
           '-',
         )
+        .replaceAll('-', ' ')
         .replaceAll(
           RegExp(r'\s+'),
           ' ',
@@ -243,9 +307,12 @@ class CompanySkillExtractionService {
       );
     }).toList();
 
-    result.sort(
-      (a, b) => b.evidenceCount.compareTo(a.evidenceCount),
-    );
+    // Most evidenced first; ties are ordered by name so the result is stable.
+    result.sort((a, b) {
+      final byCount = b.evidenceCount.compareTo(a.evidenceCount);
+      if (byCount != 0) return byCount;
+      return a.normalizedName.compareTo(b.normalizedName);
+    });
 
     return List.unmodifiable(result);
   }

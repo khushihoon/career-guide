@@ -1,3 +1,4 @@
+import 'company_intelligence_ids.dart';
 import 'company_intelligence_models.dart';
 import 'company_skill_extraction_service.dart';
 import 'verified_company_data.dart';
@@ -13,12 +14,23 @@ import 'verified_company_data.dart';
 /// - Live/observed evidence remains separate from verified reference data.
 /// - The canonical company registry is used only to normalize company identity.
 /// - Existing public API and behavior are preserved.
+///
+/// TRUTH RULES ADDED IN THIS REVISION:
+/// - Role families are detected with WHOLE-WORD phrase matching on the posting
+///   title (never substring), so "Product Manager, Retail" is not an AI
+///   product role and "HTML Developer" is not an ML role.
+/// - Duplicate postings (same posting ID) are counted once.
+/// - A compensation entry without a currency is dropped: a number without a
+///   currency is ambiguous and is never presented as salary.
 class CompanyIntelligenceEngine {
   final CompanySkillExtractionService skillExtractor;
 
   const CompanyIntelligenceEngine({
     this.skillExtractor = const CompanySkillExtractionService(),
   });
+
+  /// Compiled whole-word phrase patterns, built once per phrase.
+  static final Map<String, RegExp> _phrasePatterns = <String, RegExp>{};
 
   CompanyIntelligenceSnapshot buildSnapshot({
     required String companyId,
@@ -29,8 +41,10 @@ class CompanyIntelligenceEngine {
   }) {
     final now = generatedAt ?? DateTime.now();
 
+    final uniquePostings = _uniquePostings(postings);
+
     final extraction = skillExtractor.extract(
-      postings,
+      uniquePostings,
       observedAt: now,
     );
 
@@ -42,12 +56,12 @@ class CompanyIntelligenceEngine {
     return CompanyIntelligenceSnapshot(
       companyId: canonicalIdentity.companyId,
       companyName: canonicalIdentity.companyName,
-      status: postings.isNotEmpty
+      status: uniquePostings.isNotEmpty
           ? CompanyIntelligenceDataStatus.live
           : CompanyIntelligenceDataStatus.unavailable,
 
       // These are observed from normalized live postings only.
-      roles: _roleFamilies(postings),
+      roles: _roleFamilies(uniquePostings),
 
       skills: extraction.skills
           .map((item) => item.normalizedName)
@@ -61,40 +75,67 @@ class CompanyIntelligenceEngine {
           .map((item) => item.normalizedName)
           .toList(growable: false),
 
-      compensation: _compensation(postings),
+      compensation: _compensation(uniquePostings),
 
-      liveJobs: List.unmodifiable(postings),
+      liveJobs: List.unmodifiable(uniquePostings),
 
       sources: List.unmodifiable(sources),
 
       generatedAt: now,
 
-      oldestEvidenceAt: _oldest(postings),
+      oldestEvidenceAt: _oldest(uniquePostings),
 
-      newestEvidenceAt: _newest(postings),
+      newestEvidenceAt: _newest(uniquePostings),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // DUPLICATE POSTINGS
+  // ---------------------------------------------------------------------------
+
+  List<NormalizedJobPosting> _uniquePostings(
+    List<NormalizedJobPosting> postings,
+  ) {
+    final seen = <String>{};
+    final result = <NormalizedJobPosting>[];
+
+    for (final posting in postings) {
+      final id = posting.id.trim();
+
+      // A posting without an ID cannot be de-duplicated, so it is kept.
+      if (id.isEmpty || seen.add(id)) {
+        result.add(posting);
+      }
+    }
+
+    return result;
   }
 
   // ---------------------------------------------------------------------------
   // CANONICAL COMPANY IDENTITY
   // ---------------------------------------------------------------------------
   //
-  // The verified company registry is the canonical identity layer.
+  // The authoritative verified registry is the canonical identity layer
+  // (VerifiedCompanyData.canonicalIdentity).
   //
-  // Example:
-  //   "Google DeepMind" -> google_deepmind / Google DeepMind
-  //   "Microsoft AI"    -> microsoft / Microsoft
-  //   "AWS"             -> amazon / Amazon
+  // Examples:
+  //   "Google DeepMind"  -> google_deepmind / Google DeepMind
+  //   "Salesforce Einstein" -> salesforce / Salesforce   (approved)
+  //   "Adobe Firefly"    -> adobe / Adobe                (approved)
+  //
+  // "Microsoft AI" is NOT merged into "Microsoft" (alias not approved); it
+  // keeps its own identity like any other unknown company.
   //
   // Unknown companies are NOT invented or forced into the registry.
-  // Their supplied identity is preserved.
+  // Their supplied identity is preserved, with the ID normalized by
+  // CompanyIntelligenceIds so every layer uses the same ID format.
   // ---------------------------------------------------------------------------
 
   _CanonicalCompanyIdentity _canonicalCompanyIdentity({
     required String companyId,
     required String companyName,
   }) {
-    final byId = VerifiedCompanyData.find(companyId);
+    final byId = VerifiedCompanyData.canonicalIdentity(companyId);
 
     if (byId != null) {
       return _CanonicalCompanyIdentity(
@@ -103,7 +144,7 @@ class CompanyIntelligenceEngine {
       );
     }
 
-    final byName = VerifiedCompanyData.find(companyName);
+    final byName = VerifiedCompanyData.canonicalIdentity(companyName);
 
     if (byName != null) {
       return _CanonicalCompanyIdentity(
@@ -116,13 +157,13 @@ class CompanyIntelligenceEngine {
 
     if (safeId.isNotEmpty) {
       return _CanonicalCompanyIdentity(
-        companyId: safeId,
+        companyId: CompanyIntelligenceIds.fromIdOrName(safeId),
         companyName: companyName.trim(),
       );
     }
 
     return _CanonicalCompanyIdentity(
-      companyId: _normalizeFallbackId(companyName),
+      companyId: CompanyIntelligenceIds.fromCompanyName(companyName),
       companyName: companyName.trim(),
     );
   }
@@ -131,7 +172,7 @@ class CompanyIntelligenceEngine {
   // ROLE FAMILY DETECTION
   // ---------------------------------------------------------------------------
   //
-  // Deterministic title-based detection only.
+  // Deterministic title-based detection only, using whole-word phrases.
   //
   // The engine does NOT claim that a company hires for a role unless the
   // normalized live posting title actually contains a matching signal.
@@ -157,6 +198,7 @@ class CompanyIntelligenceEngine {
         title,
         const [
           'software engineer',
+          'software engineering',
           'software developer',
           'software development engineer',
           'application engineer',
@@ -182,6 +224,7 @@ class CompanyIntelligenceEngine {
         title,
         const [
           'machine learning engineer',
+          'machine learning engineering',
           'machine learning scientist',
           'machine learning developer',
           'ml engineer',
@@ -200,6 +243,7 @@ class CompanyIntelligenceEngine {
         title,
         const [
           'ai engineer',
+          'ai engineering',
           'ai developer',
           'artificial intelligence engineer',
           'artificial intelligence developer',
@@ -309,7 +353,6 @@ class CompanyIntelligenceEngine {
           'ai research',
           'machine learning research',
           'machine learning researcher',
-          'research scientist',
         ],
       )) {
         result.add('AI Researcher');
@@ -328,7 +371,12 @@ class CompanyIntelligenceEngine {
           'machine learning platform',
           'machine learning infrastructure',
           'ai infrastructure',
+          'ai infra',
+          'ai platform',
           'ai platform engineer',
+          'ml infrastructure',
+          'ml infra',
+          'ml platform',
           'ml infrastructure engineer',
         ],
       )) {
@@ -367,15 +415,16 @@ class CompanyIntelligenceEngine {
           'ml product manager',
           'generative ai product manager',
           'llm product manager',
-        ])) {
+        ],
+      )) {
         result.add('AI Product Manager');
       } else if (_containsAny(
-        title,
-        const [
-          'product manager',
-          'product management',
-        ],
-      ) &&
+            title,
+            const [
+              'product manager',
+              'product management',
+            ],
+          ) &&
           _containsAny(
             title,
             const [
@@ -419,6 +468,7 @@ class CompanyIntelligenceEngine {
         title,
         const [
           'security engineer',
+          'security engineering',
           'cybersecurity engineer',
           'cyber security engineer',
           'application security engineer',
@@ -444,27 +494,6 @@ class CompanyIntelligenceEngine {
       )) {
         result.add('Prompt Engineer');
       }
-
-      // -----------------------------------------------------------------------
-      // AI / ML Infrastructure
-      //
-      // Some infrastructure titles don't explicitly contain "ML" but still
-      // describe AI infrastructure. Only explicit AI-related signals qualify.
-      // -----------------------------------------------------------------------
-
-      if (_containsAny(
-        title,
-        const [
-          'ai infrastructure',
-          'ai infra',
-          'ml infrastructure',
-          'ml infra',
-          'ai platform',
-          'ml platform',
-        ],
-      )) {
-        result.add('MLOps / AI Infrastructure');
-      }
     }
 
     return result.toList(growable: false);
@@ -481,7 +510,10 @@ class CompanyIntelligenceEngine {
       postings
           .map((posting) => posting.compensation)
           .whereType<CompanyCompensation>()
-          .where((item) => item.hasNumericRange),
+          .where(
+            (item) =>
+                item.hasNumericRange && item.currency.trim().isNotEmpty,
+          ),
     );
   }
 
@@ -527,12 +559,23 @@ class CompanyIntelligenceEngine {
   // TEXT HELPERS
   // ---------------------------------------------------------------------------
 
+  /// True when [value] contains any candidate as a WHOLE WORD / phrase.
+  /// A trailing plural "s" is accepted ("engineers").
   bool _containsAny(
     String value,
     List<String> candidates,
   ) {
     for (final candidate in candidates) {
-      if (value.contains(candidate)) {
+      final pattern = _phrasePatterns.putIfAbsent(
+        candidate,
+        () => RegExp(
+          r'(?<![a-z0-9])' +
+              RegExp.escape(candidate) +
+              r'(?:s)?(?![a-z0-9])',
+        ),
+      );
+
+      if (pattern.hasMatch(value)) {
         return true;
       }
     }
@@ -546,16 +589,6 @@ class CompanyIntelligenceEngine {
         .toLowerCase()
         .replaceAll(RegExp(r'[\-_\/]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ');
-  }
-
-  String _normalizeFallbackId(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll('&', 'and')
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
-        .replaceAll(RegExp(r'^_|_$'), '');
   }
 }
 

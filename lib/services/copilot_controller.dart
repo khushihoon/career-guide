@@ -612,9 +612,19 @@ class CopilotController extends ChangeNotifier {
       } else {
         debugPrint('⚠️  CopilotController: No API key — using mock data');
 
+        // Fetch real, non-fabricated per-topic evidence BEFORE generating
+        // gaps, so a genuinely completed "Fix This Gap" course actually
+        // closes the gap it was meant to close — see the bug-fix note on
+        // _mockGapsFor for the full explanation of why this was missing.
+        final topicEvidence = await _fetchDemonstratedTopicEvidence(
+          profile.uid,
+          activeCareerId,
+        );
+
         gaps = canReuseExisting
             ? existingContext.state.skillGaps
-            : _mockGapsFor(profile, context: _copilotContext);
+            : _mockGapsFor(profile,
+                context: _copilotContext, topicEvidence: topicEvidence);
         if (!canReuseExisting) {
           await CopilotFirestoreService.saveSkillGaps(
             profile.uid,
