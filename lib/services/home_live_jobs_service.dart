@@ -212,25 +212,34 @@ class HomeLiveJobsService {
   // --------------------------------------------------------------------------
 
   static const List<LiveJobBoardConfig> _boards = [
-    // Example structure:
-    //
-    // LiveJobBoardConfig(
-    //   company: 'Company Name',
-    //   boardSlug: 'verified-board-slug',
-    //   source: LiveJobSourceType.greenhouse,
-    // ),
-    //
-    // LiveJobBoardConfig(
-    //   company: 'Company Name',
-    //   boardSlug: 'verified-board-slug',
-    //   source: LiveJobSourceType.ashby,
-    // ),
-    //
-    // LiveJobBoardConfig(
-    //   company: 'Company Name',
-    //   boardSlug: 'verified-board-slug',
-    //   source: LiveJobSourceType.lever,
-    // ),
+    // These five boards are already represented in the project's approved
+    // Company Intelligence live-source catalog. Keep this list limited to
+    // those approved source identities; do not infer board slugs from names.
+    LiveJobBoardConfig(
+      company: 'OpenAI',
+      boardSlug: 'openai',
+      source: LiveJobSourceType.ashby,
+    ),
+    LiveJobBoardConfig(
+      company: 'Gamma',
+      boardSlug: 'gamma',
+      source: LiveJobSourceType.ashby,
+    ),
+    LiveJobBoardConfig(
+      company: 'Luma AI',
+      boardSlug: 'lumaai',
+      source: LiveJobSourceType.ashby,
+    ),
+    LiveJobBoardConfig(
+      company: 'Letta',
+      boardSlug: 'letta',
+      source: LiveJobSourceType.ashby,
+    ),
+    LiveJobBoardConfig(
+      company: 'Together AI',
+      boardSlug: 'togetherai',
+      source: LiveJobSourceType.greenhouse,
+    ),
   ];
 
   // --------------------------------------------------------------------------
@@ -241,6 +250,7 @@ class HomeLiveJobsService {
     int maxJobsPerCompany = 50,
   }) async {
     final fetchedAt = DateTime.now().toUtc();
+    final safeMaxJobsPerCompany = maxJobsPerCompany.clamp(1, 100).toInt();
 
     if (_boards.isEmpty) {
       return LiveJobsResult(
@@ -257,7 +267,7 @@ class HomeLiveJobsService {
       _boards.map(
         (board) => _fetchBoard(
           board,
-          maxJobs: maxJobsPerCompany,
+          maxJobs: safeMaxJobsPerCompany,
         ),
       ),
     );
@@ -322,7 +332,7 @@ class HomeLiveJobsService {
       }
     } catch (_) {
       return _BoardFetchResult.failure(
-        sourceName: _sourceLabel(board.source),
+        sourceName: _boardLabel(board),
       );
     }
   }
@@ -345,7 +355,7 @@ class HomeLiveJobsService {
 
     if (response.statusCode != 200) {
       return _BoardFetchResult.failure(
-        sourceName: 'Greenhouse',
+        sourceName: _boardLabel(board),
       );
     }
 
@@ -353,17 +363,16 @@ class HomeLiveJobsService {
 
     if (decoded is! Map<String, dynamic>) {
       return _BoardFetchResult.failure(
-        sourceName: 'Greenhouse',
+        sourceName: _boardLabel(board),
       );
     }
 
     final jobs = decoded['jobs'];
 
     if (jobs is! List) {
-      return _BoardFetchResult.success(
-        sourceName: 'Greenhouse',
-        jobs: const [],
-      );
+      // A valid empty list means no roles were returned. A missing or
+      // wrong-typed field means the provider contract was not understood.
+      return _BoardFetchResult.failure(sourceName: _boardLabel(board));
     }
 
     final output = <LiveJobOpportunity>[];
@@ -382,7 +391,7 @@ class HomeLiveJobsService {
     }
 
     return _BoardFetchResult.success(
-      sourceName: 'Greenhouse',
+      sourceName: _boardLabel(board),
       jobs: output,
     );
   }
@@ -463,17 +472,14 @@ class HomeLiveJobsService {
 
     if (response.statusCode != 200) {
       return _BoardFetchResult.failure(
-        sourceName: 'Lever',
+        sourceName: _boardLabel(board),
       );
     }
 
     final decoded = jsonDecode(response.body);
 
     if (decoded is! List) {
-      return _BoardFetchResult.success(
-        sourceName: 'Lever',
-        jobs: const [],
-      );
+      return _BoardFetchResult.failure(sourceName: _boardLabel(board));
     }
 
     final output = <LiveJobOpportunity>[];
@@ -492,7 +498,7 @@ class HomeLiveJobsService {
     }
 
     return _BoardFetchResult.success(
-      sourceName: 'Lever',
+      sourceName: _boardLabel(board),
       jobs: output,
     );
   }
@@ -615,7 +621,7 @@ class HomeLiveJobsService {
 
     if (response.statusCode != 200) {
       return _BoardFetchResult.failure(
-        sourceName: 'Ashby',
+        sourceName: _boardLabel(board),
       );
     }
 
@@ -623,17 +629,16 @@ class HomeLiveJobsService {
 
     if (decoded is! Map<String, dynamic>) {
       return _BoardFetchResult.failure(
-        sourceName: 'Ashby',
+        sourceName: _boardLabel(board),
       );
     }
 
     final jobs = decoded['jobs'];
 
     if (jobs is! List) {
-      return _BoardFetchResult.success(
-        sourceName: 'Ashby',
-        jobs: const [],
-      );
+      // A valid empty list means no roles were returned. A missing or
+      // wrong-typed field means the provider contract was not understood.
+      return _BoardFetchResult.failure(sourceName: _boardLabel(board));
     }
 
     final output = <LiveJobOpportunity>[];
@@ -652,7 +657,7 @@ class HomeLiveJobsService {
     }
 
     return _BoardFetchResult.success(
-      sourceName: 'Ashby',
+      sourceName: _boardLabel(board),
       jobs: output,
     );
   }
@@ -722,16 +727,43 @@ class HomeLiveJobsService {
   // HTTP
   // ==========================================================================
 
+  String _boardLabel(LiveJobBoardConfig board) =>
+      '${board.company} (${_sourceLabel(board.source)})';
+
+  /// Retries only transient network failures and transient HTTP statuses.
+  /// A single bad board must not prevent other configured boards from loading.
   Future<http.Response> _get(Uri uri) async {
-    return _client
-        .get(
-          uri,
-          headers: const {
-            'Accept': 'application/json',
-            'User-Agent': 'CareerGuide/1.0',
-          },
-        )
-        .timeout(_requestTimeout);
+    const maxAttempts = 3;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await _client
+            .get(
+              uri,
+              headers: const {
+                'Accept': 'application/json',
+                'User-Agent': 'CareerGuide/1.0',
+              },
+            )
+            .timeout(_requestTimeout);
+
+        final transientStatus = response.statusCode == 408 ||
+            response.statusCode == 429 ||
+            (response.statusCode >= 500 && response.statusCode <= 599);
+
+        if (!transientStatus || attempt == maxAttempts) {
+          return response;
+        }
+      } on TimeoutException {
+        if (attempt == maxAttempts) rethrow;
+      } on http.ClientException {
+        if (attempt == maxAttempts) rethrow;
+      }
+
+      await Future<void>.delayed(Duration(milliseconds: 300 * attempt));
+    }
+
+    throw StateError('HTTP retry loop ended unexpectedly.');
   }
 
   // ==========================================================================

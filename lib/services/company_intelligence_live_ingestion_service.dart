@@ -1,44 +1,17 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
-import 'company_intelligence_ids.dart';
 import 'company_intelligence_live_source_catalog.dart';
 import 'company_intelligence_models.dart';
 import 'company_intelligence_service.dart';
 
 /// Step 6E-4 — Live source ingestion bridge.
 ///
-/// Flutter does not fetch arbitrary ATS/provider endpoints directly. Instead,
-/// the development/production ingestion endpoint fetches the permitted source
-/// and returns a small, validated envelope containing the provider payload.
-///
-/// The provider payload is then passed through the existing 6E-4 repository:
-///
-/// source payload
-///   -> provider adapter
-///   -> normalized postings
-///   -> deterministic extraction
-///   -> CompanyIntelligenceSnapshot
-///   -> local cache
-///   -> UI
-///
-/// TRUST RULES (the backend is a courier, not an authority):
-/// - Which source is used, its type, URL, label and its "official" /
-///   "supports live jobs" / "supports compensation" flags come ONLY from the
-///   app's own source catalog. Values in the backend envelope never override
-///   them.
-/// - The envelope must be for the requested company; otherwise it is rejected.
-/// - The payload must be recent ([maxPayloadAge]). An old payload is rejected,
-///   so a stale backend copy can never be presented as live data.
-/// - Outside local development the backend must use HTTPS.
-///
-/// BACKEND URL:
-/// The backend address is read from the build-time setting
-/// `CAREER_GUIDE_BACKEND_URL` (pass it with
-/// `--dart-define=CAREER_GUIDE_BACKEND_URL=https://your-host`). When it is not
-/// set, the local development address is used. A released app must always be
-/// built with an HTTPS address: on a phone `localhost` means the phone itself.
+/// Phase 1 enforces the server/client contract and fails closed when identity,
+/// source, payload, or freshness metadata cannot be validated.
 class CompanyIntelligenceLiveIngestionService {
   final CompanyIntelligenceService intelligenceService;
   final CompanyIntelligenceLiveSourceCatalog sourceCatalog;
@@ -48,22 +21,16 @@ class CompanyIntelligenceLiveIngestionService {
     this.sourceCatalog = const CompanyIntelligenceLiveSourceCatalog(),
   });
 
-  /// Backend used by the ingestion service.
-  ///
-  /// The server contract used by this service is:
-  ///   GET  /health
-  ///   POST /ingest
-  ///   POST /ingest/source
-  ///
-  /// This service uses POST /ingest/source because the backend is responsible
-  /// for fetching the configured public company source.
+  /// Set in a release build with:
+  /// --dart-define=CAREER_GUIDE_BACKEND_URL=https://your-api.example.com
   static const String developmentBackendBaseUrl = String.fromEnvironment(
     'CAREER_GUIDE_BACKEND_URL',
     defaultValue: 'http://localhost:8091',
   );
 
-  /// A payload fetched longer ago than this is not treated as live.
+  static const Duration requestTimeout = Duration(seconds: 55);
   static const Duration maxPayloadAge = Duration(hours: 6);
+  static const Duration allowedFutureSkew = Duration(minutes: 5);
 
   Future<CompanyIntelligenceSnapshot?> refreshCompany(
     String companyName, {
@@ -72,90 +39,93 @@ class CompanyIntelligenceLiveIngestionService {
     final config = sourceCatalog.forCompanyName(companyName);
     if (config == null) return null;
 
-    final baseUrl = _cleanBaseUrl(backendBaseUrl);
-
-    if (!_isAllowedBackend(baseUrl)) {
-      throw StateError(
-        'Company Intelligence backend must use HTTPS '
-        '(plain HTTP is allowed only for local development).',
-      );
-    }
-
-    final endpoint = Uri.parse(
-      '$baseUrl/ingest/source',
-    );
-
+    final baseUrl = _validatedBackendBaseUrl(backendBaseUrl);
+    final endpoint = Uri.parse('$baseUrl/ingest/source');
     final client = http.Client();
 
     try {
-      final requestBody = <String, dynamic>{
-        'companyId': config.companyId,
-        'companyName': config.companyName,
-        'sourceType': config.sourceType.name,
-        'sourceUrl': config.sourceUrl,
+      // Production backend verifies Firebase ID tokens server-side. No static
+      // API secret is embedded in the app. Local development remains usable
+      // without sign-in while backend auth is disabled in local mode.
+      final user = FirebaseAuth.instance.currentUser;
+      final idToken = user == null ? null : await user.getIdToken();
+      final headers = <String, String>{
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        if (idToken != null && idToken.isNotEmpty)
+          'Authorization': 'Bearer $idToken',
       };
-
       final response = await client
           .post(
             endpoint,
-            headers: const <String, String>{
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode(requestBody),
+            headers: headers,
+            body: jsonEncode(<String, dynamic>{
+              'companyId': config.companyId,
+              'companyName': config.companyName,
+              'sourceType': config.sourceType.name,
+              'sourceUrl': config.sourceUrl,
+            }),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(requestTimeout);
 
       if (response.statusCode != 200) {
-        String details = response.body.trim();
-
-        if (details.isEmpty) {
-          details = 'No response body was returned by the ingestion backend.';
-        }
-
+        // Do not surface arbitrary server/provider response bodies to the UI.
         throw StateError(
-          'Company Intelligence ingestion returned HTTP '
-          '${response.statusCode}: $details',
+          'Company Intelligence ingestion returned HTTP ${response.statusCode}.',
         );
       }
 
-      final decoded = jsonDecode(response.body);
+      final dynamic decoded = jsonDecode(response.body);
       if (decoded is! Map) {
         throw const FormatException(
-          'Company Intelligence ingestion returned a non-object response.',
+          'Ingestion backend returned a non-object JSON response.',
         );
       }
-
       final envelope = Map<String, dynamic>.from(decoded);
       if (envelope['success'] != true) {
         throw StateError(
           envelope['error']?.toString() ??
-              'Company Intelligence ingestion reported an unknown error.',
+              'Ingestion backend did not confirm success.',
         );
       }
 
-      // The envelope must be for the company that was requested.
-      final envelopeCompanyId = envelope['companyId']?.toString().trim() ?? '';
-      if (envelopeCompanyId.isNotEmpty &&
-          CompanyIntelligenceIds.fromIdOrName(envelopeCompanyId) !=
-              CompanyIntelligenceIds.fromIdOrName(config.companyId)) {
-        throw StateError(
-          'Company Intelligence ingestion returned data for a different '
-          'company than requested.',
-        );
-      }
+      _requireExactString(envelope, 'companyId', config.companyId);
+      _requireExactString(envelope, 'companyName', config.companyName);
+      _requireExactString(envelope, 'sourceType', config.sourceType.name);
+      _requireExactString(envelope, 'sourceUrl', config.sourceUrl);
 
-      final payload = envelope['payload']?.toString();
-      if (payload == null || payload.trim().isEmpty) {
+      final payload = envelope['payload'];
+      if (payload is! String || payload.trim().isEmpty) {
         throw const FormatException(
-          'Company Intelligence ingestion returned an empty provider payload.',
+          'Ingestion backend omitted the provider payload required by the client adapter pipeline.',
+        );
+      }
+      if (utf8.encode(payload).length > 2 * 1024 * 1024) {
+        throw const FormatException(
+          'Ingestion backend provider payload exceeded the 2 MiB client limit.',
         );
       }
 
+      final jobs = envelope['jobs'];
+      final jobCount = envelope['jobCount'];
+      if (jobs is! List || jobCount is! int || jobCount != jobs.length) {
+        throw const FormatException(
+          'Ingestion backend jobs/jobCount contract is invalid.',
+        );
+      }
+      final snapshot = envelope['snapshot'];
+      if (snapshot is! Map ||
+          snapshot['companyId'] != config.companyId ||
+          snapshot['companyName'] != config.companyName) {
+        throw const FormatException(
+          'Ingestion backend snapshot identity did not match the configured company.',
+        );
+      }
       final fetchedAt = _validatedFetchTime(envelope['fetchedAt']);
 
-      // Source identity and trust flags come from the app's own catalog only.
-      final snapshot = await intelligenceService.ingestProviderPayload(
+      // Source trust/capabilities come from the app's configured catalog, not
+      // from backend response flags that could accidentally elevate trust.
+      return intelligenceService.ingestProviderPayload(
         companyId: config.companyId,
         companyName: config.companyName,
         sourceType: config.sourceType,
@@ -167,50 +137,42 @@ class CompanyIntelligenceLiveIngestionService {
         supportsLiveJobs: config.supportsLiveJobs,
         supportsCompensation: config.supportsCompensation,
       );
-
-      return snapshot;
     } on FormatException {
       rethrow;
     } on StateError {
       rethrow;
     } catch (error) {
+      // Error details may contain implementation/network data. Keep the user
+      // message useful without forwarding arbitrary exception text.
       throw StateError(
-        'Company Intelligence live refresh failed for ${config.companyName}: $error',
+        'Company Intelligence live refresh failed for ${config.companyName} (${error.runtimeType}).',
       );
     } finally {
       client.close();
     }
   }
 
-  Future<CompanyIntelligenceSnapshot?> refreshOpenAi() {
-    return refreshCompany('OpenAI');
-  }
+  Future<CompanyIntelligenceSnapshot?> refreshOpenAi({
+    String backendBaseUrl = developmentBackendBaseUrl,
+  }) => refreshCompany('OpenAI', backendBaseUrl: backendBaseUrl);
 
-  /// Checks whether the configured ingestion backend is reachable.
-  ///
-  /// This is useful during local development and can also be used by a
-  /// future production diagnostics screen. It does not fetch company data.
   Future<bool> checkBackendHealth({
     String backendBaseUrl = developmentBackendBaseUrl,
   }) async {
-    final baseUrl = _cleanBaseUrl(backendBaseUrl);
-
-    if (!_isAllowedBackend(baseUrl)) return false;
-
-    final endpoint = Uri.parse('$baseUrl/health');
+    final baseUrl = _validatedBackendBaseUrl(backendBaseUrl);
     final client = http.Client();
-
     try {
       final response = await client
           .get(
-            endpoint,
-            headers: const <String, String>{
-              'Accept': 'application/json',
-            },
+            Uri.parse('$baseUrl/health'),
+            headers: const <String, String>{'Accept': 'application/json'},
           )
           .timeout(const Duration(seconds: 10));
-
-      return response.statusCode == 200;
+      if (response.statusCode != 200) return false;
+      final dynamic decoded = jsonDecode(response.body);
+      return decoded is Map &&
+          decoded['success'] == true &&
+          decoded['status'] == 'running';
     } catch (_) {
       return false;
     } finally {
@@ -218,55 +180,104 @@ class CompanyIntelligenceLiveIngestionService {
     }
   }
 
-  /// The time the backend says it fetched the source.
-  ///
-  /// - Missing or in the future: the current time is used.
-  /// - Older than [maxPayloadAge]: rejected, so the data is never shown as
-  ///   live.
-  DateTime _validatedFetchTime(dynamic value) {
-    final now = DateTime.now();
-    final parsed = _parseDate(value);
-
-    if (parsed == null || parsed.isAfter(now.add(const Duration(minutes: 5)))) {
-      return now;
+  String _validatedBackendBaseUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null || uri.host.isEmpty || uri.userInfo.isNotEmpty) {
+      throw const FormatException('Backend base URL is invalid.');
     }
+    final developmentHost = _isDevelopmentHost(uri.host.toLowerCase());
 
-    if (now.difference(parsed) > maxPayloadAge) {
-      throw StateError(
-        'Company Intelligence ingestion returned an outdated payload, so it '
-        'is not treated as live data.',
+    // Debug builds may connect to a development server running on the same
+    // computer or on the private LAN (for a physical Android device test).
+    // Public HTTP endpoints and all release-build HTTP endpoints are rejected.
+    if (uri.scheme != 'https' &&
+        !(uri.scheme == 'http' && developmentHost && !kReleaseMode)) {
+      throw const FormatException(
+        'Backend must use HTTPS. HTTP is allowed only for a local/private-LAN debug server.',
       );
     }
-
-    return parsed;
+    if (kReleaseMode && developmentHost) {
+      throw const FormatException(
+        'Release builds cannot use loopback/private-LAN backend addresses. Configure CAREER_GUIDE_BACKEND_URL with the deployed HTTPS API.',
+      );
+    }
+    if (uri.hasQuery || uri.hasFragment) {
+      throw const FormatException(
+        'Backend base URL must not contain a query or fragment.',
+      );
+    }
+    final path = uri.path.endsWith('/')
+        ? uri.path.substring(0, uri.path.length - 1)
+        : uri.path;
+    return uri.replace(path: path, query: null, fragment: null).toString();
   }
 
-  String _cleanBaseUrl(String value) {
-    return value.trim().replaceAll(RegExp(r'/+$'), '');
-  }
-
-  /// HTTPS is required. Plain HTTP is accepted only for local development
-  /// hosts (this machine, or the Android emulator's host alias).
-  bool _isAllowedBackend(String baseUrl) {
-    final uri = Uri.tryParse(baseUrl);
-
-    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return false;
-
-    if (uri.scheme == 'https') return true;
-
-    if (uri.scheme != 'http') return false;
-
-    const developmentHosts = <String>{
+  bool _isDevelopmentHost(String host) {
+    if (const <String>{
       'localhost',
-      '127.0.0.1',
-      '10.0.2.2',
-    };
+      '::1',
+      '10.0.2.2', // Android emulator host alias.
+    }.contains(host)) {
+      return true;
+    }
 
-    return developmentHosts.contains(uri.host);
+    // Permit RFC1918 IPv4 addresses only for debug testing on a physical
+    // device. Do not permit link-local, public, multicast, or unspecified IPs.
+    final parts = host.split('.');
+    if (parts.length != 4) return false;
+
+    final octets = <int>[];
+    for (final part in parts) {
+      final octet = int.tryParse(part);
+      if (octet == null || octet < 0 || octet > 255) return false;
+      octets.add(octet);
+    }
+
+    final first = octets[0];
+    final second = octets[1];
+    return first == 127 ||
+        first == 10 ||
+        (first == 172 && second >= 16 && second <= 31) ||
+        (first == 192 && second == 168);
   }
 
-  DateTime? _parseDate(dynamic value) {
-    if (value == null) return null;
-    return DateTime.tryParse(value.toString());
+  void _requireExactString(
+    Map<String, dynamic> envelope,
+    String key,
+    String expected,
+  ) {
+    final actual = envelope[key];
+    if (actual is! String || actual.trim() != expected) {
+      throw FormatException(
+        'Ingestion backend $key did not match the configured source.',
+      );
+    }
+  }
+
+  DateTime _validatedFetchTime(dynamic value) {
+    if (value is! String || value.trim().isEmpty) {
+      throw const FormatException(
+        'Ingestion backend omitted the required fetchedAt timestamp.',
+      );
+    }
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) {
+      throw const FormatException(
+        'Ingestion backend returned an invalid fetchedAt timestamp.',
+      );
+    }
+    final now = DateTime.now().toUtc();
+    final fetchedAt = parsed.toUtc();
+    if (fetchedAt.isAfter(now.add(allowedFutureSkew))) {
+      throw const FormatException(
+        'Ingestion backend timestamp is too far in the future.',
+      );
+    }
+    if (now.difference(fetchedAt) > maxPayloadAge) {
+      throw const FormatException(
+        'Ingestion backend response is stale and cannot confirm current hiring.',
+      );
+    }
+    return fetchedAt;
   }
 }
