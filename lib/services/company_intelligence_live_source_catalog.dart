@@ -1,11 +1,19 @@
 import 'company_intelligence_ids.dart';
 import 'company_intelligence_models.dart';
+import 'company_intelligence_source_catalog.dart';
 import 'verified_company_data.dart';
 
 /// Step 6E-4 — Explicit live-source catalog.
 ///
 /// This catalog contains only deliberately configured live sources. It does
 /// not discover arbitrary websites or imply that a company is hiring now.
+///
+/// Adding a company is a DATA change only: append one [CompanyLiveSourceConfig]
+/// to `_sources`. A board may be added only when its board token was read from
+/// an official company page or from an official job-board link of that
+/// company. A configured source says WHERE live data can be fetched; it never
+/// says the company is hiring (live data only counts after a successful
+/// refresh, see CompanyIntelligenceLiveIngestionService).
 class CompanyIntelligenceLiveSourceCatalog {
   const CompanyIntelligenceLiveSourceCatalog();
 
@@ -14,20 +22,65 @@ class CompanyIntelligenceLiveSourceCatalog {
   static const String openAiSourceUrl =
       'https://api.ashbyhq.com/posting-api/job-board/openai?includeCompensation=true';
 
-  static const CompanyLiveSourceConfig _openAi = CompanyLiveSourceConfig(
-    companyId: 'openai',
-    companyName: 'OpenAI',
-    sourceType: CompanySourceType.ashby,
-    sourceUrl: openAiSourceUrl,
-    sourceLabel: 'OpenAI official Ashby job board',
-    isOfficialCompanySource: true,
-    supportsLiveJobs: true,
-    supportsCompensation: true,
-  );
+  static final List<CompanyLiveSourceConfig> _sources =
+      <CompanyLiveSourceConfig>[
+    const CompanyLiveSourceConfig(
+      companyId: 'openai',
+      companyName: 'OpenAI',
+      sourceType: CompanySourceType.ashby,
+      sourceUrl: openAiSourceUrl,
+      sourceLabel: 'OpenAI official Ashby job board',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
 
-  List<CompanyLiveSourceConfig> get all => const <CompanyLiveSourceConfig>[
-        _openAi,
-      ];
+    // Board tokens below were read from links on the companies' own official
+    // pages (Ashby apply links / Greenhouse job pages).
+    CompanyLiveSourceConfig(
+      companyId: 'gamma',
+      companyName: 'Gamma',
+      sourceType: CompanySourceType.ashby,
+      sourceUrl: CompanyIntelligenceSourceCatalog.ashbyApiUrl('gamma'),
+      sourceLabel: 'Gamma official Ashby job board',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
+    CompanyLiveSourceConfig(
+      companyId: 'luma_ai',
+      companyName: 'Luma AI',
+      sourceType: CompanySourceType.ashby,
+      sourceUrl: CompanyIntelligenceSourceCatalog.ashbyApiUrl('lumaai'),
+      sourceLabel: 'Luma official Ashby job board',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
+    CompanyLiveSourceConfig(
+      companyId: 'letta_memgpt',
+      companyName: 'Letta (MemGPT)',
+      sourceType: CompanySourceType.ashby,
+      sourceUrl: CompanyIntelligenceSourceCatalog.ashbyApiUrl('letta'),
+      sourceLabel: 'Letta official Ashby job board',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
+    CompanyLiveSourceConfig(
+      companyId: 'together_ai',
+      companyName: 'Together AI',
+      sourceType: CompanySourceType.greenhouse,
+      sourceUrl: CompanyIntelligenceSourceCatalog.greenhouseApiUrl('togetherai'),
+      sourceLabel: 'Together AI official Greenhouse job board',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
+  ];
+
+  List<CompanyLiveSourceConfig> get all =>
+      List<CompanyLiveSourceConfig>.unmodifiable(_sources);
 
   CompanyLiveSourceConfig? forCompanyName(String companyName) {
     final identity = _resolveIdentity(companyName);
@@ -36,16 +89,24 @@ class CompanyIntelligenceLiveSourceCatalog {
 
   CompanyLiveSourceConfig? forCompanyId(String companyId) {
     final normalized = CompanyIntelligenceIds.fromIdOrName(companyId);
-    if (normalized == _openAi.companyId) return _openAi;
+
+    for (final source in _sources) {
+      if (CompanyIntelligenceIds.fromIdOrName(source.companyId) ==
+          normalized) {
+        return source;
+      }
+    }
+
     return null;
   }
 
   static _CompanyIdentity _resolveIdentity(String value) {
-    final verified = VerifiedCompanyData.find(value.trim());
-    if (verified != null) {
+    final identity = VerifiedCompanyData.canonicalIdentity(value.trim());
+
+    if (identity != null) {
       return _CompanyIdentity(
-        companyId: verified.companyId,
-        companyName: verified.companyName,
+        companyId: identity.companyId,
+        companyName: identity.companyName,
       );
     }
 

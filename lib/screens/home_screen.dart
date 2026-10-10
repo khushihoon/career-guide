@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../models/home_market_models.dart';
 import '../services/home_market_service.dart';
+import '../services/verified_company_skills_step6e3.dart';
 import 'mentor_screen.dart';
 import 'notifications_screen.dart';
 import 'skill_profile_screen.dart';
@@ -32,6 +33,12 @@ import 'company_intelligence_screen.dart';
 // Reference information is never presented as live hiring information.
 // Live jobs / hiring / salary will only appear when a verified source is
 // connected later.
+//
+// COMPANY ORDER:
+// Companies are shown best-covered first (verified reference + skills evidence,
+// then verified, then companies with recorded details, then the rest), so the
+// first cards a person sees carry real information. The order is only a
+// presentation order; it never changes any company's data.
 // -----------------------------------------------------------------------------
 
 const _bg = Color(0xFF080B14);
@@ -59,9 +66,21 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   static const HomeMarketService _marketService = HomeMarketService();
 
+  static const VerifiedCompanySkillsService _skillsService =
+      VerifiedCompanySkillsService();
+
+  /// Companies shown when nothing is searched or filtered.
+  static const int _defaultCompanyCount = 12;
+
   late HomeMarketSnapshot _snapshot;
+  late List<HomeCompany> _rankedCompanies;
+
+  final TextEditingController _searchController = TextEditingController();
 
   String _search = '';
+
+  /// Career area chosen by the person (filters by the area's career IDs).
+  HomeCareerArea? _selectedArea;
 
   String get _userName {
     final name = FirebaseAuth.instance.currentUser?.displayName?.trim();
@@ -75,26 +94,107 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _snapshot = _marketService.getSnapshot();
+    _rankedCompanies = _rank(_snapshot.companies);
   }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // ---------------------------------------------------------------------------
+  // COMPANY ORDER (presentation only)
+  // ---------------------------------------------------------------------------
+
+  int _coverageScore(HomeCompany company) {
+    var score = 0;
+
+    if (company.meta.source?.isOfficial == true) {
+      score += 100;
+    } else if ((company.description ?? '').trim().isNotEmpty) {
+      score += 40;
+    }
+
+    if (_skillsService.find(company.name) != null) {
+      score += 50;
+    }
+
+    if (company.focusAreas.isNotEmpty) {
+      score += 5;
+    }
+
+    score += company.relatedCareerIds.length;
+
+    return score;
+  }
+
+  /// Highest coverage first. Equal scores keep their original order.
+  List<HomeCompany> _rank(List<HomeCompany> companies) {
+    final indexed = companies.asMap().entries.toList();
+
+    indexed.sort((a, b) {
+      final byScore =
+          _coverageScore(b.value).compareTo(_coverageScore(a.value));
+
+      return byScore != 0 ? byScore : a.key.compareTo(b.key);
+    });
+
+    return indexed.map((entry) => entry.value).toList(growable: false);
+  }
+
+  // ---------------------------------------------------------------------------
+  // FILTERS
+  // ---------------------------------------------------------------------------
 
   List<HomeCareer> get _filteredCareers {
     final query = _search.trim().toLowerCase();
 
-    if (query.isEmpty) {
-      return _snapshot.careers;
+    var careers = query.isEmpty
+        ? _snapshot.careers
+        : _marketService.searchCareers(query);
+
+    final area = _selectedArea;
+
+    if (area != null) {
+      careers = careers
+          .where((career) => area.careerIds.contains(career.id))
+          .toList(growable: false);
     }
 
-    return _marketService.searchCareers(query);
+    return careers;
   }
 
   List<HomeCompany> get _filteredCompanies {
     final query = _search.trim().toLowerCase();
 
-    if (query.isEmpty) {
-      return _snapshot.companies.take(12).toList();
+    var companies = query.isEmpty
+        ? _rankedCompanies
+        : _rank(_marketService.searchCompanies(query));
+
+    final area = _selectedArea;
+
+    if (area != null) {
+      companies = companies
+          .where(
+            (company) => company.relatedCareerIds.any(
+              (careerId) => area.careerIds.contains(careerId),
+            ),
+          )
+          .toList(growable: false);
     }
 
-    return _marketService.searchCompanies(query);
+    if (query.isEmpty && area == null) {
+      return companies.take(_defaultCompanyCount).toList(growable: false);
+    }
+
+    return companies;
+  }
+
+  void _toggleArea(HomeCareerArea area) {
+    setState(() {
+      _selectedArea = _selectedArea?.id == area.id ? null : area;
+    });
   }
 
   void _openNotifications() {
@@ -203,6 +303,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       subtitle:
                           'Explore organizations connected to technology and AI.',
                       accent: _mint,
+                      trailing:
+                          '${companies.length} of ${_snapshot.companies.length}',
                     ),
                     const SizedBox(height: 12),
                     _buildCompanies(companies),
@@ -366,7 +468,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 7),
               const Text(
-                 "WTF = Where's the Future?",
+                 "I'm right here\n"
+                 "to guide you.",
                 style: TextStyle(
                   color: _text,
                   fontSize: 29,
@@ -434,6 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       child: TextField(
+        controller: _searchController,
         onChanged: (value) {
           setState(() {
             _search = value;
@@ -446,7 +550,7 @@ class _HomeScreenState extends State<HomeScreen> {
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
-          hintText: 'Search a career or company',
+          hintText: 'Search a career, company, skill or technology',
           hintStyle: const TextStyle(
             color: _muted,
             fontSize: 13,
@@ -458,6 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
           suffixIcon: _search.isNotEmpty
               ? IconButton(
                   onPressed: () {
+                    _searchController.clear();
                     setState(() {
                       _search = '';
                     });
@@ -688,37 +793,52 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCareerAreas() {
     final areas = _snapshot.areas;
+    final selected = _selectedArea;
 
-    return SizedBox(
-      height: 98,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: areas.length,
-        separatorBuilder: (_, __) {
-          return const SizedBox(width: 9);
-        },
-        itemBuilder: (context, index) {
-          final area = areas[index];
-
-          return _CareerAreaCard(
-            area: area,
-            onTap: () {
-              setState(() {
-                _search = area.title;
-              });
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 98,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: areas.length,
+            separatorBuilder: (_, __) {
+              return const SizedBox(width: 9);
             },
-          )
-              .animate()
-              .fadeIn(
-                delay: Duration(
-                  milliseconds: index * 45,
-                ),
-                duration: 300.ms,
+            itemBuilder: (context, index) {
+              final area = areas[index];
+
+              return _CareerAreaCard(
+                area: area,
+                selected: selected?.id == area.id,
+                onTap: () => _toggleArea(area),
               )
-              .slideY(begin: 0.04);
-        },
-      ),
+                  .animate()
+                  .fadeIn(
+                    delay: Duration(
+                      milliseconds: index * 45,
+                    ),
+                    duration: 300.ms,
+                  )
+                  .slideY(begin: 0.04);
+            },
+          ),
+        ),
+        if (selected != null) ...[
+          const SizedBox(height: 9),
+          Text(
+            'Showing ${selected.title} careers and their companies. '
+            'Tap the area again to show everything.',
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 10,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -752,7 +872,7 @@ class _HomeScreenState extends State<HomeScreen> {
               .animate()
               .fadeIn(
                 delay: Duration(
-                  milliseconds: index * 45,
+                  milliseconds: (index < 12 ? index : 12) * 45,
                 ),
                 duration: 300.ms,
               )
@@ -944,8 +1064,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? 'Current opportunity information is shown only '
                           'when a verified source provides it.'
                       : 'The information above is career and company '
-                          'reference data. We will add verified live '
-                          'job sources next.',
+                          'reference data. Current openings and salary '
+                          'appear on a company page only when a verified '
+                          'live source is connected for that company.',
                   style: const TextStyle(
                     color: _muted,
                     fontSize: 10.5,
@@ -995,8 +1116,8 @@ class _IconButton extends StatelessWidget {
                 color: _border,
               ),
             ),
-            child: const Icon(
-              Icons.notifications_none_rounded,
+            child: Icon(
+              icon,
               color: _violetBright,
               size: 21,
             ),
@@ -1181,11 +1302,13 @@ class _CareerIcon extends StatelessWidget {
 
 class _CareerAreaCard extends StatelessWidget {
   final HomeCareerArea area;
+  final bool selected;
   final VoidCallback onTap;
 
   const _CareerAreaCard({
     required this.area,
     required this.onTap,
+    this.selected = false,
   });
 
   IconData _iconForArea() {
@@ -1238,10 +1361,11 @@ class _CareerAreaCard extends StatelessWidget {
             vertical: 12,
           ),
           decoration: BoxDecoration(
-            color: _surface,
+            color: selected ? color.withOpacity(0.10) : _surface,
             borderRadius: BorderRadius.circular(17),
             border: Border.all(
-              color: _border,
+              color: selected ? color.withOpacity(0.55) : _border,
+              width: selected ? 1.4 : 1,
             ),
           ),
           child: Column(
@@ -1288,8 +1412,26 @@ class _CompanyCard extends StatelessWidget {
     required this.onTap,
   });
 
+  /// One line of real information: the company's focus areas when known,
+  /// otherwise how many careers it is connected to.
+  String _subtitle() {
+    if (company.focusAreas.isNotEmpty) {
+      return company.focusAreas.take(2).join(' • ');
+    }
+
+    final careers = company.relatedCareerIds.length;
+
+    if (careers > 0) {
+      return careers == 1 ? '1 connected career' : '$careers connected careers';
+    }
+
+    return 'Company information';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final verified = company.meta.source?.isOfficial == true;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1302,7 +1444,7 @@ class _CompanyCard extends StatelessWidget {
             color: _surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _border,
+              color: verified ? _mint.withOpacity(0.22) : _border,
             ),
           ),
           child: Column(
@@ -1334,7 +1476,7 @@ class _CompanyCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                company.country ?? 'Company information',
+                _subtitle(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -1343,10 +1485,10 @@ class _CompanyCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 7),
-              const Text(
-                'Reference information',
+              Text(
+                verified ? 'Verified reference' : 'Reference information',
                 style: TextStyle(
-                  color: _mint,
+                  color: verified ? _mint : _cyan,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1922,4 +2064,3 @@ class _CareerGuideLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

@@ -8,44 +8,82 @@ import 'company_intelligence_models.dart';
 ///
 /// Cache is a performance layer, never proof of current hiring. Every live
 /// job keeps its source URL and observation/publication metadata.
+///
+/// TRUTH RULES FOR THE CACHE:
+/// - A snapshot read from the cache is NEVER "live". A stored `live` status is
+///   returned as `observed`, because the evidence was gathered earlier and is
+///   not a confirmation of current hiring.
+/// - A snapshot older than [maxAge] is expired and removed. A cache without a
+///   usable generation date is treated as missing, never as fresh.
+/// - Only small data is persisted: job descriptions are shortened (skills were
+///   already extracted from the full text) and raw metadata is slimmed, so the
+///   local store does not grow with whole job descriptions.
+/// - A cache read/write problem never breaks fresh data: reads fall back to
+///   "no cache", and a failed write is ignored.
 class CompanyIntelligenceCache {
   static const String _prefix = 'company_intelligence_v1_';
+
+  /// Snapshots older than this are expired.
+  static const Duration maxAge = Duration(days: 30);
+
+  static const int _maxPersistedJobs = 500;
+  static const int _maxPersistedDescriptionLength = 300;
 
   const CompanyIntelligenceCache();
 
   Future<void> write(CompanyIntelligenceSnapshot snapshot) async {
-    final preferences = await SharedPreferences.getInstance();
-    final payload = <String, dynamic>{
-      'companyId': snapshot.companyId,
-      'companyName': snapshot.companyName,
-      'status': snapshot.status.name,
-      'roles': snapshot.roles,
-      'skills': snapshot.skills,
-      'technologies': snapshot.technologies,
-      'engineeringConcepts': snapshot.engineeringConcepts,
-      'compensation': snapshot.compensation.map(_compensationToJson).toList(),
-      'liveJobs': snapshot.liveJobs.map(_jobToJson).toList(),
-      'sources': snapshot.sources.map(_sourceToJson).toList(),
-      'generatedAt': snapshot.generatedAt.toIso8601String(),
-      'oldestEvidenceAt': snapshot.oldestEvidenceAt?.toIso8601String(),
-      'newestEvidenceAt': snapshot.newestEvidenceAt?.toIso8601String(),
-    };
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final payload = <String, dynamic>{
+        'companyId': snapshot.companyId,
+        'companyName': snapshot.companyName,
+        'status': snapshot.status.name,
+        'roles': snapshot.roles,
+        'skills': snapshot.skills,
+        'technologies': snapshot.technologies,
+        'engineeringConcepts': snapshot.engineeringConcepts,
+        'compensation': snapshot.compensation.map(_compensationToJson).toList(),
+        'liveJobs': snapshot.liveJobs
+            .take(_maxPersistedJobs)
+            .map(_jobToJson)
+            .toList(),
+        'sources': snapshot.sources.map(_sourceToJson).toList(),
+        'generatedAt': snapshot.generatedAt.toIso8601String(),
+        'oldestEvidenceAt': snapshot.oldestEvidenceAt?.toIso8601String(),
+        'newestEvidenceAt': snapshot.newestEvidenceAt?.toIso8601String(),
+      };
 
-    await preferences.setString(
-      '$_prefix${snapshot.companyId}',
-      jsonEncode(payload),
-    );
+      await preferences.setString(
+        '$_prefix${snapshot.companyId}',
+        jsonEncode(payload),
+      );
+    } catch (_) {
+      // The cache is only a performance layer. Fresh data must not fail
+      // because the local store could not be written.
+    }
   }
 
   Future<CompanyIntelligenceSnapshot?> read(String companyId) async {
-    final preferences = await SharedPreferences.getInstance();
-    final raw = preferences.getString('$_prefix$companyId');
-    if (raw == null || raw.trim().isEmpty) return null;
-
     try {
+      final preferences = await SharedPreferences.getInstance();
+      final key = '$_prefix$companyId';
+      final raw = preferences.getString(key);
+      if (raw == null || raw.trim().isEmpty) return null;
+
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
-      return _snapshotFromJson(Map<String, dynamic>.from(decoded));
+
+      final snapshot = _snapshotFromJson(Map<String, dynamic>.from(decoded));
+      if (snapshot == null) return null;
+
+      final age = DateTime.now().difference(snapshot.generatedAt);
+
+      if (age > maxAge) {
+        await preferences.remove(key);
+        return null;
+      }
+
+      return snapshot;
     } catch (_) {
       return null;
     }
@@ -74,7 +112,7 @@ class CompanyIntelligenceCache {
       'companyId': item.companyId,
       'companyName': item.companyName,
       'title': item.title,
-      'description': item.description,
+      'description': _shortDescription(item.description),
       'location': item.location,
       'department': item.department,
       'team': item.team,
@@ -87,8 +125,37 @@ class CompanyIntelligenceCache {
       'compensation': item.compensation == null
           ? null
           : _compensationToJson(item.compensation!),
-      'rawMetadata': item.rawMetadata,
+      'rawMetadata': _slimMetadata(item.rawMetadata),
     };
+  }
+
+  /// Skills were already extracted from the full description, so only a short
+  /// start of it is persisted.
+  String _shortDescription(String value) {
+    final trimmed = value.trim();
+
+    if (trimmed.length <= _maxPersistedDescriptionLength) {
+      return trimmed;
+    }
+
+    return trimmed.substring(0, _maxPersistedDescriptionLength);
+  }
+
+  /// Keeps only small scalar values (ids, flags, short labels, URLs).
+  Map<String, dynamic> _slimMetadata(Map<String, dynamic> metadata) {
+    final result = <String, dynamic>{};
+
+    for (final entry in metadata.entries) {
+      final value = entry.value;
+
+      if (value == null || value is bool || value is num) {
+        result[entry.key] = value;
+      } else if (value is String && value.length <= 200) {
+        result[entry.key] = value;
+      }
+    }
+
+    return result;
   }
 
   Map<String, dynamic> _sourceToJson(CompanySourceDefinition item) {
@@ -106,14 +173,30 @@ class CompanyIntelligenceCache {
     };
   }
 
-  CompanyIntelligenceSnapshot _snapshotFromJson(Map<String, dynamic> json) {
+  CompanyIntelligenceSnapshot? _snapshotFromJson(Map<String, dynamic> json) {
+    final companyId = json['companyId']?.toString() ?? '';
+    final generatedAt = _date(json['generatedAt']);
+
+    // A cache entry without an identity or a generation date cannot be dated,
+    // so it is not trusted.
+    if (companyId.trim().isEmpty || generatedAt == null) {
+      return null;
+    }
+
+    final storedStatus = CompanyIntelligenceDataStatus.values.firstWhere(
+      (value) => value.name == json['status'],
+      orElse: () => CompanyIntelligenceDataStatus.reference,
+    );
+
+    // Cached evidence is never "live".
+    final status = storedStatus == CompanyIntelligenceDataStatus.live
+        ? CompanyIntelligenceDataStatus.observed
+        : storedStatus;
+
     return CompanyIntelligenceSnapshot(
-      companyId: json['companyId']?.toString() ?? '',
+      companyId: companyId,
       companyName: json['companyName']?.toString() ?? '',
-      status: CompanyIntelligenceDataStatus.values.firstWhere(
-        (value) => value.name == json['status'],
-        orElse: () => CompanyIntelligenceDataStatus.reference,
-      ),
+      status: status,
       roles: _strings(json['roles']),
       skills: _strings(json['skills']),
       technologies: _strings(json['technologies']),
@@ -121,7 +204,7 @@ class CompanyIntelligenceCache {
       compensation: _compensations(json['compensation']),
       liveJobs: _jobs(json['liveJobs']),
       sources: _sources(json['sources']),
-      generatedAt: _date(json['generatedAt']) ?? DateTime.now(),
+      generatedAt: generatedAt,
       oldestEvidenceAt: _date(json['oldestEvidenceAt']),
       newestEvidenceAt: _date(json['newestEvidenceAt']),
     );

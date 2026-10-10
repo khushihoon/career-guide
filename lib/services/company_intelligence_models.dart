@@ -3,6 +3,14 @@
 /// These models deliberately separate reference information, observed job
 /// evidence, current published opportunities, and compensation evidence.
 /// A company relationship must never be interpreted as live hiring.
+///
+/// Status meaning:
+/// - reference:   company reference information only.
+/// - observed:    evidence gathered earlier (for example a saved snapshot).
+///                It is NOT a confirmation of current hiring.
+/// - live:        evidence from a source that was successfully fetched just
+///                now.
+/// - unavailable: nothing could be obtained.
 enum CompanyIntelligenceDataStatus {
   reference,
   observed,
@@ -66,6 +74,10 @@ class CompanyCompensation {
   });
 
   bool get hasNumericRange => minimum != null || maximum != null;
+
+  /// A salary is usable only with numbers AND a currency. A number without a
+  /// currency is ambiguous and is never presented as salary.
+  bool get isUsable => hasNumericRange && currency.trim().isNotEmpty;
 }
 
 class ExtractedCompanySignal {
@@ -160,11 +172,19 @@ class CompanyIntelligenceSnapshot {
   bool get hasLiveJobs => liveJobs.isNotEmpty;
 
   bool get hasCompensation => compensation.any(
-        (item) => item.hasNumericRange,
+        (item) => item.isUsable,
       );
 
+  /// Human label for the kind of evidence in this snapshot.
+  ///
+  /// Postings are called "live" ONLY when the snapshot status is live. A saved
+  /// snapshot (status observed) that contains postings is labeled as an
+  /// earlier snapshot, never as live hiring.
   String get truthLabel {
-    if (hasLiveJobs) return 'Live verified opportunities';
+    if (hasLiveJobs && status == CompanyIntelligenceDataStatus.live) {
+      return 'Live verified opportunities';
+    }
+    if (hasLiveJobs) return 'Saved snapshot of earlier postings (not live)';
     if (hasObservedSkills) return 'Observed from reviewed job evidence';
     return 'Reference company information';
   }

@@ -29,6 +29,8 @@ class CompanyIntelligenceRepository {
   });
 
   /// Reads an already-generated intelligence snapshot from local cache.
+  ///
+  /// A cached snapshot is never live (see [CompanyIntelligenceCache]).
   Future<CompanyIntelligenceSnapshot?> getCached(String companyId) {
     final stableId = CompanyIntelligenceIds.fromIdOrName(companyId);
     return cache.read(stableId);
@@ -53,7 +55,7 @@ class CompanyIntelligenceRepository {
   ///     ↓
   /// intelligence engine
   ///     ↓
-  /// local cache
+  /// local cache (only when the result contains postings)
   Future<CompanyIntelligenceSnapshot> ingestProviderPayload({
     required String companyId,
     required String companyName,
@@ -113,11 +115,22 @@ class CompanyIntelligenceRepository {
       generatedAt: fetchedAtValue,
     );
 
-    await cache.write(snapshot);
+    // The cache keeps the last snapshot that actually contained postings. An
+    // empty result (no openings, or a source whose format changed) must not
+    // erase the last good snapshot; the fresh result is still returned to the
+    // caller, so the UI shows "no current opportunities" truthfully.
+    if (snapshot.hasLiveJobs) {
+      await cache.write(snapshot);
+    }
 
     return snapshot;
   }
 
+  /// Company identity comes from the authoritative verified registry
+  /// ([VerifiedCompanyData.canonicalIdentity]): verified companies and the
+  /// approved product→company aliases. Unknown companies stay supported with a
+  /// deterministic ID ([CompanyIntelligenceIds]) and are never silently mapped
+  /// to an unrelated company.
   _CompanyIdentity _resolveIdentity({
     required String companyId,
     required String companyName,
@@ -125,36 +138,33 @@ class CompanyIntelligenceRepository {
     final trimmedId = companyId.trim();
     final trimmedName = companyName.trim();
 
-    // Prefer the explicit company ID when it resolves to a verified company.
-    final verifiedFromId = VerifiedCompanyData.find(trimmedId);
+    final byId = VerifiedCompanyData.canonicalIdentity(trimmedId);
 
-    if (verifiedFromId != null) {
+    if (byId != null) {
       return _CompanyIdentity(
-        companyId: verifiedFromId.companyId,
-        companyName: verifiedFromId.companyName,
+        companyId: byId.companyId,
+        companyName: byId.companyName,
       );
     }
 
-    // Otherwise resolve the supplied company name through the canonical
-    // verified registry.
-    final verifiedFromName = VerifiedCompanyData.find(trimmedName);
+    final byName = VerifiedCompanyData.canonicalIdentity(trimmedName);
 
-    if (verifiedFromName != null) {
+    if (byName != null) {
       return _CompanyIdentity(
-        companyId: verifiedFromName.companyId,
-        companyName: verifiedFromName.companyName,
+        companyId: byName.companyId,
+        companyName: byName.companyName,
       );
     }
 
-    // Unknown companies remain supported. Their identity is deterministic
-    // and is not silently mapped to an unrelated verified company.
     final stableId = trimmedId.isNotEmpty
         ? CompanyIntelligenceIds.fromIdOrName(trimmedId)
         : CompanyIntelligenceIds.fromCompanyName(trimmedName);
 
     final fallbackName = trimmedName.isNotEmpty
         ? trimmedName
-        : (stableId == 'unknown-company' ? 'Unknown Company' : stableId);
+        : (stableId == CompanyIntelligenceIds.unknownCompanyId
+            ? 'Unknown Company'
+            : stableId);
 
     return _CompanyIdentity(
       companyId: stableId,
