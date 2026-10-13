@@ -12,7 +12,7 @@ import 'verified_company_data.dart';
 /// → Company Intelligence UI.
 ///
 /// The Flutter app does not scrape arbitrary company websites. A backend
-/// ingestion service will fetch permitted/public sources and call this boundary
+/// ingestion service fetches permitted/public sources and calls this boundary
 /// with the provider payload.
 ///
 /// The repository keeps company identity canonical and delegates parsing,
@@ -46,16 +46,16 @@ class CompanyIntelligenceRepository {
 
   /// Ingests one provider payload into the normalized intelligence pipeline.
   ///
-  /// Flow:
-  /// provider payload
-  ///     ↓
-  /// provider adapter
-  ///     ↓
-  /// normalized postings
-  ///     ↓
-  /// intelligence engine
-  ///     ↓
-  /// local cache (only when the result contains postings)
+  /// Source capability flags are enforced before data reaches the engine:
+  /// - When live jobs are unsupported, parsed postings are not treated as
+  ///   live job evidence.
+  /// - When compensation is unsupported, salary values are removed from the
+  ///   normalized postings before snapshot generation.
+  ///
+  /// Note: this engine derives skills, roles, and compensation from job
+  /// postings. Therefore, a source marked as not supporting live jobs cannot
+  /// currently contribute independent compensation-only evidence through this
+  /// API; that would require a separate compensation evidence contract.
   Future<CompanyIntelligenceSnapshot> ingestProviderPayload({
     required String companyId,
     required String companyName,
@@ -83,16 +83,24 @@ class CompanyIntelligenceRepository {
 
     final stableId = identity.companyId;
     final canonicalCompanyName = identity.companyName;
-
     final fetchedAtValue = fetchedAt ?? DateTime.now();
 
-    final postings = adapter.parse(
+    final parsedPostings = adapter.parse(
       companyId: stableId,
       companyName: canonicalCompanyName,
       sourceUrl: sourceUrl,
       payload: payload,
       fetchedAt: fetchedAtValue,
     );
+
+    // Enforce source capabilities before the engine derives roles, skills,
+    // compensation, status, and liveJobs from the normalized postings.
+    final eligiblePostings = supportsLiveJobs
+        ? _applyCompensationCapability(
+            parsedPostings,
+            supportsCompensation: supportsCompensation,
+          )
+        : const <NormalizedJobPosting>[];
 
     final source = CompanySourceDefinition(
       sourceId: '${sourceType.name}:$stableId',
@@ -110,15 +118,14 @@ class CompanyIntelligenceRepository {
     final snapshot = engine.buildSnapshot(
       companyId: stableId,
       companyName: canonicalCompanyName,
-      postings: postings,
+      postings: eligiblePostings,
       sources: <CompanySourceDefinition>[source],
       generatedAt: fetchedAtValue,
     );
 
-    // The cache keeps the last snapshot that actually contained postings. An
-    // empty result (no openings, or a source whose format changed) must not
-    // erase the last good snapshot; the fresh result is still returned to the
-    // caller, so the UI shows "no current opportunities" truthfully.
+    // Keep the last snapshot that actually contained live postings. An empty
+    // result must not erase the last good snapshot; return the fresh result so
+    // callers can truthfully report that no current opportunities were found.
     if (snapshot.hasLiveJobs) {
       await cache.write(snapshot);
     }
@@ -126,11 +133,48 @@ class CompanyIntelligenceRepository {
     return snapshot;
   }
 
-  /// Company identity comes from the authoritative verified registry
-  /// ([VerifiedCompanyData.canonicalIdentity]): verified companies and the
-  /// approved product→company aliases. Unknown companies stay supported with a
-  /// deterministic ID ([CompanyIntelligenceIds]) and are never silently mapped
-  /// to an unrelated company.
+  /// Removes salary evidence from postings when the source does not declare
+  /// compensation support. Other normalized posting fields are preserved.
+  List<NormalizedJobPosting> _applyCompensationCapability(
+    List<NormalizedJobPosting> postings, {
+    required bool supportsCompensation,
+  }) {
+    if (supportsCompensation) {
+      return postings;
+    }
+
+    return postings
+        .map(
+          (posting) => NormalizedJobPosting(
+            id: posting.id,
+            companyId: posting.companyId,
+            companyName: posting.companyName,
+            title: posting.title,
+            description: posting.description,
+            location: posting.location,
+            department: posting.department,
+            team: posting.team,
+            employmentType: posting.employmentType,
+            workplaceType: posting.workplaceType,
+            applyUrl: posting.applyUrl,
+            publishedAt: posting.publishedAt,
+            sourceType: posting.sourceType,
+            sourceUrl: posting.sourceUrl,
+            compensation: null,
+            rawMetadata: posting.rawMetadata,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  /// Resolves identity from the authoritative verified registry
+  /// ([VerifiedCompanyData.canonicalIdentity]).
+  ///
+  /// If both supplied values independently identify verified companies, they
+  /// must resolve to the same canonical ID. A conflicting ID/name pair is
+  /// rejected instead of silently attaching one company's postings to another.
+  /// Unknown companies remain supported with deterministic IDs and are never
+  /// silently mapped to an unrelated verified company.
   _CompanyIdentity _resolveIdentity({
     required String companyId,
     required String companyName,
@@ -138,21 +182,26 @@ class CompanyIntelligenceRepository {
     final trimmedId = companyId.trim();
     final trimmedName = companyName.trim();
 
-    final byId = VerifiedCompanyData.canonicalIdentity(trimmedId);
+    final byId = trimmedId.isEmpty
+        ? null
+        : VerifiedCompanyData.canonicalIdentity(trimmedId);
+    final byName = trimmedName.isEmpty
+        ? null
+        : VerifiedCompanyData.canonicalIdentity(trimmedName);
 
-    if (byId != null) {
-      return _CompanyIdentity(
-        companyId: byId.companyId,
-        companyName: byId.companyName,
+    if (byId != null && byName != null && byId.companyId != byName.companyId) {
+      throw ArgumentError(
+        'Company identity conflict: "$trimmedId" resolves to '
+        '"${byId.companyId}" but "$trimmedName" resolves to '
+        '"${byName.companyId}". Supply a matching company ID and name.',
       );
     }
 
-    final byName = VerifiedCompanyData.canonicalIdentity(trimmedName);
-
-    if (byName != null) {
+    final verifiedIdentity = byId ?? byName;
+    if (verifiedIdentity != null) {
       return _CompanyIdentity(
-        companyId: byName.companyId,
-        companyName: byName.companyName,
+        companyId: verifiedIdentity.companyId,
+        companyName: verifiedIdentity.companyName,
       );
     }
 

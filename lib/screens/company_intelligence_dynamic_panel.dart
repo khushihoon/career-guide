@@ -1,447 +1,562 @@
 import 'package:flutter/material.dart';
 
 
-
 import '../models/home_market_models.dart';
+
 
 import '../services/company_intelligence_ids.dart';
 
+
 import '../services/company_intelligence_models.dart';
+
 
 import '../services/company_intelligence_service.dart';
 
+
 import '../services/company_intelligence_live_ingestion_service.dart';
 
+
 import '../services/verified_company_data.dart';
+
 
 import '../services/verified_company_skills_step6e3.dart';
 
 
-
 const _surface = Color(0xFF111625);
+
 
 const _surface2 = Color(0xFF151B2D);
 
+
 const _border = Color(0xFF273047);
+
 
 const _cyan = Color(0xFF22D3EE);
 
+
 const _mint = Color(0xFF34D399);
+
 
 const _amber = Color(0xFFF59E0B);
 
+
 const _pink = Color(0xFFF472B6);
+
 
 const _violetBright = Color(0xFFA78BFA);
 
+
 const _muted = Color(0xFF8D96AB);
+
 
 const _text = Color(0xFFF7F8FC);
 
 
-
 /// Step 6E-4 — Dynamic Company Intelligence UI.
 
+
 ///
+
 
 /// Data layers are intentionally separated:
 
+
 ///
+
 
 /// REFERENCE:
 
+
 /// - Verified company-specific skill profile.
+
 
 /// - Stable company identity.
 
+
 /// - Historical/reference information.
 
+
 ///
+
 
 /// LIVE:
 
+
 /// - Current published opportunities.
+
 
 /// - Observed role families.
 
+
 /// - Observed skills/technologies.
+
 
 /// - Source-provided compensation.
 
+
 ///
+
 
 /// The panel never converts reference data into a claim about current hiring.
 
+
 ///
+
 
 /// LIVE TRUTH RULE:
 
+
 /// Jobs and compensation are rendered as "current" ONLY when the live source
+
 
 /// was successfully refreshed during this session ([_liveConfirmed]).
 
+
 /// A snapshot that was merely read from the local cache is a saved snapshot,
+
 
 /// not proof of current hiring, so it is never listed as a current
 
+
 /// opportunity and its compensation is never shown.
+
 
 ///
 
-/// Internal verification metadata (for example `lastVerified`) is intentionally
+
+/// Internal verification metadata (for example \`lastVerified\`) is intentionally
+
 
 /// NOT rendered anywhere in this panel.
 
+
 ///
+
 
 /// SECTION ORDER rendered by this panel (every section is always present;
 
+
 /// a section without evidence shows an explicit "unavailable" state):
+
 
 ///   1. Skills & technologies      (reference)
 
+
 ///   2. Engineering concepts       (reference)
+
 
 ///   3. Reviewed sources           (reference evidence)
 
+
 ///   4. Salary intelligence        (live only)
+
 
 ///   5. Current opportunities      (live only)
 
+
 ///   6. Data status: reference vs live
+
 
 ///
 
+
 /// If dynamic evidence is unavailable, the verified-company skill profile
+
 
 /// remains available as the reference fallback.
 
+
 class CompanyIntelligenceDynamicPanel extends StatefulWidget {
 
+
   static const CompanyIntelligenceService _service =
+
 
       CompanyIntelligenceService();
 
 
-
   static const CompanyIntelligenceLiveIngestionService _liveService =
+
 
       CompanyIntelligenceLiveIngestionService();
 
 
-
   final HomeCompany company;
+
 
   final VerifiedCompanySkillProfile? verifiedFallback;
 
 
-
   const CompanyIntelligenceDynamicPanel({
+
 
     super.key,
 
+
     required this.company,
 
+
     this.verifiedFallback,
+
 
   });
 
 
-
   @override
+
 
   State<CompanyIntelligenceDynamicPanel> createState() =>
 
+
       _CompanyIntelligenceDynamicPanelState();
+
 
 }
 
 
-
 class _CompanyIntelligenceDynamicPanelState
 
+
     extends State<CompanyIntelligenceDynamicPanel> {
+
 
   CompanyIntelligenceSnapshot? _liveSnapshot;
 
 
-
   /// True only when [_liveSnapshot] was produced by a successful live refresh
 
+
   /// in this session. False for cache-only snapshots.
+
 
   bool _liveConfirmed = false;
 
 
-
   bool _isRefreshing = false;
+
 
   String? _refreshMessage;
 
 
-
   Future<CompanyIntelligenceSnapshot?> _refreshThenReadCache(
+
 
     String companyName,
 
+
   ) async {
 
-    final stableId = CompanyIntelligenceIds.fromCompanyName(companyName);
 
+    final stableId = CompanyIntelligenceIds.fromCompanyName(companyName);
 
 
     _liveConfirmed = false;
 
 
-
     try {
 
+
       final refreshed = await CompanyIntelligenceDynamicPanel._liveService
+
 
           .refreshCompany(companyName);
 
 
-
       if (refreshed != null) {
+
 
         debugPrint(
 
+
           'Company Intelligence live refresh succeeded: '
+
 
           '$stableId | '
 
+
           '${refreshed.liveJobs.length} jobs, '
 
+
           '${refreshed.skills.length} skills.',
+
 
         );
 
 
-
         _liveConfirmed = true;
+
 
         _refreshMessage = refreshed.hasLiveJobs
 
+
             ? 'Live opportunity data updated from the connected source.'
+
 
             : 'Connected source returned no current published opportunities.';
 
 
-
         return refreshed;
+
 
       }
 
 
-
       _refreshMessage =
+
 
           'No live source is configured for this company yet.';
 
+
     } catch (error) {
+
 
       debugPrint(
 
+
         'Company Intelligence live refresh failed for '
 
+
         '$companyName ($stableId): $error',
+
 
       );
 
 
-
       _refreshMessage =
+
 
           'Live source is temporarily unavailable. Reference data remains available.';
 
-    }
 
+    }
 
 
     // The live source could not be confirmed. A cached snapshot may still
 
+
     // exist, but it is only a saved snapshot and is never presented as
+
 
     // current hiring.
 
+
     final cached = await CompanyIntelligenceDynamicPanel._service
+
 
         .cachedCompany(companyName);
 
 
-
     if (cached != null) {
+
 
       final savedOn = cached.generatedAt.toIso8601String().split('T').first;
 
+
       _refreshMessage =
+
 
           '${_refreshMessage ?? 'Live source could not be confirmed right now.'} '
 
+
           'A saved snapshot from $savedOn exists, but it is not shown as '
 
+
           'current hiring.';
+
 
     }
 
 
-
     return cached;
 
-  }
 
+  }
 
 
   @override
 
+
   void initState() {
+
 
     super.initState();
 
+
     _startBackgroundRefresh();
 
-  }
 
+  }
 
 
   Future<void> _startBackgroundRefresh() async {
 
-    if (!mounted) return;
 
+    if (!mounted) return;
 
 
     setState(() {
 
+
       _isRefreshing = true;
+
 
       _refreshMessage = null;
 
-    });
 
+    });
 
 
     final snapshot = await _refreshThenReadCache(
 
+
       widget.company.name,
 
-    );
 
+    );
 
 
     if (!mounted) return;
 
 
-
     setState(() {
+
 
       _liveSnapshot = snapshot;
 
+
       _isRefreshing = false;
+
 
     });
 
-  }
 
+  }
 
 
   @override
 
+
   Widget build(BuildContext context) {
+
 
     return _ReferenceWithLiveOpportunities(
 
+
       profile: widget.verifiedFallback,
+
 
       companyProfile: VerifiedCompanyData.find(widget.company.name) ??
 
+
           VerifiedCompanyData.find(widget.company.id),
+
 
       liveSnapshot: _liveSnapshot,
 
+
       liveConfirmed: _liveConfirmed,
+
 
       isRefreshing: _isRefreshing,
 
+
       refreshMessage: _refreshMessage,
+
 
     );
 
+
   }
+
 
 }
 
 
-
 class _ReferenceWithLiveOpportunities extends StatelessWidget {
+
 
   final VerifiedCompanySkillProfile? profile;
 
+
   final VerifiedCompanyProfile? companyProfile;
+
 
   final CompanyIntelligenceSnapshot? liveSnapshot;
 
+
   final bool liveConfirmed;
 
+
   final bool isRefreshing;
+
 
   final String? refreshMessage;
 
 
-
   const _ReferenceWithLiveOpportunities({
+
 
     required this.profile,
 
+
     required this.companyProfile,
+
 
     required this.liveSnapshot,
 
+
     required this.liveConfirmed,
+
 
     required this.isRefreshing,
 
+
     required this.refreshMessage,
+
 
   });
 
 
-
   @override
+
 
   Widget build(BuildContext context) {
 
+
     // Only a snapshot confirmed by a successful live refresh may drive
+
 
     // "current" content. Cache-only snapshots are treated as saved snapshots.
 
+
     final live = liveConfirmed ? liveSnapshot : null;
 
-    final saved = liveConfirmed ? null : liveSnapshot;
 
+    final saved = liveConfirmed ? null : liveSnapshot;
 
 
     final hasLiveJobs = live?.hasLiveJobs == true;
 
 
-
     // A number without a currency is ambiguous, so such entries are not shown.
 
-    final compensation = live == null
 
-        ? const <CompanyCompensation>[]
+        final compensationJobs = live == null
+        ? const <NormalizedJobPosting>[]
+        : live.liveJobs.where((job) {
+            final item = job.compensation;
+            if (item == null || !item.hasNumericRange) return false;
 
-        : live.compensation
+            final min = item.minimum;
+            final max = item.maximum;
+            if ((min != null && (!min.isFinite || min <= 0)) ||
+                (max != null && (!max.isFinite || max <= 0))) {
+              return false;
+            }
+            if (min != null && max != null && min > max) return false;
 
-            .where(
-
-              (item) =>
-
-                  item.hasNumericRange && item.currency.trim().isNotEmpty,
-
-            )
-
-            .toList(growable: false);
-
+            return item.currency.trim().isNotEmpty;
+          }).toList(growable: false);
 
 
     final skillProfile = profile;
@@ -459,8 +574,6 @@ class _ReferenceWithLiveOpportunities extends StatelessWidget {
     final sources = _reviewedSources(companyProfile, skillProfile);
 
     final hasSources = sources.isNotEmpty;
-
-
 
     final String opportunitiesStatus;
 
@@ -491,8 +604,6 @@ class _ReferenceWithLiveOpportunities extends StatelessWidget {
       opportunitiesColor = _amber;
 
     }
-
-
 
     return Column(
 
@@ -580,13 +691,8 @@ class _ReferenceWithLiveOpportunities extends StatelessWidget {
 
           title: 'Salary intelligence',
 
-          child: compensation.isNotEmpty
-
-              ? _CompensationList(
-
-                  items: compensation,
-
-                )
+          child: compensationJobs.isNotEmpty
+                ? _JobCompensationList(jobs: compensationJobs)
 
               : const _NotConnectedText(
 
@@ -710,9 +816,9 @@ class _ReferenceWithLiveOpportunities extends StatelessWidget {
 
               'Salary intelligence',
 
-              compensation.isNotEmpty ? 'LIVE' : 'UNAVAILABLE',
+              compensationJobs.isNotEmpty ? 'LIVE' : 'UNAVAILABLE',
 
-              compensation.isNotEmpty ? _mint : _amber,
+              compensationJobs.isNotEmpty ? _mint : _amber,
 
             ),
 
@@ -738,21 +844,15 @@ class _ReferenceWithLiveOpportunities extends StatelessWidget {
 
 }
 
-
-
 class _DynamicContent extends StatelessWidget {
 
   final CompanyIntelligenceSnapshot snapshot;
-
-
 
   const _DynamicContent({
 
     required this.snapshot,
 
   });
-
-
 
   @override
 
@@ -761,8 +861,6 @@ class _DynamicContent extends StatelessWidget {
     final lastSync =
 
         snapshot.generatedAt.toIso8601String().split('T').first;
-
-
 
     return Column(
 
@@ -914,13 +1012,34 @@ class _DynamicContent extends StatelessWidget {
 
           title: 'Salary intelligence',
 
-          child: snapshot.hasCompensation
-
-              ? _CompensationList(
-
-                  items: snapshot.compensation,
-
-                )
+          child: snapshot.liveJobs.any((job) {
+              final item = job.compensation;
+              return item != null &&
+                  item.hasNumericRange &&
+                  item.currency.trim().isNotEmpty &&
+                  (item.minimum == null ||
+                      (item.minimum!.isFinite && item.minimum! > 0)) &&
+                  (item.maximum == null ||
+                      (item.maximum!.isFinite && item.maximum! > 0)) &&
+                  (item.minimum == null ||
+                      item.maximum == null ||
+                      item.minimum! <= item.maximum!);
+            })
+                ? _JobCompensationList(
+                    jobs: snapshot.liveJobs.where((job) {
+                      final item = job.compensation;
+                      return item != null &&
+                          item.hasNumericRange &&
+                          item.currency.trim().isNotEmpty &&
+                          (item.minimum == null ||
+                              (item.minimum!.isFinite && item.minimum! > 0)) &&
+                          (item.maximum == null ||
+                              (item.maximum!.isFinite && item.maximum! > 0)) &&
+                          (item.minimum == null ||
+                              item.maximum == null ||
+                              item.minimum! <= item.maximum!);
+                    }).toList(growable: false),
+                  )
 
               : const _NotConnectedText(
 
@@ -1008,21 +1127,15 @@ class _DynamicContent extends StatelessWidget {
 
 }
 
-
-
 class _ReferenceFallback extends StatelessWidget {
 
   final VerifiedCompanySkillProfile? profile;
-
-
 
   const _ReferenceFallback({
 
     required this.profile,
 
   });
-
-
 
   @override
 
@@ -1116,21 +1229,15 @@ class _ReferenceFallback extends StatelessWidget {
 
 }
 
-
-
 class _ReferenceSkills extends StatelessWidget {
 
   final VerifiedCompanySkillProfile profile;
-
-
 
   const _ReferenceSkills({
 
     required this.profile,
 
   });
-
-
 
   @override
 
@@ -1220,8 +1327,6 @@ class _ReferenceSkills extends StatelessWidget {
 
 }
 
-
-
 /// One reviewed source line (label + URL).
 
 class _SourceLine {
@@ -1230,13 +1335,9 @@ class _SourceLine {
 
   final String url;
 
-
-
   const _SourceLine(this.label, this.url);
 
 }
-
-
 
 /// Collects the reviewed source URLs available for a company, without
 
@@ -1254,15 +1355,11 @@ List<_SourceLine> _reviewedSources(
 
   final result = <_SourceLine>[];
 
-
-
   void add(String label, String? url) {
 
     final cleaned = _clean(url);
 
     if (cleaned == null) return;
-
-
 
     final key = cleaned.toLowerCase().replaceAll(RegExp(r'/+$'), '');
 
@@ -1273,8 +1370,6 @@ List<_SourceLine> _reviewedSources(
     }
 
   }
-
-
 
   if (company != null) {
 
@@ -1290,8 +1385,6 @@ List<_SourceLine> _reviewedSources(
 
   }
 
-
-
   if (skills != null) {
 
     for (final url in skills.sourceUrls) {
@@ -1302,27 +1395,19 @@ List<_SourceLine> _reviewedSources(
 
   }
 
-
-
   return result;
 
 }
 
-
-
 class _SourceList extends StatelessWidget {
 
   final List<_SourceLine> items;
-
-
 
   const _SourceList({
 
     required this.items,
 
   });
-
-
 
   @override
 
@@ -1404,8 +1489,6 @@ class _SourceList extends StatelessWidget {
 
 }
 
-
-
 class _StatusRow {
 
   final String label;
@@ -1414,27 +1497,19 @@ class _StatusRow {
 
   final Color color;
 
-
-
   const _StatusRow(this.label, this.status, this.color);
 
 }
 
-
-
 class _DataStatusCard extends StatelessWidget {
 
   final List<_StatusRow> rows;
-
-
 
   const _DataStatusCard({
 
     required this.rows,
 
   });
-
-
 
   @override
 
@@ -1566,8 +1641,6 @@ class _DataStatusCard extends StatelessWidget {
 
 }
 
-
-
 class _DynamicSectionCard extends StatelessWidget {
 
   final IconData icon;
@@ -1577,8 +1650,6 @@ class _DynamicSectionCard extends StatelessWidget {
   final String title;
 
   final Widget child;
-
-
 
   const _DynamicSectionCard({
 
@@ -1591,8 +1662,6 @@ class _DynamicSectionCard extends StatelessWidget {
     required this.child,
 
   });
-
-
 
   @override
 
@@ -1678,17 +1747,11 @@ class _DynamicSectionCard extends StatelessWidget {
 
 }
 
-
-
 class _NotConnectedText extends StatelessWidget {
 
   final String message;
 
-
-
   const _NotConnectedText(this.message);
-
-
 
   @override
 
@@ -1714,8 +1777,6 @@ class _NotConnectedText extends StatelessWidget {
 
 }
 
-
-
 /// Returns a trimmed string, or null when the value is null/blank.
 
 ///
@@ -1734,149 +1795,91 @@ String? _clean(String? value) {
 
 }
 
+class _JobCompensationList extends StatelessWidget {
+  final List<NormalizedJobPosting> jobs;
 
-
-class _CompensationList extends StatelessWidget {
-
-  final List<CompanyCompensation> items;
-
-
-
-  const _CompensationList({
-
-    required this.items,
-
-  });
-
-
+  const _JobCompensationList({required this.jobs});
 
   @override
-
   Widget build(BuildContext context) {
-
     return Column(
-
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
-        for (final item in items.take(8))
-
-          Padding(
-
-            padding: const EdgeInsets.only(bottom: 9),
-
-            child: Row(
-
-              children: [
-
-                Expanded(
-
-                  child: Text(
-
-                    _range(item),
-
+        for (final job in jobs.take(8))
+          if (job.compensation != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    job.title,
                     style: const TextStyle(
-
                       color: _text,
-
-                      fontSize: 12,
-
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w800,
-
                     ),
-
                   ),
-
-                ),
-
-                if (_clean(item.location) != null)
-
-                  Flexible(
-
-                    child: Text(
-
-                      _clean(item.location)!,
-
-                      overflow: TextOverflow.ellipsis,
-
+                  const SizedBox(height: 4),
+                  Text(
+                    _range(job.compensation!),
+                    style: const TextStyle(
+                      color: _mint,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (_clean(job.location) != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      _clean(job.location)!,
+                      style: const TextStyle(color: _muted, fontSize: 9.5),
+                    ),
+                  ],
+                  if (_clean(job.compensation!.sourceUrl) != null ||
+                      _clean(job.sourceUrl) != null) ...[
+                    const SizedBox(height: 3),
+                    SelectableText(
+                      'Source: ${_clean(job.compensation!.sourceUrl) ?? _clean(job.sourceUrl)!}',
                       style: const TextStyle(
-
-                        color: _muted,
-
-                        fontSize: 9.5,
-
+                        color: _cyan,
+                        fontSize: 9,
+                        height: 1.4,
                       ),
-
                     ),
-
-                  ),
-
-              ],
-
+                  ],
+                ],
+              ),
             ),
-
-          ),
-
       ],
-
     );
-
   }
-
-
 
   String _range(CompanyCompensation item) {
-
     final min = item.minimum;
-
     final max = item.maximum;
-
     final currency = item.currency.trim();
-
     final period = item.period.trim();
-
     final suffix = period.isEmpty ? '' : ' / $period';
 
-
-
     if (min != null && max != null) {
-
       return '$currency ${min.toStringAsFixed(0)} – '
-
           '${max.toStringAsFixed(0)}$suffix';
-
     }
-
-
-
-    if (min != null) {
-
-      return '$currency ${min.toStringAsFixed(0)}+$suffix';
-
-    }
-
-
-
+    if (min != null) return '$currency ${min.toStringAsFixed(0)}+$suffix';
     return '$currency up to ${max!.toStringAsFixed(0)}$suffix';
-
   }
-
 }
-
-
 
 class _LiveJobList extends StatelessWidget {
 
   final List<NormalizedJobPosting> jobs;
-
-
 
   const _LiveJobList({
 
     required this.jobs,
 
   });
-
-
 
   @override
 
@@ -1894,8 +1897,6 @@ class _LiveJobList extends StatelessWidget {
 
   }
 
-
-
   Widget _buildJob(NormalizedJobPosting job) {
 
     final placeLine = <String>[
@@ -1906,8 +1907,6 @@ class _LiveJobList extends StatelessWidget {
 
     ].join(' • ');
 
-
-
     final teamLine = <String>[
 
       if (_clean(job.department) != null) _clean(job.department)!,
@@ -1916,11 +1915,7 @@ class _LiveJobList extends StatelessWidget {
 
     ].join(' • ');
 
-
-
     final applyUrl = _clean(job.applyUrl);
-
-
 
     return Container(
 
@@ -2040,8 +2035,6 @@ class _LiveJobList extends StatelessWidget {
 
 }
 
-
-
 class _GroupTitle extends StatelessWidget {
 
   final IconData icon;
@@ -2049,8 +2042,6 @@ class _GroupTitle extends StatelessWidget {
   final String title;
 
   final Color color;
-
-
 
   const _GroupTitle({
 
@@ -2061,8 +2052,6 @@ class _GroupTitle extends StatelessWidget {
     required this.color,
 
   });
-
-
 
   @override
 
@@ -2108,15 +2097,11 @@ class _GroupTitle extends StatelessWidget {
 
 }
 
-
-
 class _ChipWrap extends StatelessWidget {
 
   final List<String> items;
 
   final Color color;
-
-
 
   const _ChipWrap(
 
@@ -2125,8 +2110,6 @@ class _ChipWrap extends StatelessWidget {
     this.color,
 
   );
-
-
 
   @override
 
@@ -2192,8 +2175,6 @@ class _ChipWrap extends StatelessWidget {
 
 }
 
-
-
 class _EvidenceCard extends StatelessWidget {
 
   final String title;
@@ -2201,8 +2182,6 @@ class _EvidenceCard extends StatelessWidget {
   final String message;
 
   final Color color;
-
-
 
   const _EvidenceCard({
 
@@ -2213,8 +2192,6 @@ class _EvidenceCard extends StatelessWidget {
     required this.color,
 
   });
-
-
 
   @override
 
@@ -2316,13 +2293,9 @@ class _EvidenceCard extends StatelessWidget {
 
 }
 
-
-
 class _LoadingBlock extends StatelessWidget {
 
   const _LoadingBlock();
-
-
 
   @override
 
