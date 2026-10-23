@@ -115,6 +115,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _navigate() async {
     if (!mounted) return;
+
     setState(() => _exiting = true);
 
     SystemChrome.setEnabledSystemUIMode(
@@ -122,23 +123,20 @@ class _SplashScreenState extends State<SplashScreen>
       overlays: SystemUiOverlay.values,
     );
 
+    // Keep the existing 4.8-second splash timer unchanged. Once it finishes,
+    // route immediately to the correct screen without an extra 300 ms wait.
     final user = FirebaseAuth.instance.currentUser;
-    await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 650),
+        transitionDuration: const Duration(milliseconds: 200),
+        reverseTransitionDuration: const Duration(milliseconds: 150),
         pageBuilder: (_, __, ___) =>
             user != null ? const MainScreen() : const LoginScreen(),
-        transitionsBuilder: (_, anim, __, child) => FadeTransition(
-          opacity: anim,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.98, end: 1.0).animate(anim),
-            child: child,
-          ),
-        ),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
       ),
     );
   }

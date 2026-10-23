@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -18,13 +17,15 @@ import 'services/notification_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Firebase must be ready before SplashScreen checks authentication.
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  // Keep existing environment configuration available to app services.
-  await dotenv.load(fileName: '.env');
+  // Initialize Firebase and environment configuration concurrently.
+  // Both must complete before the app starts because authentication
+  // and environment-dependent services may need them.
+  await Future.wait<void>([
+    Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).then<void>((_) {}),
+    dotenv.load(fileName: '.env'),
+  ]);
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -33,10 +34,9 @@ Future<void> main() async {
     ),
   );
 
-  // Start the app without waiting for notification setup.
   runApp(const AICareerApp());
 
-  // Notification initialization runs after runApp.
+  // Notifications must not delay the first Flutter frame.
   unawaited(_initializeNotifications());
 }
 
