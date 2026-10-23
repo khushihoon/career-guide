@@ -77,6 +77,70 @@ class CompanyIntelligenceLiveSourceCatalog {
       supportsLiveJobs: true,
       supportsCompensation: true,
     ),
+
+    // Added after confirming the official Anthropic Greenhouse board.
+    CompanyLiveSourceConfig(
+      companyId: 'anthropic',
+      companyName: 'Anthropic',
+      sourceType: CompanySourceType.greenhouse,
+      sourceUrl: CompanyIntelligenceSourceCatalog.greenhouseApiUrl('anthropic'),
+      sourceLabel: 'Anthropic official Greenhouse job board',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
+
+    // Added after the public Ashby endpoint returned listed Cognition roles.
+    CompanyLiveSourceConfig(
+      companyId: 'cognition_ai',
+      companyName: 'Cognition AI',
+      sourceType: CompanySourceType.ashby,
+      sourceUrl: CompanyIntelligenceSourceCatalog.ashbyApiUrl('cognition'),
+      sourceLabel: 'Cognition official Ashby job board',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
+
+    // Confirmed by reading the public Ashby JSON response: listed job records
+    // include human-facing jobUrl/applyUrl fields and role descriptions.
+    CompanyLiveSourceConfig(
+      companyId: 'langchain',
+      companyName: 'LangChain',
+      sourceType: CompanySourceType.ashby,
+      sourceUrl: CompanyIntelligenceSourceCatalog.ashbyApiUrl('langchain'),
+      sourceLabel: 'LangChain Ashby public postings API',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
+
+    // Confirmed by reading the public Ashby JSON response. Salary is still
+    // counted only per posting when that posting actually publishes it.
+    CompanyLiveSourceConfig(
+      companyId: 'modal',
+      companyName: 'Modal',
+      sourceType: CompanySourceType.ashby,
+      sourceUrl: CompanyIntelligenceSourceCatalog.ashbyApiUrl('modal'),
+      sourceLabel: 'Modal Ashby public postings API',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
+
+    // The company's public Greenhouse board is visible at
+    // job-boards.greenhouse.io/scaleai. The API endpoint is the corresponding
+    // public Greenhouse JSON board; salary remains per-posting only.
+    CompanyLiveSourceConfig(
+      companyId: 'scale_ai',
+      companyName: 'Scale AI',
+      sourceType: CompanySourceType.greenhouse,
+      sourceUrl: CompanyIntelligenceSourceCatalog.greenhouseApiUrl('scaleai'),
+      sourceLabel: 'Scale AI public Greenhouse job board',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
   ];
 
   List<CompanyLiveSourceConfig> get all =>
