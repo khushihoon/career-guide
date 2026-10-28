@@ -40,11 +40,9 @@ class EngagementController {
   final StreamController<XpLevel> _levelController =
       StreamController<XpLevel>.broadcast();
 
-  Stream<Achievement> get achievementUnlocked =>
-      _achievementController.stream;
+  Stream<Achievement> get achievementUnlocked => _achievementController.stream;
 
-  Stream<XpLevel> get leveledUp =>
-      _levelController.stream;
+  Stream<XpLevel> get leveledUp => _levelController.stream;
 
   void unlockAchievement(Achievement achievement) {
     _achievementController.add(achievement);

@@ -46,9 +46,9 @@ import '../models/user_profile.dart';
 /// The snapshot is runtime-only. It is not persisted by this service.
 class CareerProgressSnapshot {
   final Map<CareerStage, double> stageProgress; // each 0-100
-  final double overallProgress;                 // 0-100
-  final int jobReadinessScore;                  // 0-100 summary
-  final int interviewReadinessScore;            // 0-100 summary
+  final double overallProgress; // 0-100
+  final int jobReadinessScore; // 0-100 summary
+  final int interviewReadinessScore; // 0-100 summary
   final String? nextMilestone;
   final String motivationalMessage;
 
@@ -155,8 +155,7 @@ class ProgressTrackingService {
 
     // Exploration is a concrete selection event: an active CareerContext
     // means the user has selected a career.
-    stages[CareerStage.exploration] =
-        _hasActiveCareer(context) ? 100.0 : 0.0;
+    stages[CareerStage.exploration] = _hasActiveCareer(context) ? 100.0 : 0.0;
     knownSignals.add(CareerStage.exploration);
 
     // Assessment is considered evidenced only when the Copilot has actual
@@ -239,8 +238,7 @@ class ProgressTrackingService {
     );
 
     final jobScore = _scoreFromUnit(context.readiness.jobReadiness);
-    final interviewScore =
-        _scoreFromUnit(context.readiness.interviewReadiness);
+    final interviewScore = _scoreFromUnit(context.readiness.interviewReadiness);
 
     final currentStage = context.currentStage;
     final nextMilestone = _nextCanonicalMilestone(
@@ -392,9 +390,8 @@ class ProgressTrackingService {
       user,
       totalRoadmapSteps: effectiveRoadmapSteps,
     );
-    final dsa = dsaCompleted == null
-        ? 0.0
-        : _pct(dsaCompleted, effectiveDsaTarget);
+    final dsa =
+        dsaCompleted == null ? 0.0 : _pct(dsaCompleted, effectiveDsaTarget);
     final projects = projectsCompletedCount == null
         ? 0.0
         : _pct(projectsCompletedCount, effectiveProjectTarget);
@@ -542,8 +539,7 @@ class ProgressTrackingService {
     int? projectsCompleted,
     int targetProjects = _defaultTargetProjects,
   }) {
-    final completed =
-        _resolveCount(user.projectsCompleted, projectsCompleted);
+    final completed = _resolveCount(user.projectsCompleted, projectsCompleted);
     if (completed == null) return 0;
 
     final target = _resolveTarget(
@@ -559,8 +555,7 @@ class ProgressTrackingService {
     int? portfolioItemsCount,
     int targetPortfolioItems = _defaultTargetPortfolio,
   }) {
-    final items =
-        _resolveCount(user.portfolioItemsCount, portfolioItemsCount);
+    final items = _resolveCount(user.portfolioItemsCount, portfolioItemsCount);
     if (items == null) return 0;
 
     final target = _resolveTarget(

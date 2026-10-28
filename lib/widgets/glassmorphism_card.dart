@@ -10,16 +10,16 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../models/quest_models.dart';      // LevelSystem, LeaderboardEntry
+import '../models/quest_models.dart'; // LevelSystem, LeaderboardEntry
 import '../models/achievement_models.dart';
 
 // ── Design tokens (shared across all widgets) ─────────────────────────
-const _kBg       = Color(0xFF0F0F1A);
-const _kSurface  = Color(0xFF1A1A2E);
-const _kBorder   = Color(0xFF2A2A40);
-const _kPrimary  = Color(0xFF7C3AED);
-const _kSecondary= Color(0xFFA78BFA);
-const _kMuted    = Color(0xFF888899);
+const _kBg = Color(0xFF0F0F1A);
+const _kSurface = Color(0xFF1A1A2E);
+const _kBorder = Color(0xFF2A2A40);
+const _kPrimary = Color(0xFF7C3AED);
+const _kSecondary = Color(0xFFA78BFA);
+const _kMuted = Color(0xFF888899);
 
 // ════════════════════════════════════════════════════════════════════════
 // GlassCard — frosted glass container
@@ -124,12 +124,12 @@ class XpProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final safeXp    = totalXp < 0 ? 0 : totalXp;
-    final level     = LevelSystem.levelFor(safeXp);
-    final title     = LevelSystem.titleFor(safeXp);
-    final progress  = LevelSystem.progressInLevel(safeXp).clamp(0.0, 1.0);
-    final xpToNext  = LevelSystem.xpForNextLevel(safeXp);
-    final atMaxLvl  = xpToNext <= 0;
+    final safeXp = totalXp < 0 ? 0 : totalXp;
+    final level = LevelSystem.levelFor(safeXp);
+    final title = LevelSystem.titleFor(safeXp);
+    final progress = LevelSystem.progressInLevel(safeXp).clamp(0.0, 1.0);
+    final xpToNext = LevelSystem.xpForNextLevel(safeXp);
+    final atMaxLvl = xpToNext <= 0;
 
     if (compact) {
       return _compact(level, progress);
@@ -166,8 +166,7 @@ class XpProgressBar extends StatelessWidget {
                       atMaxLvl
                           ? 'Max level reached'
                           : '$xpToNext XP to Level ${level + 1}',
-                      style: const TextStyle(
-                          color: _kMuted, fontSize: 11),
+                      style: const TextStyle(color: _kMuted, fontSize: 11),
                     ),
                   ],
                 ),
@@ -338,9 +337,7 @@ class _AchievementToastWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = achievement.rarity.gradientHex
-        .map((c) => Color(c))
-        .toList();
+    final colors = achievement.rarity.gradientHex.map((c) => Color(c)).toList();
     final top = colors.isNotEmpty ? colors[0] : _kPrimary;
     final bottom = colors.length > 1 ? colors[1] : _kSecondary;
 
@@ -348,8 +345,7 @@ class _AchievementToastWidget extends StatelessWidget {
       color: Colors.transparent,
       child: Semantics(
         button: true,
-        label:
-            'Achievement unlocked: ${achievement.title}. Tap to dismiss.',
+        label: 'Achievement unlocked: ${achievement.title}. Tap to dismiss.',
         child: GestureDetector(
           onTap: onDismiss,
           child: Container(
@@ -372,8 +368,7 @@ class _AchievementToastWidget extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(achievement.icon,
-                    style: const TextStyle(fontSize: 32)),
+                Text(achievement.icon, style: const TextStyle(fontSize: 32)),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -453,10 +448,10 @@ class QuestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCompleted = quest.isCompleted;
-    final isExpired   = quest.isExpired && !isCompleted;
+    final isExpired = quest.isExpired && !isCompleted;
 
     final current = quest.progressCurrent < 0 ? 0 : quest.progressCurrent;
-    final target  = quest.progressTarget <= 0 ? 0 : quest.progressTarget;
+    final target = quest.progressTarget <= 0 ? 0 : quest.progressTarget;
     final remaining = target > current ? target - current : 0;
     final progress = quest.progressPercent.isNaN
         ? 0.0
@@ -464,9 +459,8 @@ class QuestCard extends StatelessWidget {
 
     return GlassCard(
       padding: const EdgeInsets.all(14),
-      borderColor: isCompleted
-          ? _kPrimary.withOpacity(0.5)
-          : _kBorder.withOpacity(0.5),
+      borderColor:
+          isCompleted ? _kPrimary.withOpacity(0.5) : _kBorder.withOpacity(0.5),
       gradientColors: isCompleted
           ? [_kPrimary.withOpacity(0.15), _kSecondary.withOpacity(0.07)]
           : null,
@@ -502,8 +496,7 @@ class QuestCard extends StatelessWidget {
                     color: isExpired ? _kMuted : Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    decoration:
-                        isExpired ? TextDecoration.lineThrough : null,
+                    decoration: isExpired ? TextDecoration.lineThrough : null,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -526,9 +519,7 @@ class QuestCard extends StatelessWidget {
                           minHeight: 4,
                           backgroundColor: _kBorder,
                           valueColor: AlwaysStoppedAnimation(
-                            isCompleted
-                                ? const Color(0xFF6EE7B7)
-                                : _kPrimary,
+                            isCompleted ? const Color(0xFF6EE7B7) : _kPrimary,
                           ),
                         ),
                       ),
@@ -536,8 +527,7 @@ class QuestCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       target > 0 ? '$current/$target' : '$current',
-                      style: const TextStyle(
-                          color: _kMuted, fontSize: 10),
+                      style: const TextStyle(color: _kMuted, fontSize: 10),
                     ),
                   ],
                 ),
@@ -545,8 +535,7 @@ class QuestCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '$remaining to go',
-                    style: const TextStyle(
-                        color: _kMuted, fontSize: 10),
+                    style: const TextStyle(color: _kMuted, fontSize: 10),
                   ),
                 ],
               ],
@@ -561,11 +550,11 @@ class QuestCard extends StatelessWidget {
               child: GestureDetector(
                 onTap: onClaim,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [_kPrimary, _kSecondary]),
+                    gradient:
+                        const LinearGradient(colors: [_kPrimary, _kSecondary]),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
@@ -580,8 +569,7 @@ class QuestCard extends StatelessWidget {
             )
           else
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: _kPrimary.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
@@ -718,19 +706,18 @@ class _DailyRewardBoxState extends State<DailyRewardBox>
                     widget.canClaim
                         ? 'Tap to claim your ${widget.streak >= 7 ? "streak bonus" : "daily XP"}'
                         : 'Come back tomorrow for more XP',
-                    style: const TextStyle(
-                        color: _kMuted, fontSize: 11),
+                    style: const TextStyle(color: _kMuted, fontSize: 11),
                   ),
                 ],
               ),
             ),
             if (widget.canClaim)
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                      colors: [_kPrimary, _kSecondary]),
+                  gradient:
+                      const LinearGradient(colors: [_kPrimary, _kSecondary]),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
@@ -890,8 +877,7 @@ class CompanionCard extends StatelessWidget {
                           fontWeight: FontWeight.w500),
                     ),
                     SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios,
-                        size: 10, color: _kSecondary),
+                    Icon(Icons.arrow_forward_ios, size: 10, color: _kSecondary),
                   ],
                 ),
               ),
@@ -929,17 +915,12 @@ class LeaderboardTile extends StatelessWidget {
           : '${entry.displayName}, rank ${entry.rank}, level ${entry.level}, ${entry.totalXp} XP',
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: entry.isCurrentUser
-              ? _kPrimary.withOpacity(0.15)
-              : _kSurface,
+          color: entry.isCurrentUser ? _kPrimary.withOpacity(0.15) : _kSurface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: entry.isCurrentUser
-                ? _kPrimary.withOpacity(0.4)
-                : _kBorder,
+            color: entry.isCurrentUser ? _kPrimary.withOpacity(0.4) : _kBorder,
           ),
         ),
         child: Row(
@@ -954,9 +935,7 @@ class LeaderboardTile extends StatelessWidget {
                   : Text(
                       '#${entry.rank}',
                       style: TextStyle(
-                        color: entry.isCurrentUser
-                            ? _kSecondary
-                            : _kMuted,
+                        color: entry.isCurrentUser ? _kSecondary : _kMuted,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -968,9 +947,8 @@ class LeaderboardTile extends StatelessWidget {
             CircleAvatar(
               radius: 18,
               backgroundColor: _kPrimary.withOpacity(0.3),
-              backgroundImage: entry.photoUrl != null
-                  ? NetworkImage(entry.photoUrl!)
-                  : null,
+              backgroundImage:
+                  entry.photoUrl != null ? NetworkImage(entry.photoUrl!) : null,
               child: entry.photoUrl == null
                   ? Text(
                       entry.displayName.isNotEmpty
@@ -994,9 +972,8 @@ class LeaderboardTile extends StatelessWidget {
                         ? '${entry.displayName} (You)'
                         : entry.displayName,
                     style: TextStyle(
-                      color: entry.isCurrentUser
-                          ? Colors.white
-                          : Colors.white70,
+                      color:
+                          entry.isCurrentUser ? Colors.white : Colors.white70,
                       fontSize: 13,
                       fontWeight: entry.isCurrentUser
                           ? FontWeight.bold
@@ -1006,8 +983,7 @@ class LeaderboardTile extends StatelessWidget {
                   ),
                   Text(
                     'Level ${entry.level} · ${LevelSystem.titleFor(entry.totalXp)}',
-                    style: const TextStyle(
-                        color: _kMuted, fontSize: 10),
+                    style: const TextStyle(color: _kMuted, fontSize: 10),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -1028,8 +1004,7 @@ class LeaderboardTile extends StatelessWidget {
                 ),
                 Text(
                   '+${entry.weeklyXp} this week',
-                  style:
-                      const TextStyle(color: _kMuted, fontSize: 10),
+                  style: const TextStyle(color: _kMuted, fontSize: 10),
                 ),
               ],
             ),

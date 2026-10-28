@@ -105,10 +105,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
-                    )
-                        .animate()
-                        .fadeIn(duration: 400.ms)
-                        .slideX(begin: -0.2),
+                    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.2),
                     const SizedBox(height: 12),
                     const Text(
                       'No worries! We\'ll help you reset your password. Enter the email address associated with your account.',
@@ -155,13 +152,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           fillColor: const Color(0xFF1A1A2E),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(
-                                color: Color(0xFF2A2A40)),
+                            borderSide:
+                                const BorderSide(color: Color(0xFF2A2A40)),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(
-                                color: Color(0xFF2A2A40)),
+                            borderSide:
+                                const BorderSide(color: Color(0xFF2A2A40)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -180,10 +177,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       ),
                     ],
                   ),
-                )
-                    .animate()
-                    .fadeIn(delay: 200.ms)
-                    .slideY(begin: 0.2),
+                ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
 
                 const SizedBox(height: 32),
 
@@ -207,8 +201,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             height: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              valueColor:
-                                  AlwaysStoppedAnimation(Colors.white),
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
                             ),
                           )
                         : const Text(
@@ -246,10 +239,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           color: Color(0xFF4ADE80),
                         ),
                       ),
-                    )
-                        .animate()
-                        .fadeIn(duration: 400.ms)
-                        .scale(),
+                    ).animate().fadeIn(duration: 400.ms).scale(),
 
                     const SizedBox(height: 32),
 
@@ -261,10 +251,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         color: Colors.white,
                       ),
                       textAlign: TextAlign.center,
-                    )
-                        .animate()
-                        .fadeIn(delay: 200.ms)
-                        .slideY(begin: 0.2),
+                    ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
 
                     const SizedBox(height: 12),
 
@@ -327,9 +314,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    )
-                        .animate()
-                        .fadeIn(delay: Duration(milliseconds: 500)),
+                    ).animate().fadeIn(delay: Duration(milliseconds: 500)),
                   ],
                 ),
               ],

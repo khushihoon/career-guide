@@ -59,7 +59,8 @@ class LocalGoalGeneratorService {
   /// so a template stays "recent" for several days, not just one.
   static const int _recentTemplateWindow = 24;
 
-  const LocalGoalGeneratorService({CareerGoalEngine engine = const CareerGoalEngine()})
+  const LocalGoalGeneratorService(
+      {CareerGoalEngine engine = const CareerGoalEngine()})
       : _engine = engine;
 
   Future<List<DailyGoal>> generateAndSaveDailyGoals({
@@ -223,9 +224,8 @@ class LocalGoalGeneratorService {
     final pool = GoalContentDatabase.dailyForRole(targetRole)
         .where((t) => t.minLevel <= currentLevel && t.minPhase <= roadmapPhase)
         .toList();
-    final source = pool.isNotEmpty
-        ? pool
-        : GoalContentDatabase.dailyForRole(targetRole);
+    final source =
+        pool.isNotEmpty ? pool : GoalContentDatabase.dailyForRole(targetRole);
 
     final known = currentSkills.map(_key).toSet();
     source.sort((a, b) {
@@ -276,12 +276,14 @@ class LocalGoalGeneratorService {
     Set<String> recentSkills,
   ) {
     final pool = GoalContentDatabase.dailyForRole(career.label);
-    final eligible = pool.where((t) =>
-        t.minLevel <= level && t.minPhase <= phase).toList();
+    final eligible =
+        pool.where((t) => t.minLevel <= level && t.minPhase <= phase).toList();
     final source = eligible.isNotEmpty ? eligible : pool;
     source.sort((a, b) {
-      final ar = recentSkills.contains(_key(a.skill ?? _inferSkill(a) ?? '')) ? 1 : 0;
-      final br = recentSkills.contains(_key(b.skill ?? _inferSkill(b) ?? '')) ? 1 : 0;
+      final ar =
+          recentSkills.contains(_key(a.skill ?? _inferSkill(a) ?? '')) ? 1 : 0;
+      final br =
+          recentSkills.contains(_key(b.skill ?? _inferSkill(b) ?? '')) ? 1 : 0;
       return ar.compareTo(br);
     });
     return source.take(4).toList();
@@ -289,7 +291,8 @@ class LocalGoalGeneratorService {
 
   String _friendlyTitle(GoalTemplate template, int index, String? focusSkill) {
     final title = template.title.trim();
-    if (index == 0 && focusSkill != null &&
+    if (index == 0 &&
+        focusSkill != null &&
         (template.skill ?? '').trim().isNotEmpty) {
       return '🎯 Focus: ${template.skill} — $title';
     }

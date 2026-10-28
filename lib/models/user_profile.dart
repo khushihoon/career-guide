@@ -109,13 +109,12 @@ class UserProfile {
     this.linkedinUrl,
     this.portfolioHeadline,
     this.portfolioBio,
-  })  : assert(interviewsPracticed >= 0,
-            'interviewsPracticed cannot be negative'),
+  })  : assert(
+            interviewsPracticed >= 0, 'interviewsPracticed cannot be negative'),
         assert(jobApplications >= 0, 'jobApplications cannot be negative'),
         assert(dailyStreak >= 0, 'dailyStreak cannot be negative'),
         assert(xpPoints >= 0, 'xpPoints cannot be negative'),
-        assert(
-            currentRoadmapStep == null || currentRoadmapStep >= 0,
+        assert(currentRoadmapStep == null || currentRoadmapStep >= 0,
             'currentRoadmapStep cannot be negative'),
         assert(completedLessons == null || completedLessons >= 0,
             'completedLessons cannot be negative'),
@@ -194,15 +193,12 @@ class UserProfile {
       totalLessons: totalLessons ?? this.totalLessons,
       totalRoadmapSteps: totalRoadmapSteps ?? this.totalRoadmapSteps,
       targetSkillCount: targetSkillCount ?? this.targetSkillCount,
-      dsaProblemsCompleted:
-          dsaProblemsCompleted ?? this.dsaProblemsCompleted,
+      dsaProblemsCompleted: dsaProblemsCompleted ?? this.dsaProblemsCompleted,
       dsaProblemsTarget: dsaProblemsTarget ?? this.dsaProblemsTarget,
       projectsCompleted: projectsCompleted ?? this.projectsCompleted,
       projectsTarget: projectsTarget ?? this.projectsTarget,
-      portfolioItemsCount:
-          portfolioItemsCount ?? this.portfolioItemsCount,
-      portfolioItemsTarget:
-          portfolioItemsTarget ?? this.portfolioItemsTarget,
+      portfolioItemsCount: portfolioItemsCount ?? this.portfolioItemsCount,
+      portfolioItemsTarget: portfolioItemsTarget ?? this.portfolioItemsTarget,
       interviewsTarget: interviewsTarget ?? this.interviewsTarget,
       applicationsTarget: applicationsTarget ?? this.applicationsTarget,
       isPortfolioPublic: isPortfolioPublic ?? this.isPortfolioPublic,

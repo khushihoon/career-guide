@@ -1,54 +1,52 @@
+// lib/data/courses/course_generator_config.dart
+//
+// Settings for course generation. Pure Dart (no Flutter imports) so the
+// optional backend can import it too.
+
 class CourseGeneratorConfig {
-  // Kitne concepts har course level mein generate honge
+  // How many concepts each generated lesson has.
   static const int conceptsPerLesson = 5;
 
-  // Har level mein kitne quiz questions honge
+  // How many quiz questions each generated lesson has.
   static const int quizQuestionsPerLesson = 5;
 
-  // Har level mein kitne mini challenges honge
+  // How many mini challenges each generated lesson has.
   static const int challengesPerLesson = 2;
 
-  // Har level ke end mein final project generate hoga
+  // Every generated lesson ends with a final project.
   static const bool generateFinalProject = true;
 
-  // Quiz ke liye default XP
   static const int defaultQuizXp = 10;
-
-  // Mini challenge ke liye default XP
   static const int defaultChallengeXp = 15;
-
-  // Final project ke liye default XP
   static const int defaultProjectXp = 50;
 
-  // AI ko content kis style mein banana hai
   static const String defaultTeachingStyle =
       'simple, practical, beginner-friendly and career-focused';
 
-  // AI se structured JSON output lena hai
   static const String outputFormat = 'json';
 
-  // ─────────────────────────────────────────────────────────────
-  // CACHE SETTINGS (added for dynamic AI course generation)
-  // ─────────────────────────────────────────────────────────────
-
-  /// Whether generated courses should be cached locally so the same
-  /// (careerId + level) is never re-generated unnecessarily.
+  // ── Cache settings ────────────────────────────────────────────
   static const bool cacheEnabled = true;
-
-  /// SharedPreferences key prefix under which each generated course's
-  /// raw JSON is stored: "$cacheKeyPrefix<careerId>_level<level>"
   static const String cacheKeyPrefix = 'generated_course_';
-
-  /// SharedPreferences key holding the list of all cached course keys,
-  /// used to reload every generated course on app start.
   static const String cacheIndexKey = 'generated_course_index_v1';
 
-  // ─────────────────────────────────────────────────────────────
-  // MULTI-LESSON LEVELS (Security, Design, Emerging, Testing,
-  // Specialized) — each level shows exactly this many individually
-  // generated, individually cached lessons. Software Engineer, AI &
-  // Data (real static lessons) and Cloud & DevOps (existing single
-  // generated course per level) are unaffected by this constant.
-  // ─────────────────────────────────────────────────────────────
+  // ── Multi-lesson levels ───────────────────────────────────────
+  // Security, Design, Emerging, Testing and Specialized levels show
+  // exactly this many lessons.
   static const int lessonsPerDynamicLevel = 10;
+
+  // ── NEW: optional backend ─────────────────────────────────────
+  // The app now generates courses on the device (free, offline).
+  // A backend is OPTIONAL. To use one, run the app with:
+  //   flutter run --dart-define=COURSE_BACKEND_URL=https://your-server
+  // Leave it empty (default) to use only the built-in generator.
+  static const String backendBaseUrl =
+      String.fromEnvironment('COURSE_BACKEND_URL', defaultValue: '');
+
+  // How long to wait for the optional backend before falling back.
+  static const int backendTimeoutSeconds = 25;
+
+  // Lesson-count limits (must match the backend).
+  static const int minLessonCount = 1;
+  static const int maxLessonCount = 50;
 }

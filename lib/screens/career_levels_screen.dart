@@ -47,15 +47,15 @@ class CareerLevelsScreen extends StatelessWidget {
           'Pass exactly one of staticCareer or generatedCareer.',
         );
 
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
-  static const _green    = Color(0xFF4ADE80);
-  static const _amber    = Color(0xFFF59E0B);
-  static const _red      = Color(0xFFEF4444);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
+  static const _green = Color(0xFF4ADE80);
+  static const _amber = Color(0xFFF59E0B);
+  static const _red = Color(0xFFEF4444);
 
   bool get _isStatic => staticCareer != null;
 
@@ -97,11 +97,12 @@ class CareerLevelsScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 itemCount: _levelCount,
                 itemBuilder: (context, i) {
-                  final levelNum   = i + 1;
-                  final title      = _isStatic
+                  final levelNum = i + 1;
+                  final title = _isStatic
                       ? staticCareer!.levels[i].levelTitle
                       : generatedCareer!.levels[i].levelTitle;
-                  final difficulty = _isStatic ? null : generatedCareer!.levels[i].difficulty;
+                  final difficulty =
+                      _isStatic ? null : generatedCareer!.levels[i].difficulty;
                   final lessonCount = _isStatic
                       ? staticCareer!.levels[i].lessons.length
                       : (multiLesson
@@ -119,7 +120,8 @@ class CareerLevelsScreen extends StatelessWidget {
                               ? staticCareer!.levels[i].lessons
                               : null,
                           generatedCareer: _isStatic ? null : generatedCareer,
-                          generatedLevel: _isStatic ? null : generatedCareer!.levels[i],
+                          generatedLevel:
+                              _isStatic ? null : generatedCareer!.levels[i],
                           multiLesson: multiLesson,
                         ),
                       ),
@@ -134,7 +136,8 @@ class CareerLevelsScreen extends StatelessWidget {
                       ),
                       child: Row(children: [
                         Container(
-                          width: 46, height: 46,
+                          width: 46,
+                          height: 46,
                           decoration: BoxDecoration(
                             color: _primary.withOpacity(0.12),
                             shape: BoxShape.circle,
@@ -142,7 +145,8 @@ class CareerLevelsScreen extends StatelessWidget {
                           child: Center(
                             child: Text('$levelNum',
                                 style: const TextStyle(
-                                    color: Colors.white, fontWeight: FontWeight.bold)),
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -159,26 +163,31 @@ class CareerLevelsScreen extends StatelessWidget {
                               Row(children: [
                                 if (difficulty != null) ...[
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: _diffColor(difficulty).withOpacity(0.12),
+                                      color: _diffColor(difficulty)
+                                          .withOpacity(0.12),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(difficulty,
                                         style: TextStyle(
-                                            color: _diffColor(difficulty), fontSize: 10)),
+                                            color: _diffColor(difficulty),
+                                            fontSize: 10)),
                                   ),
                                   const SizedBox(width: 6),
                                 ],
                                 Text(
                                   '$lessonCount ${lessonCount == 1 ? "lesson" : "lessons"}',
-                                  style: const TextStyle(color: _muted, fontSize: 11),
+                                  style: const TextStyle(
+                                      color: _muted, fontSize: 11),
                                 ),
                               ]),
                             ],
                           ),
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, color: _muted, size: 16),
+                        const Icon(Icons.arrow_forward_ios_rounded,
+                            color: _muted, size: 16),
                       ]),
                     ),
                   );

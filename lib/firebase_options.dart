@@ -84,5 +84,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'ai-career-app-a38db.firebasestorage.app',
     measurementId: 'G-J4J9WWMESP',
   );
-
 }

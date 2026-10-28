@@ -119,8 +119,7 @@ class StaticCareerPath {
     required this.levels,
   });
 
-  int get totalLessons =>
-      levels.fold(0, (sum, l) => sum + l.lessons.length);
+  int get totalLessons => levels.fold(0, (sum, l) => sum + l.lessons.length);
 }
 
 /// Builds level groups from an ordered list of the real per-level lists.

@@ -11,12 +11,13 @@ import 'package:http/http.dart' as http;
 import '../models/copilot_models.dart';
 
 class CopilotAIService {
-  static const _url   = 'https://api.anthropic.com/v1/messages';
+  static const _url = 'https://api.anthropic.com/v1/messages';
   static const _model = 'claude-sonnet-4-20250514';
 
   static String get _key {
     final k = dotenv.env['ANTHROPIC_API_KEY'];
-    if (k == null || k.isEmpty) throw Exception('ANTHROPIC_API_KEY not set in .env');
+    if (k == null || k.isEmpty)
+      throw Exception('ANTHROPIC_API_KEY not set in .env');
     return k;
   }
 
@@ -45,7 +46,7 @@ class CopilotAIService {
     if (res.statusCode != 200) {
       throw Exception('Claude API ${res.statusCode}: ${res.body}');
     }
-    final data    = jsonDecode(res.body) as Map<String, dynamic>;
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
     final content = data['content'] as List<dynamic>;
     return (content.first as Map<String, dynamic>)['text'] as String;
   }
@@ -59,7 +60,11 @@ class CopilotAIService {
     final a = raw.indexOf('[');
     final b = raw.indexOf('{');
     if (a == -1 && b == -1) return raw.trim();
-    final idx = (a == -1) ? b : (b == -1) ? a : (a < b ? a : b);
+    final idx = (a == -1)
+        ? b
+        : (b == -1)
+            ? a
+            : (a < b ? a : b);
     return raw.substring(idx).trim();
   }
 
@@ -91,7 +96,7 @@ Experience: ${profile.experienceMonths} months
 Current Skills: $skillsSummary
 ''';
 
-    final raw  = await _ask(system, user);
+    final raw = await _ask(system, user);
     final list = jsonDecode(_cleanJson(raw)) as List<dynamic>;
     return list
         .map((e) => SkillGap.fromFirestore(e as Map<String, dynamic>))
@@ -136,8 +141,8 @@ Top Skill Gaps:
 $gapSummary
 ''';
 
-    final raw    = await _ask(system, user);
-    final list   = jsonDecode(_cleanJson(raw)) as List<dynamic>;
+    final raw = await _ask(system, user);
+    final list = jsonDecode(_cleanJson(raw)) as List<dynamic>;
     final phases = list
         .map((e) => RoadmapPhase.fromFirestore(e as Map<String, dynamic>))
         .toList();
@@ -153,10 +158,8 @@ $gapSummary
 
   // ── 3. Generate Daily Goals ────────────────────────────────────────────────
 
-  static Future<List<DailyGoal>> generateDailyGoals(
-      UserSkillProfile profile,
-      PersonalizedRoadmap roadmap,
-      List<SkillGap> gaps) async {
+  static Future<List<DailyGoal>> generateDailyGoals(UserSkillProfile profile,
+      PersonalizedRoadmap roadmap, List<SkillGap> gaps) async {
     const system = '''
 You are an AI career coach. Create 4 actionable daily goals.
 RESPOND ONLY WITH A VALID JSON ARRAY OF 4 OBJECTS. No markdown, no preamble.
@@ -174,7 +177,7 @@ Goals must be achievable in 30–90 minutes each.
         ? 'Current Phase: ${phase.title} | Skills: ${phase.skills.join(', ')}'
         : 'No active phase';
     final topGap = gaps.isNotEmpty ? gaps.first.skillName : 'Python';
-    final today  = DateTime.now();
+    final today = DateTime.now();
     final dateKey =
         '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
@@ -185,7 +188,7 @@ Priority Skill Gap: $topGap
 Date: $dateKey
 ''';
 
-    final raw  = await _ask(system, user);
+    final raw = await _ask(system, user);
     final list = jsonDecode(_cleanJson(raw)) as List<dynamic>;
 
     return list.asMap().entries.map((entry) {

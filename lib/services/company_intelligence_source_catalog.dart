@@ -177,10 +177,6 @@ class CompanyIntelligenceSourceCatalog {
   }
 }
 
-
-
-
-
 class _CompanyIdentity {
   final String companyId;
   final String companyName;

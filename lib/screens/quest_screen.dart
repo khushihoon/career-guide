@@ -78,16 +78,16 @@ class QuestScreen extends StatefulWidget {
 class _QuestScreenState extends State<QuestScreen>
     with TickerProviderStateMixin {
   // ── Palette ──────────────────────────────────────────────────────
-  static const _bg        = Color(0xFF0A0A14);
-  static const _surface   = Color(0xFF1A1A2E);
-  static const _border    = Color(0xFF2A2A40);
-  static const _primary   = Color(0xFF7C3AED);
+  static const _bg = Color(0xFF0A0A14);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
   static const _secondary = Color(0xFFA78BFA);
-  static const _muted     = Color(0xFF888899);
-  static const _pink      = Color(0xFFEC4899);
-  static const _blue      = Color(0xFF3B82F6);
-  static const _orange    = Color(0xFFF59E0B);
-  static const _green     = Color(0xFF4ADE80);
+  static const _muted = Color(0xFF888899);
+  static const _pink = Color(0xFFEC4899);
+  static const _blue = Color(0xFF3B82F6);
+  static const _orange = Color(0xFFF59E0B);
+  static const _green = Color(0xFF4ADE80);
 
   static const _tabTypes = [
     QuestType.daily,
@@ -533,9 +533,7 @@ class _QuestScreenState extends State<QuestScreen>
           const SizedBox(width: 4),
           Text('$streak',
               style: const TextStyle(
-                  color: _orange,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800)),
+                  color: _orange, fontSize: 12, fontWeight: FontWeight.w800)),
         ],
       ),
     );
@@ -585,8 +583,7 @@ class _QuestScreenState extends State<QuestScreen>
                     style: TextStyle(
                       color: selected ? Colors.white : _muted,
                       fontSize: 12.5,
-                      fontWeight:
-                          selected ? FontWeight.w800 : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -617,10 +614,10 @@ class _QuestScreenState extends State<QuestScreen>
     final type = _tabTypes[_activeTab];
     final quests = _filtered(type);
     final emptyMsg = switch (type) {
-      QuestType.daily   => 'Daily quests refresh at midnight.',
-      QuestType.weekly  => 'Weekly quests refresh every Monday.',
+      QuestType.daily => 'Daily quests refresh at midnight.',
+      QuestType.weekly => 'Weekly quests refresh every Monday.',
       QuestType.monthly => 'Monthly quests refresh on the 1st.',
-      QuestType.bonus   => 'Bonus missions appear here when active.',
+      QuestType.bonus => 'Bonus missions appear here when active.',
     };
 
     return RefreshIndicator(
@@ -665,13 +662,13 @@ class _QuestScreenState extends State<QuestScreen>
     final completed = quests.where((q) => q.isCompleted).length;
 
     // totalXp = potential reward available in this tab (informational).
-    final totalXp   = quests.fold<int>(0, (s, q) => s + q.xpReward);
+    final totalXp = quests.fold<int>(0, (s, q) => s + q.xpReward);
 
     // earnedXp = XP whose reward was actually claimed (authoritative
     // projection from QuestService). Completed-but-unclaimed quests do
     // NOT count here — only quests whose rewardClaimed projection is
     // true.
-    final earnedXp  = quests
+    final earnedXp = quests
         .where((q) => q.isRewardClaimed)
         .fold<int>(0, (s, q) => s + q.xpReward);
 
@@ -722,10 +719,10 @@ class _QuestScreenState extends State<QuestScreen>
   ) {
     final fraction = total <= 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
     final resetLabel = switch (type) {
-      QuestType.daily   => 'Resets at midnight',
-      QuestType.weekly  => 'Resets every Monday',
+      QuestType.daily => 'Resets at midnight',
+      QuestType.weekly => 'Resets every Monday',
       QuestType.monthly => 'Resets on the 1st',
-      QuestType.bonus   => 'Limited-time missions',
+      QuestType.bonus => 'Limited-time missions',
     };
 
     return GlassCard(
@@ -764,8 +761,7 @@ class _QuestScreenState extends State<QuestScreen>
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(colors: [_primary, _pink]),
                   boxShadow: [
-                    BoxShadow(
-                        color: _primary.withOpacity(0.4), blurRadius: 14),
+                    BoxShadow(color: _primary.withOpacity(0.4), blurRadius: 14),
                   ],
                 ),
                 child: Text('$completed/$total',
@@ -806,10 +802,10 @@ class _QuestScreenState extends State<QuestScreen>
   }
 
   Widget _motivationCard(List<Quest> quests) {
-    final remaining = quests.where((q) => !q.isCompleted && !q.isExpired).length;
-    final title = remaining == 0
-        ? 'All missions complete! 🎉'
-        : 'Complete all missions';
+    final remaining =
+        quests.where((q) => !q.isCompleted && !q.isExpired).length;
+    final title =
+        remaining == 0 ? 'All missions complete! 🎉' : 'Complete all missions';
     final subtitle = remaining == 0
         ? 'You cleared everything here — check back for more soon.'
         : '$remaining mission${remaining == 1 ? '' : 's'} left. Keep building your career momentum 🚀';
@@ -933,12 +929,12 @@ class _QuestMissionCard extends StatelessWidget {
     required this.onClaim,
   });
 
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
-  static const _green    = Color(0xFF4ADE80);
-  static const _pink     = Color(0xFFEC4899);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
+  static const _green = Color(0xFF4ADE80);
+  static const _pink = Color(0xFFEC4899);
 
   /// Whether this quest's visual state is "rewarded" — completed and
   /// authoritative rewardClaimed is true. Completion alone is not
@@ -951,7 +947,7 @@ class _QuestMissionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = quest.progressCurrent < 0 ? 0 : quest.progressCurrent;
-    final target  = quest.progressTarget <= 0 ? 0 : quest.progressTarget;
+    final target = quest.progressTarget <= 0 ? 0 : quest.progressTarget;
     final progress = quest.progressPercent.isNaN
         ? 0.0
         : quest.progressPercent.clamp(0.0, 1.0);
@@ -965,11 +961,9 @@ class _QuestMissionCard extends StatelessWidget {
     return GlassCard(
       borderRadius: 20,
       padding: const EdgeInsets.all(16),
-      borderColor:
-          isGreen ? _green.withOpacity(0.5) : _border.withOpacity(0.6),
-      gradientColors: isGreen
-          ? [_green.withOpacity(0.14), _green.withOpacity(0.04)]
-          : null,
+      borderColor: isGreen ? _green.withOpacity(0.5) : _border.withOpacity(0.6),
+      gradientColors:
+          isGreen ? [_green.withOpacity(0.14), _green.withOpacity(0.04)] : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -979,8 +973,7 @@ class _QuestMissionCard extends StatelessWidget {
             height: 46,
             decoration: BoxDecoration(
               gradient: isGreen
-                  ? const LinearGradient(
-                      colors: [_green, Color(0xFF22C55E)])
+                  ? const LinearGradient(colors: [_green, Color(0xFF22C55E)])
                   : const LinearGradient(colors: [_primary, _pink]),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
@@ -1073,8 +1066,7 @@ class _QuestMissionCard extends StatelessWidget {
                           builder: (_, v, __) => Stack(
                             children: [
                               Container(
-                                  height: 6,
-                                  color: const Color(0xFF0F0F20)),
+                                  height: 6, color: const Color(0xFF0F0F20)),
                               FractionallySizedBox(
                                 widthFactor: v,
                                 child: Container(
@@ -1087,9 +1079,7 @@ class _QuestMissionCard extends StatelessWidget {
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: (isGreen
-                                                ? _green
-                                                : _primary)
+                                        color: (isGreen ? _green : _primary)
                                             .withOpacity(0.5),
                                         blurRadius: 4,
                                       ),
@@ -1110,7 +1100,10 @@ class _QuestMissionCard extends StatelessWidget {
                   ],
                 ),
 
-                if (!quest.isCompleted && !isExpired && target > 0 && current < target) ...[
+                if (!quest.isCompleted &&
+                    !isExpired &&
+                    target > 0 &&
+                    current < target) ...[
                   const SizedBox(height: 4),
                   Text('${target - current} to go',
                       style: const TextStyle(color: _muted, fontSize: 10)),
@@ -1147,9 +1140,7 @@ class _QuestMissionCard extends StatelessWidget {
                   color: Colors.white,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700)),
-        )
-            .animate(onPlay: (c) => c.repeat(reverse: true))
-            .scale(
+        ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
               begin: const Offset(1, 1),
               end: const Offset(1.04, 1.04),
               duration: 900.ms,
@@ -1185,9 +1176,7 @@ class _QuestMissionCard extends StatelessWidget {
       ),
       child: Text('+${quest.xpReward}',
           style: const TextStyle(
-              color: _secondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700)),
+              color: _secondary, fontSize: 11, fontWeight: FontWeight.w700)),
     );
   }
 }

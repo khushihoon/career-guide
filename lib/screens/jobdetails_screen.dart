@@ -134,9 +134,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
       if (!mounted) return;
 
       _showMessage(
-        _isSaved
-            ? 'Could not remove this job.'
-            : 'Could not save this job.',
+        _isSaved ? 'Could not remove this job.' : 'Could not save this job.',
       );
     } finally {
       if (mounted) {

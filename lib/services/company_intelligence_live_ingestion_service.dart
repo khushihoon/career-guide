@@ -154,7 +154,8 @@ class CompanyIntelligenceLiveIngestionService {
 
   Future<CompanyIntelligenceSnapshot?> refreshOpenAi({
     String backendBaseUrl = developmentBackendBaseUrl,
-  }) => refreshCompany('OpenAI', backendBaseUrl: backendBaseUrl);
+  }) =>
+      refreshCompany('OpenAI', backendBaseUrl: backendBaseUrl);
 
   Future<bool> checkBackendHealth({
     String backendBaseUrl = developmentBackendBaseUrl,
@@ -162,12 +163,10 @@ class CompanyIntelligenceLiveIngestionService {
     final baseUrl = _validatedBackendBaseUrl(backendBaseUrl);
     final client = http.Client();
     try {
-      final response = await client
-          .get(
-            Uri.parse('$baseUrl/health'),
-            headers: const <String, String>{'Accept': 'application/json'},
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await client.get(
+        Uri.parse('$baseUrl/health'),
+        headers: const <String, String>{'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return false;
       final dynamic decoded = jsonDecode(response.body);
       return decoded is Map &&

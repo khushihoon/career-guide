@@ -1,4 +1,3 @@
-
 // ══════════════════════════════════════════════════════════════════════
 // lib/models/achievement_models.dart
 // Achievement Engine models.
@@ -17,29 +16,41 @@ enum AchievementRarity { common, rare, epic, legendary }
 extension AchievementRarityX on AchievementRarity {
   String get label {
     switch (this) {
-      case AchievementRarity.common:    return 'Common';
-      case AchievementRarity.rare:      return 'Rare';
-      case AchievementRarity.epic:      return 'Epic';
-      case AchievementRarity.legendary: return 'Legendary';
+      case AchievementRarity.common:
+        return 'Common';
+      case AchievementRarity.rare:
+        return 'Rare';
+      case AchievementRarity.epic:
+        return 'Epic';
+      case AchievementRarity.legendary:
+        return 'Legendary';
     }
   }
 
   // Gradient colors per rarity
   List<int> get gradientHex {
     switch (this) {
-      case AchievementRarity.common:    return [0xFF6B7280, 0xFF9CA3AF];
-      case AchievementRarity.rare:      return [0xFF3B82F6, 0xFF60A5FA];
-      case AchievementRarity.epic:      return [0xFF7C3AED, 0xFFA78BFA];
-      case AchievementRarity.legendary: return [0xFFF59E0B, 0xFFFBBF24];
+      case AchievementRarity.common:
+        return [0xFF6B7280, 0xFF9CA3AF];
+      case AchievementRarity.rare:
+        return [0xFF3B82F6, 0xFF60A5FA];
+      case AchievementRarity.epic:
+        return [0xFF7C3AED, 0xFFA78BFA];
+      case AchievementRarity.legendary:
+        return [0xFFF59E0B, 0xFFFBBF24];
     }
   }
 
   int get xpBonus {
     switch (this) {
-      case AchievementRarity.common:    return 25;
-      case AchievementRarity.rare:      return 75;
-      case AchievementRarity.epic:      return 200;
-      case AchievementRarity.legendary: return 500;
+      case AchievementRarity.common:
+        return 25;
+      case AchievementRarity.rare:
+        return 75;
+      case AchievementRarity.epic:
+        return 200;
+      case AchievementRarity.legendary:
+        return 500;
     }
   }
 }
@@ -48,13 +59,13 @@ class Achievement {
   final String id;
   final String title;
   final String description;
-  final String icon;           // emoji or asset path
+  final String icon; // emoji or asset path
   final AchievementRarity rarity;
   final int xpBonus;
   final DateTime? unlockedAt;
-  final double progress;       // 0.0–1.0, clamped
-  final int progressTarget;    // >= 0
-  final int progressCurrent;   // >= 0, <= progressTarget when target > 0
+  final double progress; // 0.0–1.0, clamped
+  final int progressTarget; // >= 0
+  final int progressCurrent; // >= 0, <= progressTarget when target > 0
 
   const Achievement({
     required this.id,
@@ -81,24 +92,24 @@ class Achievement {
   // to safe defaults that preserve the "locked, no progress" state
   // rather than inventing progress.
   factory Achievement.fromMap(Map<String, dynamic> map) {
-    final rawId          = map['id'];
-    final rawTitle       = map['title'];
+    final rawId = map['id'];
+    final rawTitle = map['title'];
     final rawDescription = map['description'];
-    final rawIcon        = map['icon'];
-    final rawRarity      = map['rarity'];
-    final rawXpBonus     = map['xpBonus'];
-    final rawUnlockedAt  = map['unlockedAt'];
-    final rawProgress    = map['progress'];
-    final rawTarget      = map['progressTarget'];
-    final rawCurrent     = map['progressCurrent'];
+    final rawIcon = map['icon'];
+    final rawRarity = map['rarity'];
+    final rawXpBonus = map['xpBonus'];
+    final rawUnlockedAt = map['unlockedAt'];
+    final rawProgress = map['progress'];
+    final rawTarget = map['progressTarget'];
+    final rawCurrent = map['progressCurrent'];
 
     // Title/description/icon/id fall back to empty strings so a malformed
     // record never breaks parsing. The catalog still supplies the real
     // display values via _allWithProgress for known ids.
-    final id          = rawId is String ? rawId : '';
-    final title       = rawTitle is String ? rawTitle : '';
+    final id = rawId is String ? rawId : '';
+    final title = rawTitle is String ? rawTitle : '';
     final description = rawDescription is String ? rawDescription : '';
-    final icon        = rawIcon is String ? rawIcon : '';
+    final icon = rawIcon is String ? rawIcon : '';
 
     final rarity = rawRarity is String
         ? AchievementRarity.values.firstWhere(
@@ -107,16 +118,14 @@ class Achievement {
           )
         : AchievementRarity.common;
 
-    final xpBonus = rawXpBonus is num
-        ? rawXpBonus.toInt().clamp(0, 1000000)
-        : 0;
+    final xpBonus =
+        rawXpBonus is num ? rawXpBonus.toInt().clamp(0, 1000000) : 0;
 
     DateTime? unlockedAt;
     if (rawUnlockedAt is int) {
       unlockedAt = DateTime.fromMillisecondsSinceEpoch(rawUnlockedAt);
     } else if (rawUnlockedAt is num) {
-      unlockedAt =
-          DateTime.fromMillisecondsSinceEpoch(rawUnlockedAt.toInt());
+      unlockedAt = DateTime.fromMillisecondsSinceEpoch(rawUnlockedAt.toInt());
     } else if (rawUnlockedAt is String) {
       unlockedAt = DateTime.tryParse(rawUnlockedAt);
     }

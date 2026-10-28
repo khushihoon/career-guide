@@ -51,33 +51,46 @@
 // ══════════════════════════════════════════════════════════════════════
 
 enum QuestType { daily, weekly, monthly, bonus }
+
 enum QuestStatus { locked, active, completed, expired }
 
 extension QuestTypeX on QuestType {
   String get label {
     switch (this) {
-      case QuestType.daily:   return 'Daily';
-      case QuestType.weekly:  return 'Weekly';
-      case QuestType.monthly: return 'Monthly';
-      case QuestType.bonus:   return 'Bonus';
+      case QuestType.daily:
+        return 'Daily';
+      case QuestType.weekly:
+        return 'Weekly';
+      case QuestType.monthly:
+        return 'Monthly';
+      case QuestType.bonus:
+        return 'Bonus';
     }
   }
 
   String get emoji {
     switch (this) {
-      case QuestType.daily:   return '🌅';
-      case QuestType.weekly:  return '📅';
-      case QuestType.monthly: return '🗓️';
-      case QuestType.bonus:   return '⚡';
+      case QuestType.daily:
+        return '🌅';
+      case QuestType.weekly:
+        return '📅';
+      case QuestType.monthly:
+        return '🗓️';
+      case QuestType.bonus:
+        return '⚡';
     }
   }
 
   int get baseXp {
     switch (this) {
-      case QuestType.daily:   return 50;
-      case QuestType.weekly:  return 250;
-      case QuestType.monthly: return 1000;
-      case QuestType.bonus:   return 150;
+      case QuestType.daily:
+        return 50;
+      case QuestType.weekly:
+        return 250;
+      case QuestType.monthly:
+        return 1000;
+      case QuestType.bonus:
+        return 150;
     }
   }
 }
@@ -92,7 +105,7 @@ class Quest {
   final int progressCurrent;
   final int progressTarget;
   final DateTime expiresAt;
-  final String? badgeId;        // optional achievement to unlock on complete
+  final String? badgeId; // optional achievement to unlock on complete
   final bool isAiGenerated;
 
   /// Model / UI projection of whether the reward for this quest has
@@ -124,19 +137,16 @@ class Quest {
   /// expiry — this mirrors QuestService's authoritative
   /// period-rotation decision.
   bool get isExpired =>
-      status == QuestStatus.expired ||
-      !DateTime.now().isBefore(expiresAt);
+      status == QuestStatus.expired || !DateTime.now().isBefore(expiresAt);
 
-  double get progressPercent =>
-      progressTarget <= 0
-          ? 0.0
-          : (progressCurrent / progressTarget).clamp(0.0, 1.0);
+  double get progressPercent => progressTarget <= 0
+      ? 0.0
+      : (progressCurrent / progressTarget).clamp(0.0, 1.0);
 
   /// Whether the reward for this quest can be claimed right now, based
   /// on the model's projected state. Authoritative claiming still
   /// happens in QuestService.
-  bool get canClaimReward =>
-      isCompleted && !rewardClaimed && !isExpired;
+  bool get canClaimReward => isCompleted && !rewardClaimed && !isExpired;
 
   /// Whether the model believes the reward has already been claimed.
   bool get isRewardClaimed => rewardClaimed;
@@ -145,8 +155,8 @@ class Quest {
   /// defaults; never throws on a single bad record.
   factory Quest.fromMap(Map<String, dynamic> map) {
     // --- id / title / description ---
-    final id          = map['id'] is String ? map['id'] as String : '';
-    final title       = map['title'] is String ? map['title'] as String : '';
+    final id = map['id'] is String ? map['id'] as String : '';
+    final title = map['title'] is String ? map['title'] as String : '';
     final description =
         map['description'] is String ? map['description'] as String : '';
 
@@ -303,8 +313,7 @@ class AiMemory {
     final rawAdviceDate = map['lastAdviceDate'];
     DateTime? lastAdviceDate;
     if (rawAdviceDate is int) {
-      lastAdviceDate =
-          DateTime.fromMillisecondsSinceEpoch(rawAdviceDate);
+      lastAdviceDate = DateTime.fromMillisecondsSinceEpoch(rawAdviceDate);
     } else if (rawAdviceDate is num) {
       lastAdviceDate =
           DateTime.fromMillisecondsSinceEpoch(rawAdviceDate.toInt());
@@ -314,13 +323,15 @@ class AiMemory {
       goals: readStringList(map['goals']),
       interests: readStringList(map['interests']),
       recentAchievements: readStringList(map['recentAchievements']),
-      companionName:
-          map['companionName'] is String ? map['companionName'] as String : null,
+      companionName: map['companionName'] is String
+          ? map['companionName'] as String
+          : null,
       lastAdvice:
           map['lastAdvice'] is String ? map['lastAdvice'] as String : null,
       lastAdviceDate: lastAdviceDate,
-      contextSummary:
-          map['contextSummary'] is String ? map['contextSummary'] as String : '',
+      contextSummary: map['contextSummary'] is String
+          ? map['contextSummary'] as String
+          : '',
     );
   }
 
@@ -339,23 +350,69 @@ class AiMemory {
 // ── Leveling system ────────────────────────────────────────────────────
 class LevelSystem {
   static const List<int> _thresholds = [
-    0, 200, 500, 1000, 2000, 3500, 5500, 8000, 11500, 16000,
-    21000, 27000, 34000, 42000, 51000, 62000, 75000, 90000, 107000, 125000,
-    145000, 167000, 192000, 220000, 250000,
-    300000, 360000, 425000, 495000, 500000,
+    0,
+    200,
+    500,
+    1000,
+    2000,
+    3500,
+    5500,
+    8000,
+    11500,
+    16000,
+    21000,
+    27000,
+    34000,
+    42000,
+    51000,
+    62000,
+    75000,
+    90000,
+    107000,
+    125000,
+    145000,
+    167000,
+    192000,
+    220000,
+    250000,
+    300000,
+    360000,
+    425000,
+    495000,
+    500000,
   ];
 
   static const List<String> _titles = [
-    'Curious Beginner', 'Aspiring Learner', 'Skill Seeker',
-    'Knowledge Builder', 'Dedicated Learner', 'Consistent Grinder',
-    'Skill Crafter', 'AI Practitioner', 'Career Accelerator',
-    'Rising Expert', 'AI Explorer', 'Deep Learner',
-    'Tech Artisan', 'Pattern Recognizer', 'AI Specialist',
-    'Systems Thinker', 'Senior Practitioner', 'Emerging Leader',
-    'Domain Expert', 'Copilot Elite', 'Thought Leader',
-    'AI Strategist', 'Knowledge Architect', 'Innovation Pioneer',
-    'AI Visionary', 'Master Practitioner', 'Career Sage',
-    'Industry Oracle', 'AI Luminary', 'Legend',
+    'Curious Beginner',
+    'Aspiring Learner',
+    'Skill Seeker',
+    'Knowledge Builder',
+    'Dedicated Learner',
+    'Consistent Grinder',
+    'Skill Crafter',
+    'AI Practitioner',
+    'Career Accelerator',
+    'Rising Expert',
+    'AI Explorer',
+    'Deep Learner',
+    'Tech Artisan',
+    'Pattern Recognizer',
+    'AI Specialist',
+    'Systems Thinker',
+    'Senior Practitioner',
+    'Emerging Leader',
+    'Domain Expert',
+    'Copilot Elite',
+    'Thought Leader',
+    'AI Strategist',
+    'Knowledge Architect',
+    'Innovation Pioneer',
+    'AI Visionary',
+    'Master Practitioner',
+    'Career Sage',
+    'Industry Oracle',
+    'AI Luminary',
+    'Legend',
   ];
 
   /// Returns 1-based level for a given XP total
@@ -388,7 +445,7 @@ class LevelSystem {
     final level = levelFor(xp);
     if (level >= _thresholds.length) return 1.0;
     final levelStart = _thresholds[level - 1];
-    final levelEnd   = _thresholds[level];
+    final levelEnd = _thresholds[level];
     final range = levelEnd - levelStart;
     if (range <= 0) return 0.0;
     return ((xp - levelStart) / range).clamp(0.0, 1.0);
@@ -429,19 +486,19 @@ class LeaderboardEntry {
     final photoUrl =
         map['photoUrl'] is String ? map['photoUrl'] as String : null;
 
-    final rawTotalXp   = map['totalXp'];
-    final rawLevel     = map['level'];
-    final rawRank      = map['rank'];
-    final rawWeeklyXp  = map['weeklyXp'];
+    final rawTotalXp = map['totalXp'];
+    final rawLevel = map['level'];
+    final rawRank = map['rank'];
+    final rawWeeklyXp = map['weeklyXp'];
 
-    int totalXp  = rawTotalXp  is num ? rawTotalXp.toInt()  : 0;
-    int level    = rawLevel    is num ? rawLevel.toInt()    : 1;
-    int rank     = rawRank     is num ? rawRank.toInt()     : 0;
+    int totalXp = rawTotalXp is num ? rawTotalXp.toInt() : 0;
+    int level = rawLevel is num ? rawLevel.toInt() : 1;
+    int rank = rawRank is num ? rawRank.toInt() : 0;
     int weeklyXp = rawWeeklyXp is num ? rawWeeklyXp.toInt() : 0;
 
-    if (totalXp  < 0) totalXp  = 0;
-    if (level    < 1) level    = 1;
-    if (rank     < 0) rank     = 0;
+    if (totalXp < 0) totalXp = 0;
+    if (level < 1) level = 1;
+    if (rank < 0) rank = 0;
     if (weeklyXp < 0) weeklyXp = 0;
 
     final isCurrentUser =
@@ -465,7 +522,7 @@ class AnalyticsSnapshot {
   final List<WeeklyXp> weeklyXp;
   final Map<String, double> skillMastery;
   final int careerReadinessScore;
-  final double learningVelocity;     // avg XP/day last 7 days
+  final double learningVelocity; // avg XP/day last 7 days
   final int totalGoalsCompleted;
   final int totalSessionMinutes;
 
@@ -480,7 +537,7 @@ class AnalyticsSnapshot {
 }
 
 class WeeklyXp {
-  final String weekLabel;   // "Jun W1"
+  final String weekLabel; // "Jun W1"
   final int xp;
   const WeeklyXp({required this.weekLabel, required this.xp});
 }

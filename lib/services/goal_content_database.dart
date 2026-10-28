@@ -58,17 +58,23 @@ enum LocalGoalDifficulty { easy, medium, hard }
 extension LocalGoalDifficultyX on LocalGoalDifficulty {
   int get baseXp {
     switch (this) {
-      case LocalGoalDifficulty.easy:   return 15;
-      case LocalGoalDifficulty.medium: return 30;
-      case LocalGoalDifficulty.hard:   return 50;
+      case LocalGoalDifficulty.easy:
+        return 15;
+      case LocalGoalDifficulty.medium:
+        return 30;
+      case LocalGoalDifficulty.hard:
+        return 50;
     }
   }
 
   String get label {
     switch (this) {
-      case LocalGoalDifficulty.easy:   return 'Easy';
-      case LocalGoalDifficulty.medium: return 'Medium';
-      case LocalGoalDifficulty.hard:   return 'Hard';
+      case LocalGoalDifficulty.easy:
+        return 'Easy';
+      case LocalGoalDifficulty.medium:
+        return 'Medium';
+      case LocalGoalDifficulty.hard:
+        return 'Hard';
     }
   }
 }
@@ -93,17 +99,28 @@ enum LocalGoalCategory {
 extension LocalGoalCategoryX on LocalGoalCategory {
   String get icon {
     switch (this) {
-      case LocalGoalCategory.coding:     return '💻';
-      case LocalGoalCategory.learning:   return '📚';
-      case LocalGoalCategory.project:    return '🛠️';
-      case LocalGoalCategory.reading:    return '📖';
-      case LocalGoalCategory.practice:   return '🎯';
-      case LocalGoalCategory.community:  return '🌐';
-      case LocalGoalCategory.design:     return '🎨';
-      case LocalGoalCategory.data:       return '📊';
-      case LocalGoalCategory.deployment: return '🚀';
-      case LocalGoalCategory.career:     return '💼';
-      case LocalGoalCategory.review:     return '🔍';
+      case LocalGoalCategory.coding:
+        return '💻';
+      case LocalGoalCategory.learning:
+        return '📚';
+      case LocalGoalCategory.project:
+        return '🛠️';
+      case LocalGoalCategory.reading:
+        return '📖';
+      case LocalGoalCategory.practice:
+        return '🎯';
+      case LocalGoalCategory.community:
+        return '🌐';
+      case LocalGoalCategory.design:
+        return '🎨';
+      case LocalGoalCategory.data:
+        return '📊';
+      case LocalGoalCategory.deployment:
+        return '🚀';
+      case LocalGoalCategory.career:
+        return '💼';
+      case LocalGoalCategory.review:
+        return '🔍';
     }
   }
 }
@@ -139,23 +156,40 @@ enum GoalStage {
 extension GoalStageX on GoalStage {
   String get label {
     switch (this) {
-      case GoalStage.foundation:    return 'Foundation';
-      case GoalStage.coreSkills:    return 'Core Skills';
-      case GoalStage.practice:      return 'Practice';
-      case GoalStage.realProjects:  return 'Real Projects';
-      case GoalStage.testing:       return 'Testing';
-      case GoalStage.gitGithub:     return 'Git/GitHub';
-      case GoalStage.debugging:     return 'Debugging';
-      case GoalStage.apisDatabase:  return 'APIs/Database';
-      case GoalStage.architecture:  return 'Architecture';
-      case GoalStage.security:      return 'Security';
-      case GoalStage.ciCd:          return 'CI/CD';
-      case GoalStage.dockerCloud:   return 'Docker/Cloud';
-      case GoalStage.deployment:    return 'Deployment';
-      case GoalStage.production:    return 'Production';
-      case GoalStage.portfolio:     return 'Portfolio';
-      case GoalStage.interview:     return 'Interview';
-      case GoalStage.jobReady:      return 'Job Ready';
+      case GoalStage.foundation:
+        return 'Foundation';
+      case GoalStage.coreSkills:
+        return 'Core Skills';
+      case GoalStage.practice:
+        return 'Practice';
+      case GoalStage.realProjects:
+        return 'Real Projects';
+      case GoalStage.testing:
+        return 'Testing';
+      case GoalStage.gitGithub:
+        return 'Git/GitHub';
+      case GoalStage.debugging:
+        return 'Debugging';
+      case GoalStage.apisDatabase:
+        return 'APIs/Database';
+      case GoalStage.architecture:
+        return 'Architecture';
+      case GoalStage.security:
+        return 'Security';
+      case GoalStage.ciCd:
+        return 'CI/CD';
+      case GoalStage.dockerCloud:
+        return 'Docker/Cloud';
+      case GoalStage.deployment:
+        return 'Deployment';
+      case GoalStage.production:
+        return 'Production';
+      case GoalStage.portfolio:
+        return 'Portfolio';
+      case GoalStage.interview:
+        return 'Interview';
+      case GoalStage.jobReady:
+        return 'Job Ready';
     }
   }
 }
@@ -167,9 +201,9 @@ class GoalTemplate {
   final String description;
   final LocalGoalDifficulty difficulty;
   final LocalGoalCategory category;
-  final List<String> tags;     // role tags for filtering
-  final int minLevel;          // only shown at or above this user level
-  final int minPhase;          // only shown at or above this roadmap phase
+  final List<String> tags; // role tags for filtering
+  final int minLevel; // only shown at or above this user level
+  final int minPhase; // only shown at or above this roadmap phase
 
   // ── NEW — all optional, all backward-compatible ─────────────────────
   /// The specific, concrete skill this goal builds (e.g. "Docker",
@@ -221,23 +255,26 @@ class GoalContentDatabase {
   // ── Role normaliser ────────────────────────────────────────────────
   static String normaliseRole(String raw) {
     final lower = raw.toLowerCase();
-    if (lower.contains('flutter'))                               return 'flutter_developer';
-    if (lower.contains('ai engineer') || lower.contains('ai/ml')) return 'ai_engineer';
-    if (lower.contains('data scien'))                            return 'data_scientist';
-    if (lower.contains('nlp'))                                   return 'nlp_engineer';
-    if (lower.contains('cv engineer') || lower.contains('computer vision')) return 'cv_engineer';
-    if (lower.contains('prompt'))                                return 'prompt_engineer';
-    if (lower.contains('researcher'))                            return 'ai_researcher';
-    if (lower.contains('product manager'))                       return 'ai_product_manager';
+    if (lower.contains('flutter')) return 'flutter_developer';
+    if (lower.contains('ai engineer') || lower.contains('ai/ml'))
+      return 'ai_engineer';
+    if (lower.contains('data scien')) return 'data_scientist';
+    if (lower.contains('nlp')) return 'nlp_engineer';
+    if (lower.contains('cv engineer') || lower.contains('computer vision'))
+      return 'cv_engineer';
+    if (lower.contains('prompt')) return 'prompt_engineer';
+    if (lower.contains('researcher')) return 'ai_researcher';
+    if (lower.contains('product manager')) return 'ai_product_manager';
     // Software Engineer is matched before the generic 'ml'/'machine
     // learn' branch so that a role label containing 'engineer' plus
     // 'software' resolves here rather than to any ML bucket.
     if (lower.contains('software engineer') ||
         lower == 'software engineer' ||
         lower.contains('swe') ||
-        lower.contains('sde'))                                 return 'software_engineer';
-    if (lower.contains('ml') || lower.contains('machine learn')) return 'ml_engineer';
-    if (lower.contains('data scien'))                            return 'data_scientist';
+        lower.contains('sde')) return 'software_engineer';
+    if (lower.contains('ml') || lower.contains('machine learn'))
+      return 'ml_engineer';
+    if (lower.contains('data scien')) return 'data_scientist';
     return 'generic';
   }
 
@@ -248,7 +285,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_01',
       title: 'Read one AI research paper abstract',
-      description: 'Find a recent paper on arxiv.org and read the abstract and conclusion',
+      description:
+          'Find a recent paper on arxiv.org and read the abstract and conclusion',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.reading,
       tags: ['ai_engineer'],
@@ -259,7 +297,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_02',
       title: 'Study a new LLM concept',
-      description: 'Learn about one concept: RAG, fine-tuning, embeddings, or quantization',
+      description:
+          'Learn about one concept: RAG, fine-tuning, embeddings, or quantization',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.learning,
       tags: ['ai_engineer'],
@@ -270,7 +309,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_03',
       title: 'Explore one HuggingFace model card',
-      description: 'Study a model card on huggingface.co — architecture, training, use-cases',
+      description:
+          'Study a model card on huggingface.co — architecture, training, use-cases',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.learning,
       tags: ['ai_engineer'],
@@ -281,7 +321,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_04',
       title: 'Write a Python script using an LLM library',
-      description: 'Write a script using transformers, langchain, or llama-index',
+      description:
+          'Write a script using transformers, langchain, or llama-index',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['ai_engineer'],
@@ -292,7 +333,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_05',
       title: 'Implement a RAG pipeline',
-      description: 'Build a simple retrieval-augmented generation pipeline with FAISS',
+      description:
+          'Build a simple retrieval-augmented generation pipeline with FAISS',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: ['ai_engineer'],
@@ -300,7 +342,8 @@ class GoalContentDatabase {
       skill: 'RAG',
       stage: GoalStage.realProjects,
       estimatedMinutes: 90,
-      professionalOutcome: 'A working RAG demo you can show in an interview or portfolio.',
+      professionalOutcome:
+          'A working RAG demo you can show in an interview or portfolio.',
     ),
     GoalTemplate(
       id: 'ai_e_06',
@@ -314,7 +357,8 @@ class GoalContentDatabase {
       skill: 'Fine-tuning',
       stage: GoalStage.realProjects,
       estimatedMinutes: 120,
-      professionalOutcome: 'A fine-tuned model checkpoint with before/after eval results.',
+      professionalOutcome:
+          'A fine-tuned model checkpoint with before/after eval results.',
     ),
     GoalTemplate(
       id: 'ai_e_07',
@@ -342,7 +386,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_09',
       title: 'Build a prompt template system',
-      description: 'Create a reusable prompt template with variable substitution',
+      description:
+          'Create a reusable prompt template with variable substitution',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['ai_engineer'],
@@ -354,7 +399,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_10',
       title: 'Deploy an AI model to a REST API',
-      description: 'Wrap a model with FastAPI or Flask and test it with Postman',
+      description:
+          'Wrap a model with FastAPI or Flask and test it with Postman',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['ai_engineer'],
@@ -363,12 +409,14 @@ class GoalContentDatabase {
       skill: 'Model Deployment',
       stage: GoalStage.deployment,
       estimatedMinutes: 75,
-      professionalOutcome: 'A live, callable API endpoint serving real predictions.',
+      professionalOutcome:
+          'A live, callable API endpoint serving real predictions.',
     ),
     GoalTemplate(
       id: 'ai_e_11',
       title: 'Study transformer attention mechanism',
-      description: 'Read and understand the "Attention is All You Need" paper concepts',
+      description:
+          'Read and understand the "Attention is All You Need" paper concepts',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.learning,
       tags: ['ai_engineer'],
@@ -379,7 +427,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_12',
       title: 'Implement vector similarity search',
-      description: 'Build a semantic search using sentence-transformers and cosine similarity',
+      description:
+          'Build a semantic search using sentence-transformers and cosine similarity',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.coding,
       tags: ['ai_engineer'],
@@ -391,7 +440,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_13',
       title: 'Write unit tests for an LLM wrapper function',
-      description: 'Mock the LLM call and test retry logic, parsing, and edge cases',
+      description:
+          'Mock the LLM call and test retry logic, parsing, and edge cases',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['ai_engineer'],
@@ -404,7 +454,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_14',
       title: 'Add retry and error handling for a flaky LLM API call',
-      description: 'Implement exponential backoff and graceful fallback on API failure',
+      description:
+          'Implement exponential backoff and graceful fallback on API failure',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['ai_engineer'],
@@ -416,7 +467,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_15',
       title: 'Design a system architecture diagram for a RAG application',
-      description: 'Sketch ingestion, embedding, storage, retrieval, and generation components',
+      description:
+          'Sketch ingestion, embedding, storage, retrieval, and generation components',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.design,
       tags: ['ai_engineer'],
@@ -429,7 +481,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_16',
       title: 'Secure API keys with environment variables and a secrets manager',
-      description: 'Move hard-coded keys out of code and into env vars / a vault',
+      description:
+          'Move hard-coded keys out of code and into env vars / a vault',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['ai_engineer'],
@@ -441,7 +494,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_17',
       title: 'Containerize an LLM service with Docker',
-      description: 'Write a Dockerfile for your FastAPI/LLM service and run it as a container',
+      description:
+          'Write a Dockerfile for your FastAPI/LLM service and run it as a container',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['ai_engineer'],
@@ -454,7 +508,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ai_e_18',
       title: 'Set up CI to lint and test an AI service on every push',
-      description: 'Add a GitHub Actions workflow running pytest + flake8/ruff on push',
+      description:
+          'Add a GitHub Actions workflow running pytest + flake8/ruff on push',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['ai_engineer'],
@@ -466,8 +521,10 @@ class GoalContentDatabase {
     ),
     GoalTemplate(
       id: 'ai_e_19',
-      title: 'Add structured logging and monitoring to a deployed model endpoint',
-      description: 'Log latency, errors and token usage; surface them in a simple dashboard',
+      title:
+          'Add structured logging and monitoring to a deployed model endpoint',
+      description:
+          'Log latency, errors and token usage; surface them in a simple dashboard',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['ai_engineer'],
@@ -478,8 +535,10 @@ class GoalContentDatabase {
     ),
     GoalTemplate(
       id: 'ai_e_20',
-      title: 'Publish your RAG or LLM project on GitHub with a professional README',
-      description: 'Include setup steps, architecture diagram, and example usage',
+      title:
+          'Publish your RAG or LLM project on GitHub with a professional README',
+      description:
+          'Include setup steps, architecture diagram, and example usage',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: ['ai_engineer'],
@@ -487,12 +546,14 @@ class GoalContentDatabase {
       skill: 'Portfolio Building',
       stage: GoalStage.portfolio,
       estimatedMinutes: 40,
-      professionalOutcome: 'A public, well-documented repo you can link on your resume.',
+      professionalOutcome:
+          'A public, well-documented repo you can link on your resume.',
     ),
     GoalTemplate(
       id: 'ai_e_21',
       title: 'Prepare answers for 5 common AI engineer interview questions',
-      description: 'Practice explaining RAG, fine-tuning vs prompting, and evaluation trade-offs',
+      description:
+          'Practice explaining RAG, fine-tuning vs prompting, and evaluation trade-offs',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: ['ai_engineer'],
@@ -521,7 +582,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ml_e_02',
       title: 'Implement backpropagation from scratch',
-      description: 'Write a simple neural network with manual gradient computation in NumPy',
+      description:
+          'Write a simple neural network with manual gradient computation in NumPy',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['ml_engineer'],
@@ -532,7 +594,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ml_m_01',
       title: 'Train a CNN on CIFAR-10',
-      description: 'Build and train a convolutional neural network in PyTorch or TensorFlow',
+      description:
+          'Build and train a convolutional neural network in PyTorch or TensorFlow',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['ml_engineer'],
@@ -543,7 +606,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ml_m_02',
       title: 'Implement model quantization',
-      description: 'Apply INT8 quantization to a trained model and compare performance',
+      description:
+          'Apply INT8 quantization to a trained model and compare performance',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['ml_engineer'],
@@ -579,7 +643,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ml_e_03',
       title: 'Write unit tests for a data preprocessing function',
-      description: 'Cover empty input, malformed rows, and expected-shape assertions',
+      description:
+          'Cover empty input, malformed rows, and expected-shape assertions',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['ml_engineer'],
@@ -591,7 +656,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ml_e_04',
       title: 'Version a dataset and model with DVC',
-      description: 'Set up Data Version Control so experiments are reproducible',
+      description:
+          'Set up Data Version Control so experiments are reproducible',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['ml_engineer'],
@@ -603,7 +669,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ml_e_05',
       title: 'Containerize a training job with Docker',
-      description: 'Write a Dockerfile that reproducibly runs a training script',
+      description:
+          'Write a Dockerfile that reproducibly runs a training script',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['ml_engineer'],
@@ -615,7 +682,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ml_e_06',
       title: 'Set up CI that runs model tests on every commit',
-      description: 'GitHub Actions workflow running your model/data unit tests automatically',
+      description:
+          'GitHub Actions workflow running your model/data unit tests automatically',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['ml_engineer'],
@@ -628,7 +696,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ml_e_07',
       title: 'Add input validation and error handling to a serving endpoint',
-      description: 'Reject malformed inputs safely instead of crashing the service',
+      description:
+          'Reject malformed inputs safely instead of crashing the service',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['ml_engineer'],
@@ -652,7 +721,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ml_e_09',
       title: 'Prepare for an ML system design interview question',
-      description: 'Practice designing a recommendation or fraud-detection system end-to-end',
+      description:
+          'Practice designing a recommendation or fraud-detection system end-to-end',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.career,
       tags: ['ml_engineer'],
@@ -670,7 +740,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_e_01',
       title: 'Explore a Kaggle dataset',
-      description: 'Download a dataset from Kaggle and run basic EDA in a notebook',
+      description:
+          'Download a dataset from Kaggle and run basic EDA in a notebook',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.data,
       tags: ['data_scientist'],
@@ -681,7 +752,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_e_02',
       title: 'Read about a new ML algorithm',
-      description: 'Study how one algorithm works: XGBoost, LightGBM, or CatBoost',
+      description:
+          'Study how one algorithm works: XGBoost, LightGBM, or CatBoost',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.learning,
       tags: ['data_scientist'],
@@ -692,7 +764,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_e_03',
       title: 'Create a data visualization',
-      description: 'Build 3 meaningful plots from a dataset using matplotlib or seaborn',
+      description:
+          'Build 3 meaningful plots from a dataset using matplotlib or seaborn',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.data,
       tags: ['data_scientist'],
@@ -703,7 +776,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_e_04',
       title: 'Clean a messy dataset',
-      description: 'Handle missing values, outliers and type issues in a CSV dataset',
+      description:
+          'Handle missing values, outliers and type issues in a CSV dataset',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.data,
       tags: ['data_scientist'],
@@ -714,7 +788,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_m_01',
       title: 'Train and evaluate a classification model',
-      description: 'Train a model with sklearn, compute accuracy, precision, recall, F1',
+      description:
+          'Train a model with sklearn, compute accuracy, precision, recall, F1',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['data_scientist'],
@@ -736,7 +811,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_m_03',
       title: 'Run hyperparameter tuning',
-      description: 'Use GridSearchCV or Optuna to find optimal model parameters',
+      description:
+          'Use GridSearchCV or Optuna to find optimal model parameters',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['data_scientist'],
@@ -748,7 +824,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_h_01',
       title: 'Build an end-to-end ML pipeline',
-      description: 'Create a pipeline: ingest → clean → feature engineer → train → evaluate',
+      description:
+          'Create a pipeline: ingest → clean → feature engineer → train → evaluate',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: ['data_scientist'],
@@ -773,7 +850,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_h_03',
       title: 'Deploy a model with Streamlit',
-      description: 'Create a Streamlit web app that serves predictions from your model',
+      description:
+          'Create a Streamlit web app that serves predictions from your model',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['data_scientist'],
@@ -785,7 +863,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_e_05',
       title: 'Write unit tests for a data-cleaning function',
-      description: 'Assert correct handling of nulls, duplicates and type coercion',
+      description:
+          'Assert correct handling of nulls, duplicates and type coercion',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['data_scientist'],
@@ -798,7 +877,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_e_06',
       title: 'Set up a reproducible analysis environment',
-      description: 'Pin dependencies in a requirements.txt or conda environment file',
+      description:
+          'Pin dependencies in a requirements.txt or conda environment file',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['data_scientist'],
@@ -809,7 +889,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_h_04',
       title: 'Build a data pipeline that runs on a schedule',
-      description: 'Use Airflow, Prefect, or cron to automate a recurring ETL job',
+      description:
+          'Use Airflow, Prefect, or cron to automate a recurring ETL job',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.data,
       tags: ['data_scientist'],
@@ -821,7 +902,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_h_05',
       title: 'Containerize and deploy a Streamlit/Dash app',
-      description: 'Write a Dockerfile and deploy your analytics app to a live URL',
+      description:
+          'Write a Dockerfile and deploy your analytics app to a live URL',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['data_scientist'],
@@ -834,7 +916,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_h_06',
       title: 'Write a case study: business question → insight → recommendation',
-      description: 'Document one analysis end-to-end as a portfolio-ready case study',
+      description:
+          'Document one analysis end-to-end as a portfolio-ready case study',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: ['data_scientist'],
@@ -846,7 +929,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ds_e_07',
       title: 'Practice explaining a statistical concept simply',
-      description: 'Explain p-values or confidence intervals to someone non-technical',
+      description:
+          'Explain p-values or confidence intervals to someone non-technical',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.career,
       tags: ['data_scientist'],
@@ -863,7 +947,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'nlp_e_01',
       title: 'Study a text preprocessing technique',
-      description: 'Learn about tokenization, stemming, lemmatization, or stop-word removal',
+      description:
+          'Learn about tokenization, stemming, lemmatization, or stop-word removal',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.learning,
       tags: ['nlp_engineer'],
@@ -874,7 +959,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'nlp_e_02',
       title: 'Fine-tune a BERT model on a classification task',
-      description: 'Use HuggingFace Trainer API to fine-tune bert-base on a dataset',
+      description:
+          'Use HuggingFace Trainer API to fine-tune bert-base on a dataset',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: ['nlp_engineer'],
@@ -898,7 +984,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'nlp_e_03',
       title: 'Evaluate a text classifier with a confusion matrix',
-      description: 'Compute precision/recall per class and analyse the biggest error types',
+      description:
+          'Compute precision/recall per class and analyse the biggest error types',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['nlp_engineer'],
@@ -910,7 +997,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'nlp_m_02',
       title: 'Build a Named Entity Recognition pipeline',
-      description: 'Use spaCy or HuggingFace to extract entities from real text',
+      description:
+          'Use spaCy or HuggingFace to extract entities from real text',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['nlp_engineer'],
@@ -922,7 +1010,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'nlp_e_04',
       title: 'Write unit tests for a text-preprocessing pipeline',
-      description: 'Cover edge cases: empty strings, unicode, mixed-case, punctuation-only input',
+      description:
+          'Cover edge cases: empty strings, unicode, mixed-case, punctuation-only input',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['nlp_engineer'],
@@ -935,7 +1024,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'nlp_h_01',
       title: 'Deploy a fine-tuned NLP model behind a REST API',
-      description: 'Serve your model with FastAPI and test it with real requests',
+      description:
+          'Serve your model with FastAPI and test it with real requests',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['nlp_engineer'],
@@ -954,7 +1044,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'cv_e_01',
       title: 'Study a CNN architecture',
-      description: 'Learn how ResNet, EfficientNet, or Vision Transformers work',
+      description:
+          'Learn how ResNet, EfficientNet, or Vision Transformers work',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.learning,
       tags: ['cv_engineer'],
@@ -965,7 +1056,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'cv_e_02',
       title: 'Practice image augmentation techniques',
-      description: 'Apply flips, crops, colour jitter with torchvision or albumentations',
+      description:
+          'Apply flips, crops, colour jitter with torchvision or albumentations',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['cv_engineer'],
@@ -976,7 +1068,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'cv_e_03',
       title: 'Read a computer vision paper abstract',
-      description: 'Find a recent paper (e.g. from CVPR/ICCV) and read the abstract',
+      description:
+          'Find a recent paper (e.g. from CVPR/ICCV) and read the abstract',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.reading,
       tags: ['cv_engineer'],
@@ -987,7 +1080,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'cv_m_01',
       title: 'Train an image classifier on a small dataset',
-      description: 'Build and train a classifier in PyTorch/TensorFlow on a labelled dataset',
+      description:
+          'Build and train a classifier in PyTorch/TensorFlow on a labelled dataset',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['cv_engineer'],
@@ -1010,7 +1104,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'cv_e_04',
       title: 'Write unit tests for an image preprocessing function',
-      description: 'Cover resizing, normalisation, and unexpected image formats/sizes',
+      description:
+          'Cover resizing, normalisation, and unexpected image formats/sizes',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['cv_engineer'],
@@ -1022,7 +1117,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'cv_h_01',
       title: 'Build an annotation → training → evaluation pipeline',
-      description: 'Take raw images through labelling, training and metric evaluation',
+      description:
+          'Take raw images through labelling, training and metric evaluation',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: ['cv_engineer'],
@@ -1053,7 +1149,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pe_e_01',
       title: 'Write 5 chain-of-thought prompts',
-      description: 'Create prompts that guide a model through step-by-step reasoning',
+      description:
+          'Create prompts that guide a model through step-by-step reasoning',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['prompt_engineer'],
@@ -1075,7 +1172,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pe_m_01',
       title: 'Build a prompt library for a use-case',
-      description: 'Create 10 tested, versioned prompts for one domain (e.g. customer support)',
+      description:
+          'Create 10 tested, versioned prompts for one domain (e.g. customer support)',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.project,
       tags: ['prompt_engineer'],
@@ -1087,7 +1185,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pe_h_01',
       title: 'Create a prompt evaluation framework',
-      description: 'Build a script that scores prompt outputs against ground truth answers',
+      description:
+          'Build a script that scores prompt outputs against ground truth answers',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: ['prompt_engineer'],
@@ -1099,7 +1198,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pe_e_03',
       title: 'Version and A/B test two prompt variants',
-      description: 'Run the same task through two prompt versions and compare outputs',
+      description:
+          'Run the same task through two prompt versions and compare outputs',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['prompt_engineer'],
@@ -1110,7 +1210,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pe_m_02',
       title: 'Write tests that check prompt outputs against an expected schema',
-      description: 'Validate that structured-output prompts reliably return valid JSON',
+      description:
+          'Validate that structured-output prompts reliably return valid JSON',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['prompt_engineer'],
@@ -1141,7 +1242,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ar_e_01',
       title: 'Read a full AI paper today',
-      description: 'Choose a paper from arxiv and read it completely, taking notes',
+      description:
+          'Choose a paper from arxiv and read it completely, taking notes',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.reading,
       tags: ['ai_researcher'],
@@ -1152,7 +1254,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ar_m_01',
       title: 'Reproduce a paper result',
-      description: 'Implement the main experiment from an ML paper and compare results',
+      description:
+          'Implement the main experiment from an ML paper and compare results',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: ['ai_researcher'],
@@ -1164,7 +1267,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ar_e_02',
       title: 'Write a paper summary in your own words',
-      description: 'Summarize one paper\'s contribution in 200 words without looking at the abstract',
+      description:
+          'Summarize one paper\'s contribution in 200 words without looking at the abstract',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.learning,
       tags: ['ai_researcher'],
@@ -1175,7 +1279,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ar_e_03',
       title: 'Write unit tests for an experiment\'s data loading code',
-      description: 'Ensure your dataset loader handles edge cases correctly before a long run',
+      description:
+          'Ensure your dataset loader handles edge cases correctly before a long run',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['ai_researcher'],
@@ -1187,7 +1292,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'ar_m_02',
       title: 'Present your reproduced paper result as a short write-up',
-      description: 'Document method, results, and any differences from the original paper',
+      description:
+          'Document method, results, and any differences from the original paper',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: ['ai_researcher'],
@@ -1199,8 +1305,10 @@ class GoalContentDatabase {
     ),
     GoalTemplate(
       id: 'ar_h_01',
-      title: 'Write a technical blog post explaining a paper to a general audience',
-      description: 'Translate a complex paper into an accessible 500-word explainer',
+      title:
+          'Write a technical blog post explaining a paper to a general audience',
+      description:
+          'Translate a complex paper into an accessible 500-word explainer',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.community,
       tags: ['ai_researcher'],
@@ -1218,7 +1326,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pm_e_01',
       title: 'Analyse an AI product\'s UX',
-      description: 'Pick any AI product and write 5 observations about how users interact with it',
+      description:
+          'Pick any AI product and write 5 observations about how users interact with it',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.review,
       tags: ['ai_product_manager'],
@@ -1229,7 +1338,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pm_e_02',
       title: 'Write a one-page AI feature spec',
-      description: 'Define a small AI feature: problem, solution, metrics, and edge cases',
+      description:
+          'Define a small AI feature: problem, solution, metrics, and edge cases',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.project,
       tags: ['ai_product_manager'],
@@ -1240,7 +1350,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pm_m_01',
       title: 'Map an AI product\'s data flywheel',
-      description: 'Diagram how a product (e.g. Spotify, Netflix) uses data to improve its AI',
+      description:
+          'Diagram how a product (e.g. Spotify, Netflix) uses data to improve its AI',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.learning,
       tags: ['ai_product_manager'],
@@ -1263,7 +1374,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pm_m_02',
       title: 'Run a competitive analysis of 3 AI products',
-      description: 'Compare positioning, pricing, and core AI capability across competitors',
+      description:
+          'Compare positioning, pricing, and core AI capability across competitors',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.review,
       tags: ['ai_product_manager'],
@@ -1275,7 +1387,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'pm_h_01',
       title: 'Present an AI feature roadmap with prioritisation rationale',
-      description: 'Use a framework like RICE or ICE to justify what ships first',
+      description:
+          'Use a framework like RICE or ICE to justify what ships first',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: ['ai_product_manager'],
@@ -1293,7 +1406,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'fl_e_01',
       title: 'Build a stateless and a stateful widget from scratch',
-      description: 'Practice the difference by rebuilding the same small UI both ways',
+      description:
+          'Practice the difference by rebuilding the same small UI both ways',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.coding,
       tags: ['flutter_developer'],
@@ -1304,7 +1418,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'fl_e_02',
       title: 'Practice Flutter layout widgets',
-      description: 'Build a sample screen using Row, Column, Stack and Expanded correctly',
+      description:
+          'Build a sample screen using Row, Column, Stack and Expanded correctly',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['flutter_developer'],
@@ -1315,7 +1430,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'fl_e_03',
       title: 'Fix a layout overflow bug using Flutter DevTools',
-      description: 'Use the widget inspector and layout explorer to diagnose and fix an overflow',
+      description:
+          'Use the widget inspector and layout explorer to diagnose and fix an overflow',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['flutter_developer'],
@@ -1327,7 +1443,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'fl_m_01',
       title: 'Implement state management with Provider or Riverpod',
-      description: 'Refactor a small app from setState to a proper state management solution',
+      description:
+          'Refactor a small app from setState to a proper state management solution',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['flutter_developer'],
@@ -1339,7 +1456,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'fl_m_02',
       title: 'Write widget tests for one screen',
-      description: 'Cover the main interactions and expected states of a screen with tests',
+      description:
+          'Cover the main interactions and expected states of a screen with tests',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['flutter_developer'],
@@ -1351,7 +1469,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'fl_m_03',
       title: 'Connect a Flutter app to a REST API',
-      description: 'Fetch real data with http/dio and handle loading, error and empty states',
+      description:
+          'Fetch real data with http/dio and handle loading, error and empty states',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['flutter_developer'],
@@ -1363,7 +1482,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'fl_h_01',
       title: 'Set up CI to run Flutter tests and analyze on push',
-      description: 'GitHub Actions workflow running `flutter test` and `flutter analyze`',
+      description:
+          'GitHub Actions workflow running `flutter test` and `flutter analyze`',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['flutter_developer'],
@@ -1376,7 +1496,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'fl_h_02',
       title: 'Build and release a signed APK/AAB or iOS build',
-      description: 'Configure signing and produce a release build ready for a store',
+      description:
+          'Configure signing and produce a release build ready for a store',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['flutter_developer'],
@@ -1388,7 +1509,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'fl_h_03',
       title: 'Publish an app update to a store test track',
-      description: 'Upload a build to the Play Store internal test track or TestFlight',
+      description:
+          'Upload a build to the Play Store internal test track or TestFlight',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['flutter_developer'],
@@ -1419,7 +1541,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_f_01',
       title: 'Practice one small programming exercise in your primary language',
-      description: 'Pick a warm-up problem and write idiomatic, clean code in Python/Java/JS',
+      description:
+          'Pick a warm-up problem and write idiomatic, clean code in Python/Java/JS',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1430,7 +1553,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_f_02',
       title: 'Read the official style guide for your primary language',
-      description: 'Skim PEP 8 / Google Java Style / Airbnb JS style — pick 3 rules to apply',
+      description:
+          'Skim PEP 8 / Google Java Style / Airbnb JS style — pick 3 rules to apply',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.learning,
       tags: ['software_engineer'],
@@ -1443,7 +1567,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_dsa_01',
       title: 'Solve one array or string problem',
-      description: 'Complete one easy problem on LeetCode and write down the time/space complexity',
+      description:
+          'Complete one easy problem on LeetCode and write down the time/space complexity',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1454,7 +1579,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_dsa_02',
       title: 'Solve one recursion or backtracking problem',
-      description: 'Trace the recursion tree on paper before coding the solution',
+      description:
+          'Trace the recursion tree on paper before coding the solution',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1466,7 +1592,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_dsa_03',
       title: 'Practice one hashing or two-pointer problem',
-      description: 'Solve a medium problem and compare brute-force vs optimised complexity',
+      description:
+          'Solve a medium problem and compare brute-force vs optimised complexity',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1478,7 +1605,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_dsa_04',
       title: 'Implement one classic algorithm from scratch',
-      description: 'Write merge sort, quicksort, BFS, DFS, or Dijkstra without library help',
+      description:
+          'Write merge sort, quicksort, BFS, DFS, or Dijkstra without library help',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['software_engineer'],
@@ -1490,7 +1618,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_dsa_05',
       title: 'Review Big-O complexity of code you wrote today',
-      description: 'Pick a function you wrote and identify its time and space complexity',
+      description:
+          'Pick a function you wrote and identify its time and space complexity',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.review,
       tags: ['software_engineer'],
@@ -1502,8 +1631,10 @@ class GoalContentDatabase {
     // ── Core Skills: OOP ──────────────────────────────────────────────
     GoalTemplate(
       id: 'se_oop_01',
-      title: 'Refactor one function into a small class with clear responsibilities',
-      description: 'Apply single-responsibility thinking: one class, one job, testable API',
+      title:
+          'Refactor one function into a small class with clear responsibilities',
+      description:
+          'Apply single-responsibility thinking: one class, one job, testable API',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['software_engineer'],
@@ -1515,7 +1646,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_oop_02',
       title: 'Practice composition over inheritance on a small example',
-      description: 'Replace an inheritance hierarchy with composition and compare the result',
+      description:
+          'Replace an inheritance hierarchy with composition and compare the result',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1529,7 +1661,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_git_01',
       title: 'Make three clean, atomic commits in a repo',
-      description: 'Use conventional commit messages and one logical change per commit',
+      description:
+          'Use conventional commit messages and one logical change per commit',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1540,7 +1673,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_git_02',
       title: 'Resolve a merge conflict end-to-end',
-      description: 'Rebase or merge a branch with a conflict and verify the result with tests',
+      description:
+          'Rebase or merge a branch with a conflict and verify the result with tests',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1552,7 +1686,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_git_03',
       title: 'Open a pull request with a clear description',
-      description: 'Explain what changed, why, and how you verified it — request a review',
+      description:
+          'Explain what changed, why, and how you verified it — request a review',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1566,7 +1701,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_dbg_01',
       title: 'Debug a real bug with a debugger (not print statements)',
-      description: 'Set breakpoints, inspect the call stack, and find the root cause',
+      description:
+          'Set breakpoints, inspect the call stack, and find the root cause',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1577,7 +1713,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_dbg_02',
       title: 'Reproduce an intermittent bug reliably',
-      description: 'Write a failing test or script that reproduces a flaky bug every time',
+      description:
+          'Write a failing test or script that reproduces a flaky bug every time',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1602,7 +1739,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_test_02',
       title: 'Write an integration test for a real workflow',
-      description: 'Test two or more modules together, not just one unit in isolation',
+      description:
+          'Test two or more modules together, not just one unit in isolation',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1614,7 +1752,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_test_03',
       title: 'Generate and review a test coverage report',
-      description: 'Find your weakest-tested module and add one meaningful test to it',
+      description:
+          'Find your weakest-tested module and add one meaningful test to it',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.review,
       tags: ['software_engineer'],
@@ -1628,7 +1767,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_api_01',
       title: 'Build a REST endpoint with proper status codes',
-      description: 'Handle 200/201/400/404 correctly and validate request bodies',
+      description:
+          'Handle 200/201/400/404 correctly and validate request bodies',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['software_engineer'],
@@ -1640,7 +1780,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_api_02',
       title: 'Add pagination and filtering to an existing endpoint',
-      description: 'Support page/limit params and one filter, and test them with real requests',
+      description:
+          'Support page/limit params and one filter, and test them with real requests',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['software_engineer'],
@@ -1653,7 +1794,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_api_03',
       title: 'Write API tests for one endpoint',
-      description: 'Test happy path, validation errors, and one auth/authorization case',
+      description:
+          'Test happy path, validation errors, and one auth/authorization case',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1667,7 +1809,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_db_01',
       title: 'Write 5 SQL queries of increasing difficulty',
-      description: 'Start with SELECT/WHERE, end with a JOIN and a GROUP BY + HAVING',
+      description:
+          'Start with SELECT/WHERE, end with a JOIN and a GROUP BY + HAVING',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1690,7 +1833,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_db_03',
       title: 'Optimise one slow query using EXPLAIN',
-      description: 'Read the query plan, add or change an index, and measure the improvement',
+      description:
+          'Read the query plan, add or change an index, and measure the improvement',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.practice,
       tags: ['software_engineer'],
@@ -1716,7 +1860,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_sd_02',
       title: 'Sketch a system design for a URL shortener or rate limiter',
-      description: 'Identify components, storage, and the main scaling bottlenecks',
+      description:
+          'Identify components, storage, and the main scaling bottlenecks',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.design,
       tags: ['software_engineer'],
@@ -1728,7 +1873,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_sd_03',
       title: 'Refactor tightly-coupled code into testable components',
-      description: 'Break one module that does too much into focused, well-named pieces',
+      description:
+          'Break one module that does too much into focused, well-named pieces',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['software_engineer'],
@@ -1742,7 +1888,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_sec_01',
       title: 'Audit a project for hard-coded secrets',
-      description: 'Find and move any keys/passwords into environment variables',
+      description:
+          'Find and move any keys/passwords into environment variables',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.review,
       tags: ['software_engineer'],
@@ -1753,7 +1900,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_sec_02',
       title: 'Apply one OWASP Top 10 mitigation to a real endpoint',
-      description: 'Add input validation or parameterised queries to block injection',
+      description:
+          'Add input validation or parameterised queries to block injection',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: ['software_engineer'],
@@ -1767,7 +1915,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_cicd_01',
       title: 'Set up CI that runs your test suite on every push',
-      description: 'GitHub Actions (or similar) workflow that fails on test failure',
+      description:
+          'GitHub Actions (or similar) workflow that fails on test failure',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: ['software_engineer'],
@@ -1806,7 +1955,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_dock_02',
       title: 'Deploy a small service to a free-tier cloud host',
-      description: 'Ship something real to Render, Railway, Fly.io, or a small VPS',
+      description:
+          'Ship something real to Render, Railway, Fly.io, or a small VPS',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.deployment,
       tags: ['software_engineer'],
@@ -1820,7 +1970,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_proj_01',
       title: 'Build a small end-to-end feature (API + DB + UI or CLI)',
-      description: 'Pick a real use case and ship the full slice, tested and committed',
+      description:
+          'Pick a real use case and ship the full slice, tested and committed',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: ['software_engineer'],
@@ -1833,7 +1984,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_proj_02',
       title: 'Turn your best project into a production-grade repo',
-      description: 'Add a README, CI, tests, and one deploy — make it recruiters-ready',
+      description:
+          'Add a README, CI, tests, and one deploy — make it recruiters-ready',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: ['software_engineer'],
@@ -1841,14 +1993,16 @@ class GoalContentDatabase {
       skill: 'Software Engineering',
       stage: GoalStage.realProjects,
       estimatedMinutes: 120,
-      professionalOutcome: 'A production-grade repository you can link on your resume.',
+      professionalOutcome:
+          'A production-grade repository you can link on your resume.',
     ),
 
     // ── Portfolio ─────────────────────────────────────────────────────
     GoalTemplate(
       id: 'se_port_01',
       title: 'Write a case-study write-up of one project',
-      description: 'Document the problem, your approach, and the measurable result',
+      description:
+          'Document the problem, your approach, and the measurable result',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: ['software_engineer'],
@@ -1856,12 +2010,14 @@ class GoalContentDatabase {
       skill: 'Portfolio Building',
       stage: GoalStage.portfolio,
       estimatedMinutes: 45,
-      professionalOutcome: 'A portfolio case study ready for a public portfolio page.',
+      professionalOutcome:
+          'A portfolio case study ready for a public portfolio page.',
     ),
     GoalTemplate(
       id: 'se_port_02',
       title: 'Record a 2-minute demo of a project',
-      description: 'Walk through what it does and why it matters, on screen recording',
+      description:
+          'Walk through what it does and why it matters, on screen recording',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: ['software_engineer'],
@@ -1875,7 +2031,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_int_01',
       title: 'Do one timed mock coding interview',
-      description: 'Solve one medium problem under a 35-minute timer, then review',
+      description:
+          'Solve one medium problem under a 35-minute timer, then review',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: ['software_engineer'],
@@ -1887,7 +2044,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_int_02',
       title: 'Do one mock system design interview',
-      description: 'Sketch a whiteboard-style answer to a common system design prompt',
+      description:
+          'Sketch a whiteboard-style answer to a common system design prompt',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.career,
       tags: ['software_engineer'],
@@ -1899,7 +2057,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_int_03',
       title: 'Practice one behavioural answer in STAR format',
-      description: 'Prepare a 90-second story about a project or conflict you handled',
+      description:
+          'Prepare a 90-second story about a project or conflict you handled',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.career,
       tags: ['software_engineer'],
@@ -1913,7 +2072,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'se_job_01',
       title: 'Tailor your resume to one real software engineering job posting',
-      description: 'Match your bullets and language to a specific job description',
+      description:
+          'Match your bullets and language to a specific job description',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: ['software_engineer'],
@@ -1946,7 +2106,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_e_01',
       title: 'Read a tech article for 15 minutes',
-      description: 'Read a post on dev.to, Medium, or a tech blog in your field',
+      description:
+          'Read a post on dev.to, Medium, or a tech blog in your field',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.reading,
       tags: [],
@@ -1956,7 +2117,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_e_02',
       title: 'Review your roadmap progress',
-      description: 'Open your learning roadmap and check off what you\'ve completed',
+      description:
+          'Open your learning roadmap and check off what you\'ve completed',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.review,
       tags: [],
@@ -1966,7 +2128,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_e_03',
       title: 'Watch a 10-min tutorial video',
-      description: 'Find a short tutorial on YouTube about a skill in your roadmap',
+      description:
+          'Find a short tutorial on YouTube about a skill in your roadmap',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.learning,
       tags: [],
@@ -1976,7 +2139,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_e_04',
       title: 'Connect with one professional',
-      description: 'Send a thoughtful LinkedIn connection request to someone in your target role',
+      description:
+          'Send a thoughtful LinkedIn connection request to someone in your target role',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.career,
       tags: [],
@@ -1987,7 +2151,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_m_01',
       title: 'Build a small proof-of-concept',
-      description: 'Spend 30 minutes experimenting with a technology from your roadmap',
+      description:
+          'Spend 30 minutes experimenting with a technology from your roadmap',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2008,7 +2173,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_m_03',
       title: 'Teach what you learned',
-      description: 'Write a Twitter/LinkedIn post or a short blog explaining one concept',
+      description:
+          'Write a Twitter/LinkedIn post or a short blog explaining one concept',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.community,
       tags: [],
@@ -2019,7 +2185,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_m_04',
       title: 'Mock-interview yourself',
-      description: 'Answer 3 common interview questions out loud and time yourself',
+      description:
+          'Answer 3 common interview questions out loud and time yourself',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: [],
@@ -2031,7 +2198,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_h_01',
       title: 'Complete a side-project milestone',
-      description: 'Finish one meaningful feature or section of your personal project',
+      description:
+          'Finish one meaningful feature or section of your personal project',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: [],
@@ -2042,7 +2210,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_h_02',
       title: 'Contribute to open source',
-      description: 'Find an issue on GitHub and submit a PR or meaningful comment',
+      description:
+          'Find an issue on GitHub and submit a PR or meaningful comment',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.community,
       tags: [],
@@ -2057,7 +2226,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_found_01',
       title: 'Practice one data structures & algorithms problem',
-      description: 'Solve one problem on LeetCode/HackerRank and note the time complexity',
+      description:
+          'Solve one problem on LeetCode/HackerRank and note the time complexity',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2068,7 +2238,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_found_02',
       title: 'Review the Big-O complexity of code you wrote recently',
-      description: 'Pick a function you wrote and analyse its time/space complexity',
+      description:
+          'Pick a function you wrote and analyse its time/space complexity',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.review,
       tags: [],
@@ -2081,7 +2252,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_weak_01',
       title: 'Practice one recursion problem step-by-step',
-      description: 'Draw the recursion tree on paper, then code it — then do one more',
+      description:
+          'Draw the recursion tree on paper, then code it — then do one more',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2093,7 +2265,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_weak_02',
       title: 'Drill 5 SQL queries around JOIN and GROUP BY',
-      description: 'Write each query from scratch, then verify against expected output',
+      description:
+          'Write each query from scratch, then verify against expected output',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2103,7 +2276,8 @@ class GoalContentDatabase {
     ),
     GoalTemplate(
       id: 'gen_weak_03',
-      title: 'Practice 3 Git operations you avoid (rebase, cherry-pick, revert)',
+      title:
+          'Practice 3 Git operations you avoid (rebase, cherry-pick, revert)',
       description: 'Do them in a throwaway branch first, then in a real repo',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
@@ -2127,7 +2301,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_weak_05',
       title: 'Design and call one API endpoint end-to-end',
-      description: 'Build it, hit it with curl/Postman, and log status codes for each case',
+      description:
+          'Build it, hit it with curl/Postman, and log status codes for each case',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: [],
@@ -2138,7 +2313,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_weak_06',
       title: 'Sketch a system design for a familiar app',
-      description: 'Pick an app you use daily and write the components, storage, and bottlenecks',
+      description:
+          'Pick an app you use daily and write the components, storage, and bottlenecks',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.design,
       tags: [],
@@ -2152,7 +2328,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_git_01',
       title: 'Make a clean, atomic commit',
-      description: 'Commit one logical change with a clear, conventional commit message',
+      description:
+          'Commit one logical change with a clear, conventional commit message',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2163,7 +2340,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_git_02',
       title: 'Open a pull request and request a code review',
-      description: 'Write a clear PR description explaining what changed and why',
+      description:
+          'Write a clear PR description explaining what changed and why',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2175,7 +2353,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_git_03',
       title: 'Resolve a merge conflict',
-      description: 'Practice resolving a merge conflict in a real or sandbox repository',
+      description:
+          'Practice resolving a merge conflict in a real or sandbox repository',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2187,7 +2366,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_git_04',
       title: 'Write or improve a CONTRIBUTING.md and branch strategy',
-      description: 'Document how contributors should branch, commit, and open PRs',
+      description:
+          'Document how contributors should branch, commit, and open PRs',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2212,7 +2392,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_debug_02',
       title: 'Profile a slow function and fix the bottleneck',
-      description: 'Use a profiler to find and fix the real performance bottleneck',
+      description:
+          'Use a profiler to find and fix the real performance bottleneck',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2226,7 +2407,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_test_01',
       title: 'Write unit tests until you reach meaningful coverage',
-      description: 'Pick an untested function and cover its main cases and edge cases',
+      description:
+          'Pick an untested function and cover its main cases and edge cases',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2237,7 +2419,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_test_02',
       title: 'Write an end-to-end integration test',
-      description: 'Test a real workflow across multiple functions/services, not just one unit',
+      description:
+          'Test a real workflow across multiple functions/services, not just one unit',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.practice,
       tags: [],
@@ -2249,7 +2432,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_test_03',
       title: 'Generate a test coverage report',
-      description: 'Run a coverage tool and identify your weakest-tested module',
+      description:
+          'Run a coverage tool and identify your weakest-tested module',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.review,
       tags: [],
@@ -2263,7 +2447,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_api_01',
       title: 'Design and build a REST endpoint',
-      description: 'Include proper status codes, request validation and error responses',
+      description:
+          'Include proper status codes, request validation and error responses',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: [],
@@ -2274,7 +2459,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_api_02',
       title: 'Write a database schema with proper indexes',
-      description: 'Design tables/collections for a real use case with sensible indexing',
+      description:
+          'Design tables/collections for a real use case with sensible indexing',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: [],
@@ -2286,7 +2472,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_api_03',
       title: 'Add pagination, filtering and rate limiting to an API',
-      description: 'Harden an existing endpoint you built for real-world traffic',
+      description:
+          'Harden an existing endpoint you built for real-world traffic',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.coding,
       tags: [],
@@ -2301,7 +2488,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_arch_01',
       title: 'Write a one-page system design document',
-      description: 'Document the design of a feature you\'re building before coding it',
+      description:
+          'Document the design of a feature you\'re building before coding it',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.design,
       tags: [],
@@ -2313,7 +2501,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_arch_02',
       title: 'Refactor tightly-coupled code into testable components',
-      description: 'Break up one function/class that does too much into clean, focused pieces',
+      description:
+          'Break up one function/class that does too much into clean, focused pieces',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: [],
@@ -2327,7 +2516,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_sec_01',
       title: 'Audit a project for hard-coded secrets',
-      description: 'Find and move any hard-coded keys/passwords into environment variables',
+      description:
+          'Find and move any hard-coded keys/passwords into environment variables',
       difficulty: LocalGoalDifficulty.easy,
       category: LocalGoalCategory.review,
       tags: [],
@@ -2338,7 +2528,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_sec_02',
       title: 'Apply one OWASP Top 10 mitigation',
-      description: 'Add input validation or parameterised queries to prevent injection attacks',
+      description:
+          'Add input validation or parameterised queries to prevent injection attacks',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.coding,
       tags: [],
@@ -2352,7 +2543,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_cicd_01',
       title: 'Set up a CI pipeline that runs tests on every push',
-      description: 'Add a GitHub Actions (or similar) workflow that runs your test suite',
+      description:
+          'Add a GitHub Actions (or similar) workflow that runs your test suite',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: [],
@@ -2405,7 +2597,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_prod_01',
       title: 'Add basic monitoring or structured logs to a deployed app',
-      description: 'Make it possible to tell what your app is doing without guessing',
+      description:
+          'Make it possible to tell what your app is doing without guessing',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.deployment,
       tags: [],
@@ -2417,7 +2610,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_prod_02',
       title: 'Write a rollback plan for a deployment you own',
-      description: 'Document exactly how you would revert if this deploy broke something',
+      description:
+          'Document exactly how you would revert if this deploy broke something',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.review,
       tags: [],
@@ -2431,7 +2625,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_port_01',
       title: 'Write a case-study write-up of your best project',
-      description: 'Document the problem, your approach, and the measurable result',
+      description:
+          'Document the problem, your approach, and the measurable result',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: [],
@@ -2442,7 +2637,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_port_02',
       title: 'Record a 2-minute demo video of a project',
-      description: 'Walk through what it does and why it matters, on camera or screen-recorded',
+      description:
+          'Walk through what it does and why it matters, on camera or screen-recorded',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: [],
@@ -2456,7 +2652,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_int_01',
       title: 'Do a timed mock coding interview question',
-      description: 'Solve one problem under a time limit, then review your approach',
+      description:
+          'Solve one problem under a time limit, then review your approach',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: [],
@@ -2494,7 +2691,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_job_01',
       title: 'Tailor your resume to one specific job posting',
-      description: 'Match your resume\'s language and highlights to a real job description',
+      description:
+          'Match your resume\'s language and highlights to a real job description',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.career,
       tags: [],
@@ -2520,7 +2718,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_job_03',
       title: 'Act on feedback from a rejected application or interview',
-      description: 'Identify one concrete gap and turn it into a goal for this week',
+      description:
+          'Identify one concrete gap and turn it into a goal for this week',
       difficulty: LocalGoalDifficulty.medium,
       category: LocalGoalCategory.review,
       tags: [],
@@ -2538,7 +2737,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_w_01',
       title: 'Complete your weekly learning chapter',
-      description: 'Finish the study material scheduled for this week in your roadmap',
+      description:
+          'Finish the study material scheduled for this week in your roadmap',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.learning,
       tags: [],
@@ -2560,7 +2760,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_w_03',
       title: 'Build and evaluate an AI mini-project',
-      description: 'Complete a small AI project: define problem, build, evaluate, document',
+      description:
+          'Complete a small AI project: define problem, build, evaluate, document',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: [],
@@ -2582,7 +2783,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_w_05',
       title: 'Complete a full EDA notebook',
-      description: 'Exploratory data analysis with visualizations, stats and insights',
+      description:
+          'Exploratory data analysis with visualizations, stats and insights',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.data,
       tags: [],
@@ -2600,12 +2802,14 @@ class GoalContentDatabase {
       skill: 'Testing',
       stage: GoalStage.testing,
       estimatedMinutes: 180,
-      professionalOutcome: 'A merged PR with passing tests — real shipped work.',
+      professionalOutcome:
+          'A merged PR with passing tests — real shipped work.',
     ),
     GoalTemplate(
       id: 'gen_w_07',
       title: 'Set up or improve a CI pipeline for one of your projects',
-      description: 'Ensure tests, lint, and build run automatically on every push',
+      description:
+          'Ensure tests, lint, and build run automatically on every push',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.deployment,
       tags: [],
@@ -2630,7 +2834,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_w_09',
       title: 'Do 2 mock interviews and log feedback',
-      description: 'One technical, one behavioural — write down what to improve',
+      description:
+          'One technical, one behavioural — write down what to improve',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.career,
       tags: [],
@@ -2648,7 +2853,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_mo_01',
       title: 'Publish an AI project on GitHub',
-      description: 'Complete, document and publish an AI project with a strong README',
+      description:
+          'Complete, document and publish an AI project with a strong README',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: [],
@@ -2660,7 +2866,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_mo_02',
       title: 'Complete your current roadmap phase',
-      description: 'Finish all learning objectives in your current roadmap phase this month',
+      description:
+          'Finish all learning objectives in your current roadmap phase this month',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.learning,
       tags: [],
@@ -2683,7 +2890,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_mo_04',
       title: 'Complete a Udemy/Coursera course module',
-      description: 'Finish a structured online course section relevant to your target role',
+      description:
+          'Finish a structured online course section relevant to your target role',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.learning,
       tags: [],
@@ -2693,7 +2901,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_mo_05',
       title: 'Ship a production-grade capstone project',
-      description: 'Tested, CI/CD-backed, and deployed to a live URL — your strongest proof of skill',
+      description:
+          'Tested, CI/CD-backed, and deployed to a live URL — your strongest proof of skill',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.project,
       tags: [],
@@ -2701,12 +2910,14 @@ class GoalContentDatabase {
       skill: 'Portfolio Building',
       stage: GoalStage.production,
       estimatedMinutes: 1200,
-      professionalOutcome: 'A deployed, tested, documented capstone project for your resume.',
+      professionalOutcome:
+          'A deployed, tested, documented capstone project for your resume.',
     ),
     GoalTemplate(
       id: 'gen_mo_06',
       title: 'Complete 4 mock interviews and iterate on weak areas',
-      description: '2 technical, 2 behavioural — track and close your recurring gaps',
+      description:
+          '2 technical, 2 behavioural — track and close your recurring gaps',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.career,
       tags: [],
@@ -2718,7 +2929,8 @@ class GoalContentDatabase {
     GoalTemplate(
       id: 'gen_mo_07',
       title: 'Get your resume/portfolio reviewed and apply the feedback',
-      description: 'Ask a peer or mentor for honest feedback, then actually update both',
+      description:
+          'Ask a peer or mentor for honest feedback, then actually update both',
       difficulty: LocalGoalDifficulty.hard,
       category: LocalGoalCategory.career,
       tags: [],
@@ -2748,16 +2960,16 @@ class GoalContentDatabase {
   }
 
   static const Map<String, List<GoalTemplate>> _dailyByRole = {
-    'ai_engineer':        _aiEngineerDaily,
-    'ml_engineer':        _mlEngineerDaily,
-    'data_scientist':     _dataScientistDaily,
-    'nlp_engineer':       _nlpEngineerDaily,
-    'cv_engineer':        _cvEngineerDaily,
-    'prompt_engineer':    _promptEngineerDaily,
-    'ai_researcher':      _aiResearcherDaily,
+    'ai_engineer': _aiEngineerDaily,
+    'ml_engineer': _mlEngineerDaily,
+    'data_scientist': _dataScientistDaily,
+    'nlp_engineer': _nlpEngineerDaily,
+    'cv_engineer': _cvEngineerDaily,
+    'prompt_engineer': _promptEngineerDaily,
+    'ai_researcher': _aiResearcherDaily,
     'ai_product_manager': _aiProductManagerDaily,
-    'flutter_developer':  _flutterDeveloperDaily,
-    'software_engineer':  _softwareEngineerDaily,
-    'generic':            _genericDaily,
+    'flutter_developer': _flutterDeveloperDaily,
+    'software_engineer': _softwareEngineerDaily,
+    'generic': _genericDaily,
   };
 }

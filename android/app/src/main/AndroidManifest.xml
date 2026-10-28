@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- REQUIRED for release builds. Flutter only adds INTERNET automatically
+         to the debug/profile manifests, so a release APK/AAB without this line
+         cannot reach Firebase, the internet or any backend. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="AI Career Guidance"

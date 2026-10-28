@@ -17,15 +17,9 @@ import 'services/notification_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase and environment configuration concurrently.
-  // Both must complete before the app starts because authentication
-  // and environment-dependent services may need them.
-  await Future.wait<void>([
-    Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    ).then<void>((_) {}),
-    dotenv.load(fileName: '.env'),
-  ]);
+  // Start required initialization, but do not block runApp().
+  // SplashScreen renders immediately while this future completes.
+  final startupFuture = _initializeStartup();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -34,14 +28,31 @@ Future<void> main() async {
     ),
   );
 
-  runApp(const AICareerApp());
+  runApp(AICareerApp(startupFuture: startupFuture));
 
-  // Notifications must not delay the first Flutter frame.
-  unawaited(_initializeNotifications());
+  // Notifications are initialized after required startup work and never
+  // block the first Flutter frame.
+  unawaited(_initializeNotifications(startupFuture));
 }
 
-Future<void> _initializeNotifications() async {
+Future<void> _initializeStartup() async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Preserve existing .env configuration. Log a clear error if missing;
+  // the splash remains visible rather than querying services too early.
   try {
+    await dotenv.load(fileName: '.env');
+  } catch (e, stackTrace) {
+    debugPrint('Environment configuration warning: $e');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+}
+
+Future<void> _initializeNotifications(Future<void> startupFuture) async {
+  try {
+    await startupFuture;
     await FirebaseMessaging.instance.requestPermission();
 
     final token = await FirebaseMessaging.instance.getToken();
@@ -52,6 +63,7 @@ Future<void> _initializeNotifications() async {
   }
 
   try {
+    await startupFuture;
     await NotificationService.init();
   } catch (e, stackTrace) {
     debugPrint('Notification service warning: $e');
@@ -60,7 +72,12 @@ Future<void> _initializeNotifications() async {
 }
 
 class AICareerApp extends StatelessWidget {
-  const AICareerApp({super.key});
+  const AICareerApp({
+    super.key,
+    required this.startupFuture,
+  });
+
+  final Future<void> startupFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -95,8 +112,7 @@ class AICareerApp extends StatelessWidget {
             ),
             iconTheme: IconThemeData(color: Colors.white),
           ),
-          bottomNavigationBarTheme:
-              const BottomNavigationBarThemeData(
+          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
             backgroundColor: Color(0xFF13131F),
             selectedItemColor: Color(0xFFA78BFA),
             unselectedItemColor: Color(0xFF666677),
@@ -104,7 +120,7 @@ class AICareerApp extends StatelessWidget {
             elevation: 0,
           ),
         ),
-        home: const SplashScreen(),
+        home: SplashScreen(startupFuture: startupFuture),
       ),
     );
   }

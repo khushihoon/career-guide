@@ -77,7 +77,8 @@ class CareerGoalEngine {
     final explicit = _clean(preferredSkill);
     final nextActionSkill = _clean(
       context?.pendingActions
-          .where((a) => a.relatedSkill != null && a.relatedSkill!.trim().isNotEmpty)
+          .where((a) =>
+              a.relatedSkill != null && a.relatedSkill!.trim().isNotEmpty)
           .firstOrNull
           ?.relatedSkill,
     );
@@ -88,14 +89,17 @@ class CareerGoalEngine {
     final stage = context?.currentStage;
     final candidates = pool.where((t) {
       if (t.minLevel > currentLevel || t.minPhase > roadmapPhase) return false;
-      if (completedGoalIds.contains(t.id) || recentGoalIds.contains(t.id)) return false;
+      if (completedGoalIds.contains(t.id) || recentGoalIds.contains(t.id))
+        return false;
       return true;
     }).toList();
 
     final usable = candidates.isNotEmpty
         ? candidates
-        : pool.where((t) =>
-            t.minLevel <= currentLevel && t.minPhase <= roadmapPhase).toList();
+        : pool
+            .where(
+                (t) => t.minLevel <= currentLevel && t.minPhase <= roadmapPhase)
+            .toList();
 
     final scored = <_ScoredTemplate>[];
     for (final template in usable) {
@@ -115,7 +119,8 @@ class CareerGoalEngine {
 
       // Respect professional progression metadata.
       score += _stageScore(template.stage, stage);
-      score += _difficultyScore(template.difficulty, currentLevel, roadmapPhase);
+      score +=
+          _difficultyScore(template.difficulty, currentLevel, roadmapPhase);
 
       // Prefer tangible outcomes over passive reading when the user is past
       // the foundation stage.
@@ -203,7 +208,8 @@ class CareerGoalEngine {
     return filtered.isEmpty ? null : filtered.first.skillName;
   }
 
-  String? _bestProfileSkill(UserSkillProfile? profile, Map<String, SkillGap> gaps) {
+  String? _bestProfileSkill(
+      UserSkillProfile? profile, Map<String, SkillGap> gaps) {
     if (profile == null || profile.skills.isEmpty) return null;
     final sorted = [...profile.skills]
       ..sort((a, b) => a.level.value.compareTo(b.level.value));
@@ -246,7 +252,9 @@ class CareerGoalEngine {
       if (picked.contains(item.template)) continue;
       if (!stages.contains(item.template.stage)) continue;
       final skill = _templateSkill(item.template);
-      if (skill != null && usedSkills.contains(_key(skill)) && picked.length > 1) {
+      if (skill != null &&
+          usedSkills.contains(_key(skill)) &&
+          picked.length > 1) {
         // Same skill is useful, but avoid a repetitive day when another skill
         // has equal professional value.
         continue;

@@ -161,15 +161,15 @@ class QuestService {
       // Authoritative claim set — read defensively.
       final claimedIds = _readClaimedIds(data);
 
-      final daily   = _parseQuestList(data['daily']);
-      final weekly  = _parseQuestList(data['weekly']);
+      final daily = _parseQuestList(data['daily']);
+      final weekly = _parseQuestList(data['weekly']);
       final monthly = _parseQuestList(data['monthly']);
 
       final now = DateTime.now();
       final List<Quest> result = [];
 
-      result.addAll(await _ensureFresh(uid, daily,   QuestType.daily,   now));
-      result.addAll(await _ensureFresh(uid, weekly,  QuestType.weekly,  now));
+      result.addAll(await _ensureFresh(uid, daily, QuestType.daily, now));
+      result.addAll(await _ensureFresh(uid, weekly, QuestType.weekly, now));
       result.addAll(await _ensureFresh(uid, monthly, QuestType.monthly, now));
 
       // Project the authoritative claim state onto each returned Quest.
@@ -344,8 +344,8 @@ class QuestService {
 
       case QuestType.weekly:
         final monday = now.subtract(Duration(days: now.weekday - 1));
-        final expires = DateTime(
-            monday.year, monday.month, monday.day + 6, 23, 59, 59);
+        final expires =
+            DateTime(monday.year, monday.month, monday.day + 6, 23, 59, 59);
         return [
           Quest(
             id: 'weekly_goals_15_${_weekKey(now)}',
@@ -440,19 +440,19 @@ class QuestService {
       final snapshot = await tx.get(ref);
       final data = snapshot.data() ?? <String, dynamic>{};
 
-      final daily   = _parseQuestList(data['daily']);
-      final weekly  = _parseQuestList(data['weekly']);
+      final daily = _parseQuestList(data['daily']);
+      final weekly = _parseQuestList(data['weekly']);
       final monthly = _parseQuestList(data['monthly']);
 
-      final updatedDaily   = _applyDailyGoalTotal(daily, dailyTotal, now);
-      final updatedWeekly  = _incrementGoalsEventBased(weekly, now);
+      final updatedDaily = _applyDailyGoalTotal(daily, dailyTotal, now);
+      final updatedWeekly = _incrementGoalsEventBased(weekly, now);
       final updatedMonthly = _incrementGoalsEventBased(monthly, now);
 
       tx.set(
         ref,
         {
-          'daily':   updatedDaily.map((q) => q.toMap()).toList(),
-          'weekly':  updatedWeekly.map((q) => q.toMap()).toList(),
+          'daily': updatedDaily.map((q) => q.toMap()).toList(),
+          'weekly': updatedWeekly.map((q) => q.toMap()).toList(),
           'monthly': updatedMonthly.map((q) => q.toMap()).toList(),
         },
         SetOptions(merge: true),
@@ -519,15 +519,14 @@ class QuestService {
       final snapshot = await tx.get(ref);
       final data = snapshot.data() ?? <String, dynamic>{};
 
-      final daily   = _parseQuestList(data['daily']);
-      final weekly  = _parseQuestList(data['weekly']);
+      final daily = _parseQuestList(data['daily']);
+      final weekly = _parseQuestList(data['weekly']);
       final monthly = _parseQuestList(data['monthly']);
 
       tx.set(
         ref,
         {
-          'daily':
-              _completeCheckIn(daily, now).map((q) => q.toMap()).toList(),
+          'daily': _completeCheckIn(daily, now).map((q) => q.toMap()).toList(),
           'weekly':
               _completeCheckIn(weekly, now).map((q) => q.toMap()).toList(),
           'monthly':
@@ -565,8 +564,8 @@ class QuestService {
       final snapshot = await tx.get(ref);
       final data = snapshot.data() ?? <String, dynamic>{};
 
-      final daily   = _parseQuestList(data['daily']);
-      final weekly  = _parseQuestList(data['weekly']);
+      final daily = _parseQuestList(data['daily']);
+      final weekly = _parseQuestList(data['weekly']);
       final monthly = _parseQuestList(data['monthly']);
 
       tx.set(
@@ -574,10 +573,12 @@ class QuestService {
         {
           'daily':
               _applyStreak(daily, incoming, now).map((q) => q.toMap()).toList(),
-          'weekly':
-              _applyStreak(weekly, incoming, now).map((q) => q.toMap()).toList(),
-          'monthly':
-              _applyStreak(monthly, incoming, now).map((q) => q.toMap()).toList(),
+          'weekly': _applyStreak(weekly, incoming, now)
+              .map((q) => q.toMap())
+              .toList(),
+          'monthly': _applyStreak(monthly, incoming, now)
+              .map((q) => q.toMap())
+              .toList(),
         },
         SetOptions(merge: true),
       );
@@ -632,8 +633,8 @@ class QuestService {
     if (questId.isEmpty) return QuestClaimResult.notFound;
 
     final questsRef = _db.collection('quests').doc(uid);
-    final userRef   = _db.collection('users').doc(uid);
-    final now       = DateTime.now();
+    final userRef = _db.collection('users').doc(uid);
+    final now = DateTime.now();
 
     return _db.runTransaction<QuestClaimResult>((tx) async {
       // 1. Authoritative read of the quest document.
@@ -667,7 +668,9 @@ class QuestService {
       //    so the same id can never be re-evaluated as "new".
       tx.set(
         questsRef,
-        {_claimedField: FieldValue.arrayUnion([questId])},
+        {
+          _claimedField: FieldValue.arrayUnion([questId])
+        },
         SetOptions(merge: true),
       );
 
@@ -761,13 +764,13 @@ class QuestService {
   // or another quest-type array.
 
   Future<void> _persistAll(String uid, List<Quest> quests) async {
-    final daily   = quests.where((q) => q.type == QuestType.daily).toList();
-    final weekly  = quests.where((q) => q.type == QuestType.weekly).toList();
+    final daily = quests.where((q) => q.type == QuestType.daily).toList();
+    final weekly = quests.where((q) => q.type == QuestType.weekly).toList();
     final monthly = quests.where((q) => q.type == QuestType.monthly).toList();
 
     await _db.collection('quests').doc(uid).set({
-      'daily':   daily.map((q) => q.toMap()).toList(),
-      'weekly':  weekly.map((q) => q.toMap()).toList(),
+      'daily': daily.map((q) => q.toMap()).toList(),
+      'weekly': weekly.map((q) => q.toMap()).toList(),
       'monthly': monthly.map((q) => q.toMap()).toList(),
     }, SetOptions(merge: true));
   }
@@ -785,8 +788,8 @@ class QuestService {
   // ══════════════════════════════════════════════════════════════════
   // Date key helpers
   // ══════════════════════════════════════════════════════════════════
-  String _dateKey(DateTime d)  => '${d.year}${d.month}${d.day}';
-  String _weekKey(DateTime d)  => '${d.year}W${_isoWeek(d)}';
+  String _dateKey(DateTime d) => '${d.year}${d.month}${d.day}';
+  String _weekKey(DateTime d) => '${d.year}W${_isoWeek(d)}';
   String _monthKey(DateTime d) => '${d.year}M${d.month}';
 
   /// ISO-8601 week number (1–53).
@@ -799,9 +802,9 @@ class QuestService {
     final d = DateTime(date.year, date.month, date.day);
     // Thursday of the current ISO week determines the ISO year.
     final thursday = d.add(Duration(days: 4 - (d.weekday)));
-    final isoYear  = thursday.year;
+    final isoYear = thursday.year;
     // January 4th is always in ISO week 1.
-    final jan4   = DateTime(isoYear, 1, 4);
+    final jan4 = DateTime(isoYear, 1, 4);
     final week1Mon = jan4.subtract(Duration(days: jan4.weekday - 1));
     final diffDays = thursday.difference(week1Mon).inDays;
     return (diffDays ~/ 7) + 1;

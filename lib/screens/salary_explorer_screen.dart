@@ -246,7 +246,8 @@ class _SalaryExplorerScreenState extends State<SalaryExplorerScreen> {
                         minHeight: 6,
                         backgroundColor: const Color(0xFF2A2A40),
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          _getSalaryColor(salary.medianSalary, salary.minSalary, salary.maxSalary),
+                          _getSalaryColor(salary.medianSalary, salary.minSalary,
+                              salary.maxSalary),
                         ),
                       ),
                     ),
@@ -338,10 +339,12 @@ class _SalaryExplorerScreenState extends State<SalaryExplorerScreen> {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(3),
                                   child: LinearProgressIndicator(
-                                    value: _getNormalizedValue(salary.medianSalary, roleData),
+                                    value: _getNormalizedValue(
+                                        salary.medianSalary, roleData),
                                     backgroundColor: Colors.transparent,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                      _getSalaryColor(salary.medianSalary, 0, 1000000),
+                                      _getSalaryColor(
+                                          salary.medianSalary, 0, 1000000),
                                     ),
                                   ),
                                 ),

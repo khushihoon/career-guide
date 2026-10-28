@@ -117,7 +117,7 @@ class _CareerDashboardScreenState extends State<CareerDashboardScreen> {
     if (!_copilotInitRequested) {
       _copilotInitRequested = true;
       final ctrl = CopilotProvider.maybeOf(context);
-      final uid  = user.uid;
+      final uid = user.uid;
       if (ctrl != null && uid.isNotEmpty) {
         // Fire-and-forget; the controller notifies listeners when state
         // becomes available, and the build method reads state defensively.
@@ -142,7 +142,7 @@ class _CareerDashboardScreenState extends State<CareerDashboardScreen> {
   int _authoritativeXp() {
     try {
       final ctrl = CopilotProvider.maybeOf(context);
-      final xp   = ctrl?.authoritativeTotalXp ?? 0;
+      final xp = ctrl?.authoritativeTotalXp ?? 0;
       return xp < 0 ? 0 : xp;
     } catch (_) {
       return 0;
@@ -173,9 +173,7 @@ class _CareerDashboardScreenState extends State<CareerDashboardScreen> {
     try {
       final ctx = CopilotProvider.maybeOf(context)?.copilotContext;
       if (ctx == null || ctx.nextActions.isEmpty) return null;
-      final incomplete = ctx.nextActions
-          .where((a) => !a.isCompleted)
-          .toList()
+      final incomplete = ctx.nextActions.where((a) => !a.isCompleted).toList()
         ..sort((a, b) => a.priority.compareTo(b.priority));
       if (incomplete.isNotEmpty) return incomplete.first;
       final all = List<copilot.NextBestAction>.from(ctx.nextActions)
@@ -210,16 +208,17 @@ class _CareerDashboardScreenState extends State<CareerDashboardScreen> {
       user.currentRoadmapStep ?? 0,
       10,
     );
-    final jobReadiness = ProgressTrackingService.calculateJobReadinessScore(user);
+    final jobReadiness =
+        ProgressTrackingService.calculateJobReadinessScore(user);
     final interviewReadiness =
         ProgressTrackingService.calculateInterviewReadinessScore(user);
     final nextMilestone = ProgressTrackingService.getNextMilestone(user);
     final motivation = ProgressTrackingService.getMotivationalMessage(user);
 
     // Authoritative Copilot reads — defensive, never authoritative here.
-    final xp           = _authoritativeXp();
-    final careerLabel  = _careerLabel();
-    final nextAction   = _currentNextBestAction();
+    final xp = _authoritativeXp();
+    final careerLabel = _careerLabel();
+    final nextAction = _currentNextBestAction();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),

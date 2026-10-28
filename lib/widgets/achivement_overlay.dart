@@ -1,4 +1,3 @@
-
 // ══════════════════════════════════════════════════════════════════════
 // lib/widgets/achievement_overlay.dart
 //
@@ -30,7 +29,7 @@ class AchievementOverlay extends StatefulWidget {
 
 class _AchievementOverlayState extends State<AchievementOverlay> {
   StreamSubscription<Achievement>? _achievementSub;
-  StreamSubscription<XpLevel>?     _levelUpSub;
+  StreamSubscription<XpLevel>? _levelUpSub;
 
   /// Unified notification queue. Only one notification is shown at a
   /// time; achievement and level-up banners are interleaved in the order
@@ -69,7 +68,7 @@ class _AchievementOverlayState extends State<AchievementOverlay> {
     if (ctrl == null) return;
 
     _achievementSub = ctrl.achievementUnlocked.listen(_onAchievementUnlocked);
-    _levelUpSub     = ctrl.leveledUp.listen(_onLevelUp);
+    _levelUpSub = ctrl.leveledUp.listen(_onLevelUp);
   }
 
   void _onAchievementUnlocked(Achievement a) {
@@ -201,7 +200,7 @@ class _AchievementOverlayState extends State<AchievementOverlay> {
     }
 
     final entry = OverlayEntry(builder: builder);
-    _activeEntry  = entry;
+    _activeEntry = entry;
     _entryInserted = false;
 
     try {
@@ -296,8 +295,7 @@ class _PendingNotification {
         key: key,
       );
 
-  factory _PendingNotification.levelUp(XpLevel level) =>
-      _PendingNotification._(
+  factory _PendingNotification.levelUp(XpLevel level) => _PendingNotification._(
         kind: _NotificationKind.levelUp,
         level: level,
       );
@@ -333,7 +331,7 @@ Color _parseHexColor(String? value, Color fallback) {
 // ── Achievement Banner Widget ─────────────────────────────────────────
 class _AchievementBanner extends StatelessWidget {
   final Achievement achievement;
-  final Color       rarityColor;
+  final Color rarityColor;
 
   const _AchievementBanner({
     required this.achievement,
@@ -363,7 +361,8 @@ class _AchievementBanner extends StatelessWidget {
         child: Row(children: [
           // Emoji with glow
           Container(
-            width: 52, height: 52,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: rarityColor.withOpacity(0.15),
               shape: BoxShape.circle,
@@ -377,8 +376,8 @@ class _AchievementBanner extends StatelessWidget {
               ],
             ),
             child: Center(
-              child: Text(achievement.emoji,
-                  style: const TextStyle(fontSize: 26)),
+              child:
+                  Text(achievement.emoji, style: const TextStyle(fontSize: 26)),
             ),
           ),
           const SizedBox(width: 12),
@@ -390,8 +389,8 @@ class _AchievementBanner extends StatelessWidget {
               children: [
                 Row(children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       color: rarityColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(6),
@@ -413,8 +412,8 @@ class _AchievementBanner extends StatelessWidget {
                         fontSize: 14,
                         fontWeight: FontWeight.bold)),
                 Text(achievement.description,
-                    style: const TextStyle(
-                        color: Color(0xFF888899), fontSize: 11),
+                    style:
+                        const TextStyle(color: Color(0xFF888899), fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
               ],
@@ -448,7 +447,7 @@ class _AchievementBanner extends StatelessWidget {
 // ── Level Up Banner Widget ────────────────────────────────────────────
 class _LevelUpBanner extends StatelessWidget {
   final XpLevel level;
-  final Color   color;
+  final Color color;
 
   const _LevelUpBanner({required this.level, required this.color});
 
@@ -456,21 +455,20 @@ class _LevelUpBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       liveRegion: true,
-      label:
-          'Level up! You are now ${level.title}, level ${level.level}.',
+      label: 'Level up! You are now ${level.title}, level ${level.level}.',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [color.withOpacity(0.25), const Color(0xFF1A1A2E)],
             begin: Alignment.topLeft,
-            end:   Alignment.bottomRight,
+            end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: color.withOpacity(0.5), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color:      color.withOpacity(0.3),
+              color: color.withOpacity(0.3),
               blurRadius: 24,
               spreadRadius: 3,
             ),

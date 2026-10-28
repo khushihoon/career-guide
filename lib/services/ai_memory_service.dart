@@ -48,7 +48,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/quest_models.dart';    // AiMemory is defined there
+import '../models/quest_models.dart'; // AiMemory is defined there
 import '../models/copilot_models.dart';
 import 'copilot_firestore_service.dart';
 
@@ -122,8 +122,7 @@ class AiMemoryService {
     final cached = _statsCache[uid];
 
     // 1) Fresh cache — zero Firestore reads.
-    if (cached != null &&
-        now.difference(cached.fetchedAt) < _statsCacheTtl) {
+    if (cached != null && now.difference(cached.fetchedAt) < _statsCacheTtl) {
       return cached;
     }
 
@@ -230,9 +229,9 @@ class AiMemoryService {
 
   static bool _needsEscaping(String s) {
     for (final rune in s.runes) {
-      if (rune == 0x2F) return true;      // '/'
-      if (rune < 0x20) return true;       // control chars
-      if (rune == 0x7F) return true;      // DEL
+      if (rune == 0x2F) return true; // '/'
+      if (rune < 0x20) return true; // control chars
+      if (rune == 0x7F) return true; // DEL
     }
     return false;
   }
@@ -295,8 +294,7 @@ class AiMemoryService {
     CopilotContext? context,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final todayKey =
-        'greeting_${_todayKey()}_${_contextSignature(context)}';
+    final todayKey = 'greeting_${_todayKey()}_${_contextSignature(context)}';
     final cached = prefs.getString(todayKey);
     if (cached != null && cached.isNotEmpty) return cached;
 
@@ -369,8 +367,7 @@ class AiMemoryService {
       return '$timeGreet, $firstName! Your AI-generated goals for today are ready. Let\'s build something great.';
     }
 
-    final completed =
-        state.todayGoals.where((g) => g.isCompleted).length;
+    final completed = state.todayGoals.where((g) => g.isCompleted).length;
     if (completed > 0) {
       return '$timeGreet, $firstName! $completed goal${completed > 1 ? 's' : ''} done today. Momentum is everything.';
     }
@@ -386,8 +383,7 @@ class AiMemoryService {
     CopilotContext? context,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final todayKey =
-        'advice_${_todayKey()}_${_contextSignature(context)}';
+    final todayKey = 'advice_${_todayKey()}_${_contextSignature(context)}';
     final cached = prefs.getString(todayKey);
     if (cached != null && cached.isNotEmpty) return cached;
 
@@ -485,10 +481,7 @@ class AiMemoryService {
       goals.add(state.roadmap!.targetRole.label);
     }
 
-    final interests = state.skillGaps
-        .take(5)
-        .map((g) => g.skillName)
-        .toList();
+    final interests = state.skillGaps.take(5).map((g) => g.skillName).toList();
 
     if (goals.isEmpty && interests.isEmpty) return;
 
@@ -565,8 +558,7 @@ class AiMemoryService {
       'careerId': context.career?.careerId,
       'careerTitle': context.career?.careerTitle,
       'skillNames': context.state.skillProfile?.skillNames ?? <String>[],
-      'skillGapNames':
-          context.state.skillGaps.map((g) => g.skillName).toList(),
+      'skillGapNames': context.state.skillGaps.map((g) => g.skillName).toList(),
       'learning': {
         'careerId': learning.careerId,
         'completedCount': learning.completedCount,
@@ -704,8 +696,7 @@ class AiMemoryService {
     try {
       await _db.collection('ai_memory').doc(uid).set({
         'currentCareerId': safeCareerId,
-        if (safeCareerTitle.isNotEmpty)
-          'currentCareerTitle': safeCareerTitle,
+        if (safeCareerTitle.isNotEmpty) 'currentCareerTitle': safeCareerTitle,
         'careerHistoryIds': FieldValue.arrayUnion([safeCareerId]),
         'careerSwitchLog': FieldValue.arrayUnion(
           ['$safeCareerId@${DateTime.now().toIso8601String()}'],

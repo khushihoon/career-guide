@@ -85,8 +85,7 @@ class LiveJobOpportunity {
     required this.fetchedAt,
   });
 
-  bool get hasSalary =>
-      salary != null && salary!.trim().isNotEmpty;
+  bool get hasSalary => salary != null && salary!.trim().isNotEmpty;
 
   bool get hasSkills => skills.isNotEmpty;
 
@@ -196,8 +195,7 @@ class HomeLiveJobsService {
 
   final http.Client _client;
 
-  static const Duration _requestTimeout =
-      Duration(seconds: 12);
+  static const Duration _requestTimeout = Duration(seconds: 12);
 
   // --------------------------------------------------------------------------
   // SOURCE REGISTRY
@@ -416,8 +414,7 @@ class HomeLiveJobsService {
     String location = '';
 
     if (locationObject is Map) {
-      location =
-          _string(locationObject['name']) ?? '';
+      location = _string(locationObject['name']) ?? '';
     }
 
     final content = _stripHtml(
@@ -523,22 +520,18 @@ class HomeLiveJobsService {
     String location = '';
 
     if (categories is Map) {
-      location =
-          _string(categories['location']) ?? '';
+      location = _string(categories['location']) ?? '';
     }
 
     final description = _stripHtml(
-      _string(raw['descriptionPlain']) ??
-          _string(raw['description']),
+      _string(raw['descriptionPlain']) ?? _string(raw['description']),
     );
 
-    final commitment = categories is Map
-        ? _string(categories['commitment'])
-        : null;
+    final commitment =
+        categories is Map ? _string(categories['commitment']) : null;
 
-    final workplaceType = categories is Map
-        ? _string(categories['workplaceType'])
-        : null;
+    final workplaceType =
+        categories is Map ? _string(categories['workplaceType']) : null;
 
     final salary = _extractLeverSalary(raw);
 
@@ -666,13 +659,11 @@ class HomeLiveJobsService {
     Map raw, {
     required String company,
   }) {
-    final id = _string(raw['jobUrl']) ??
-        _string(raw['applyUrl']);
+    final id = _string(raw['jobUrl']) ?? _string(raw['applyUrl']);
 
     final title = _string(raw['title']);
 
-    final applyUrl = _string(raw['applyUrl']) ??
-        _string(raw['jobUrl']);
+    final applyUrl = _string(raw['applyUrl']) ?? _string(raw['jobUrl']);
 
     if (id == null ||
         title == null ||
@@ -681,25 +672,20 @@ class HomeLiveJobsService {
       return null;
     }
 
-    final location =
-        _string(raw['location']) ?? '';
+    final location = _string(raw['location']) ?? '';
 
-    final description =
-        _cleanNullable(
-          _string(raw['descriptionPlain']) ??
-              _stripHtml(
-                _string(raw['descriptionHtml']),
-              ),
-        );
+    final description = _cleanNullable(
+      _string(raw['descriptionPlain']) ??
+          _stripHtml(
+            _string(raw['descriptionHtml']),
+          ),
+    );
 
-    final workplaceType =
-        _string(raw['workplaceType']);
+    final workplaceType = _string(raw['workplaceType']);
 
-    final employmentType =
-        _string(raw['employmentType']);
+    final employmentType = _string(raw['employmentType']);
 
-    final compensation =
-        _string(raw['compensationTierSummary']);
+    final compensation = _string(raw['compensationTierSummary']);
 
     final skills = _extractSkills(
       '$title ${description ?? ''}',
@@ -737,15 +723,13 @@ class HomeLiveJobsService {
 
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        final response = await _client
-            .get(
-              uri,
-              headers: const {
-                'Accept': 'application/json',
-                'User-Agent': 'CareerGuide/1.0',
-              },
-            )
-            .timeout(_requestTimeout);
+        final response = await _client.get(
+          uri,
+          headers: const {
+            'Accept': 'application/json',
+            'User-Agent': 'CareerGuide/1.0',
+          },
+        ).timeout(_requestTimeout);
 
         final transientStatus = response.statusCode == 408 ||
             response.statusCode == 429 ||
@@ -800,8 +784,7 @@ class HomeLiveJobsService {
 
     // A job with no location can still be legitimate when remote.
     if (job.location.trim().isEmpty &&
-        !(job.workplaceType?.toLowerCase().contains('remote') ??
-            false)) {
+        !(job.workplaceType?.toLowerCase().contains('remote') ?? false)) {
       // We don't immediately reject it because some public boards don't
       // expose location consistently. The job may still be useful.
     }
@@ -938,20 +921,14 @@ class HomeLiveJobsService {
   }
 
   String _dedupeKey(LiveJobOpportunity job) {
-    final title = job.title
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), ' ');
+    final title =
+        job.title.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
-    final company = job.company
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), ' ');
+    final company =
+        job.company.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
-    final location = job.location
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), ' ');
+    final location =
+        job.location.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
     return '$company|$title|$location';
   }
@@ -1063,8 +1040,8 @@ class HomeLiveJobsService {
 
     result.sort(
       (a, b) => a.toLowerCase().compareTo(
-        b.toLowerCase(),
-      ),
+            b.toLowerCase(),
+          ),
     );
 
     return List.unmodifiable(result);
@@ -1085,17 +1062,13 @@ class HomeLiveJobsService {
   }
 
   String _cleanRequired(String value) {
-    return value
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    return value.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   String? _cleanNullable(String? value) {
     if (value == null) return null;
 
-    final cleaned = value
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    final cleaned = value.replaceAll(RegExp(r'\s+'), ' ').trim();
 
     return cleaned.isEmpty ? null : cleaned;
   }
@@ -1145,8 +1118,7 @@ class HomeLiveJobsService {
 
     if (uri == null) return false;
 
-    return uri.scheme == 'http' ||
-        uri.scheme == 'https';
+    return uri.scheme == 'http' || uri.scheme == 'https';
   }
 
   String _sourceLabel(

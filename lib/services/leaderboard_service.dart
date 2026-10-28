@@ -1,4 +1,3 @@
-
 // ══════════════════════════════════════════════════════════════════════
 // lib/services/leaderboard_service.dart
 // Global leaderboard, weekly rankings, and friends leaderboard.
@@ -22,7 +21,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import '../models/quest_models.dart';   // LeaderboardEntry is here
+import '../models/quest_models.dart'; // LeaderboardEntry is here
 
 class LeaderboardService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -80,8 +79,8 @@ class LeaderboardService {
         final weeklySnap = await tx.get(weeklyRef);
 
         final currentGlobalXp = _readInt(globalSnap.data()?['totalXp']);
-        final currentWeeklyXp =
-            _readInt(weeklySnap.data()?['xp'] ?? weeklySnap.data()?['weeklyXp']);
+        final currentWeeklyXp = _readInt(
+            weeklySnap.data()?['xp'] ?? weeklySnap.data()?['weeklyXp']);
 
         // Skip writes that would only move XP backwards. Equality is
         // still allowed so name/photo/level updates can flow through.
@@ -94,8 +93,7 @@ class LeaderboardService {
 
         if (globalShouldWrite) {
           final globalEntry = <String, dynamic>{
-            'displayName':
-                displayName.isEmpty ? 'Learner' : displayName,
+            'displayName': displayName.isEmpty ? 'Learner' : displayName,
             if (photoUrl != null) 'photoUrl': photoUrl,
             'totalXp': safeTotalXp,
             'level': safeLevel,
@@ -107,8 +105,7 @@ class LeaderboardService {
 
         if (weeklyShouldWrite) {
           final weeklyEntry = <String, dynamic>{
-            'displayName':
-                displayName.isEmpty ? 'Learner' : displayName,
+            'displayName': displayName.isEmpty ? 'Learner' : displayName,
             if (photoUrl != null) 'photoUrl': photoUrl,
             'totalXp': safeTotalXp,
             'level': safeLevel,
@@ -263,9 +260,8 @@ class LeaderboardService {
           (rawName is String && rawName.isNotEmpty) ? rawName : 'Learner';
 
       final rawPhoto = data['photoUrl'];
-      final photoUrl = (rawPhoto is String && rawPhoto.isNotEmpty)
-          ? rawPhoto
-          : null;
+      final photoUrl =
+          (rawPhoto is String && rawPhoto.isNotEmpty) ? rawPhoto : null;
 
       final totalXp = _readInt(data['totalXp']);
       final level = _readInt(data['level'], fallback: 1, minimum: 1);

@@ -80,16 +80,16 @@ Topics you can help with:
   // ────────────────────────────────────────────────────────────
 
   /// Send a message to Claude and get a response
-  /// 
+  ///
   /// Parameters:
   ///   - [message] The user's message
   ///   - [history] Conversation history (list of {role, content} maps)
   ///   - [onTokenReceived] Optional callback for streaming tokens
   ///   - [temperature] Model temperature (0-1, default 0.7)
   ///   - [maxTokens] Maximum tokens in response (default 1024)
-  /// 
+  ///
   /// Returns: String with Claude's response
-  /// 
+  ///
   /// Throws: Exception if API call fails
   static Future<String> sendMessage({
     required String message,
@@ -174,7 +174,8 @@ Topics you can help with:
       } on SocketException catch (e) {
         _logError('Network error on attempt $attempt: ${e.message}');
         if (attempt >= _maxRetries) {
-          throw Exception('Network error: Please check your internet connection');
+          throw Exception(
+              'Network error: Please check your internet connection');
         }
         // Wait before retry
         await Future.delayed(Duration(seconds: 2 * attempt));
@@ -207,7 +208,10 @@ Topics you can help with:
     required int maxTokens,
   }) {
     // Add current message to history for request
-    final messages = [...history, {'role': 'user', 'content': message}];
+    final messages = [
+      ...history,
+      {'role': 'user', 'content': message}
+    ];
 
     return {
       'model': _model,

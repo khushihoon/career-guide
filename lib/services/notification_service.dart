@@ -45,27 +45,27 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 // ─── Notification IDs (never collide) ────────────────────────────────
 class _NID {
-  static const int welcome         = 0;
-  static const int dailyMorning    = 1;
-  static const int dailyEvening    = 2;
-  static const int newJob          = 3;
-  static const int courseRec       = 4;
-  static const int streakReminder  = 5;
-  static const int xpMilestone     = 6;
-  static const int goalReminder    = 7;
-  static const int weeklyDigest    = 8;
-  static const int interviewTip    = 9;
-  static const int salaryInsight   = 10;
+  static const int welcome = 0;
+  static const int dailyMorning = 1;
+  static const int dailyEvening = 2;
+  static const int newJob = 3;
+  static const int courseRec = 4;
+  static const int streakReminder = 5;
+  static const int xpMilestone = 6;
+  static const int goalReminder = 7;
+  static const int weeklyDigest = 8;
+  static const int interviewTip = 9;
+  static const int salaryInsight = 10;
 }
 
 // ─── Notification payload keys ────────────────────────────────────────
 class NotificationPayload {
-  static const String job      = 'job';
-  static const String course   = 'course';
-  static const String roadmap  = 'roadmap';
-  static const String copilot  = 'copilot';
-  static const String profile  = 'profile';
-  static const String mentor   = 'mentor';
+  static const String job = 'job';
+  static const String course = 'course';
+  static const String roadmap = 'roadmap';
+  static const String copilot = 'copilot';
+  static const String profile = 'profile';
+  static const String mentor = 'mentor';
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -96,7 +96,7 @@ class NotificationService {
     onNotificationTap = onTap;
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iOS     = DarwinInitializationSettings(
+    const iOS = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
@@ -263,7 +263,8 @@ class NotificationService {
           summaryText: 'AI Career App · Job Alert',
         ),
         actions: const [
-          AndroidNotificationAction('apply', 'Apply Now', showsUserInterface: true),
+          AndroidNotificationAction('apply', 'Apply Now',
+              showsUserInterface: true),
           AndroidNotificationAction('save', 'Save Job'),
         ],
       ),
@@ -280,7 +281,7 @@ class NotificationService {
   }) async {
     _ensureInit();
     final isFree = price.toLowerCase().contains('free');
-    final badge  = isFree ? '🆓 Free' : '💳 $price';
+    final badge = isFree ? '🆓 Free' : '💳 $price';
     await _plugin.show(
       _NID.courseRec,
       '📚 Recommended: $courseTitle',
@@ -296,7 +297,8 @@ class NotificationService {
           summaryText: 'AI Career App · Course Pick',
         ),
         actions: const [
-          AndroidNotificationAction('open_course', 'Open Course', showsUserInterface: true),
+          AndroidNotificationAction('open_course', 'Open Course',
+              showsUserInterface: true),
           AndroidNotificationAction('remind_later', 'Remind Me Later'),
         ],
       ),
@@ -305,9 +307,10 @@ class NotificationService {
   }
 
   // ─── 4. Daily morning motivation ──────────────────────────────────
-  static Future<void> showDailyMorning({int? doneSteps, int? totalSteps}) async {
+  static Future<void> showDailyMorning(
+      {int? doneSteps, int? totalSteps}) async {
     _ensureInit();
-    final tip   = _morningTips[Random().nextInt(_morningTips.length)];
+    final tip = _morningTips[Random().nextInt(_morningTips.length)];
     final steps = doneSteps != null && totalSteps != null
         ? '\n🗺️ Roadmap: $doneSteps/$totalSteps phases done'
         : '';
@@ -327,8 +330,10 @@ class NotificationService {
           summaryText: 'AI Career App',
         ),
         actions: const [
-          AndroidNotificationAction('open_roadmap', 'Open Roadmap', showsUserInterface: true),
-          AndroidNotificationAction('open_goals', 'Today\'s Goals', showsUserInterface: true),
+          AndroidNotificationAction('open_roadmap', 'Open Roadmap',
+              showsUserInterface: true),
+          AndroidNotificationAction('open_goals', 'Today\'s Goals',
+              showsUserInterface: true),
         ],
       ),
       payload: NotificationPayload.roadmap,
@@ -341,13 +346,14 @@ class NotificationService {
     int? totalGoals,
   }) async {
     _ensureInit();
-    final done    = completedGoals ?? 0;
-    final total   = totalGoals ?? 4;
+    final done = completedGoals ?? 0;
+    final total = totalGoals ?? 4;
     final pending = total - done;
     final String body;
 
     if (pending <= 0) {
-      body = "🎉 You crushed all today's goals! Take a quick look at tomorrow's roadmap.";
+      body =
+          "🎉 You crushed all today's goals! Take a quick look at tomorrow's roadmap.";
     } else {
       body = "You have $pending goal${pending > 1 ? 's' : ''} left today. "
           "Even 20 minutes of focused learning compounds over time. You've got this!";
@@ -355,7 +361,9 @@ class NotificationService {
 
     await _plugin.show(
       _NID.dailyEvening,
-      pending <= 0 ? '🏆 All Goals Completed!' : '🌙 $pending Goal${pending > 1 ? 's' : ''} Remaining',
+      pending <= 0
+          ? '🏆 All Goals Completed!'
+          : '🌙 $pending Goal${pending > 1 ? 's' : ''} Remaining',
       body,
       _details(
         channelId: 'ai_daily',
@@ -368,8 +376,10 @@ class NotificationService {
           summaryText: 'AI Career App',
         ),
         actions: const [
-          AndroidNotificationAction('open_goals', 'Open Goals', showsUserInterface: true),
-          AndroidNotificationAction('open_mentor', 'Ask Mentor', showsUserInterface: true),
+          AndroidNotificationAction('open_goals', 'Open Goals',
+              showsUserInterface: true),
+          AndroidNotificationAction('open_mentor', 'Ask Mentor',
+              showsUserInterface: true),
         ],
       ),
       payload: NotificationPayload.copilot,
@@ -384,20 +394,20 @@ class NotificationService {
 
     if (currentStreak == 0) {
       title = '🔴 Start Your Streak Today!';
-      body  = 'Complete at least one goal today to begin your learning streak. '
-              'Even the best AI engineers started with day 1.';
+      body = 'Complete at least one goal today to begin your learning streak. '
+          'Even the best AI engineers started with day 1.';
     } else if (currentStreak < 7) {
       title = '🔥 $currentStreak-Day Streak — Keep Going!';
-      body  = 'You\'re on a $currentStreak-day learning streak. '
-              'Complete today\'s goal to keep the momentum.';
+      body = 'You\'re on a $currentStreak-day learning streak. '
+          'Complete today\'s goal to keep the momentum.';
     } else if (currentStreak < 30) {
       title = '🔥 Incredible! $currentStreak-Day Streak!';
-      body  = '$currentStreak days of consistent learning. '
-              'You\'re building the habits that top AI engineers have.';
+      body = '$currentStreak days of consistent learning. '
+          'You\'re building the habits that top AI engineers have.';
     } else {
       title = '🏆 $currentStreak-Day Streak — Legend!';
-      body  = '$currentStreak days straight. That level of consistency is what '
-              'separates good engineers from great ones.';
+      body = '$currentStreak days straight. That level of consistency is what '
+          'separates good engineers from great ones.';
     }
 
     await _plugin.show(
@@ -415,7 +425,8 @@ class NotificationService {
           summaryText: 'AI Career App',
         ),
         actions: const [
-          AndroidNotificationAction('open_goals', 'Complete Goals', showsUserInterface: true),
+          AndroidNotificationAction('open_goals', 'Complete Goals',
+              showsUserInterface: true),
         ],
       ),
       payload: NotificationPayload.copilot,
@@ -443,7 +454,8 @@ class NotificationService {
           summaryText: 'AI Career App · Achievement',
         ),
         actions: const [
-          AndroidNotificationAction('open_profile', 'View Profile', showsUserInterface: true),
+          AndroidNotificationAction('open_profile', 'View Profile',
+              showsUserInterface: true),
         ],
       ),
       payload: NotificationPayload.profile,
@@ -476,8 +488,10 @@ class NotificationService {
           summaryText: 'AI Career App · Roadmap',
         ),
         actions: const [
-          AndroidNotificationAction('next_phase', 'Next Phase', showsUserInterface: true),
-          AndroidNotificationAction('open_profile', 'View Progress', showsUserInterface: true),
+          AndroidNotificationAction('next_phase', 'Next Phase',
+              showsUserInterface: true),
+          AndroidNotificationAction('open_profile', 'View Progress',
+              showsUserInterface: true),
         ],
       ),
       payload: NotificationPayload.roadmap,
@@ -492,7 +506,7 @@ class NotificationService {
     required int streakDays,
   }) async {
     _ensureInit();
-    final jobAlert  = _weeklyJobs[Random().nextInt(_weeklyJobs.length)];
+    final jobAlert = _weeklyJobs[Random().nextInt(_weeklyJobs.length)];
     await _plugin.show(
       _NID.weeklyDigest,
       '📊 Your Week in AI Career',
@@ -514,8 +528,10 @@ class NotificationService {
           summaryText: 'AI Career App',
         ),
         actions: const [
-          AndroidNotificationAction('open_jobs', 'Browse Jobs', showsUserInterface: true),
-          AndroidNotificationAction('open_roadmap', 'Open Roadmap', showsUserInterface: true),
+          AndroidNotificationAction('open_jobs', 'Browse Jobs',
+              showsUserInterface: true),
+          AndroidNotificationAction('open_roadmap', 'Open Roadmap',
+              showsUserInterface: true),
         ],
       ),
       payload: NotificationPayload.job,
@@ -542,7 +558,8 @@ class NotificationService {
           summaryText: 'AI Career App · Interview Prep',
         ),
         actions: const [
-          AndroidNotificationAction('ask_mentor', 'Ask AI Mentor', showsUserInterface: true),
+          AndroidNotificationAction('ask_mentor', 'Ask AI Mentor',
+              showsUserInterface: true),
         ],
       ),
       payload: NotificationPayload.mentor,
@@ -552,8 +569,8 @@ class NotificationService {
   // ─── 11. Salary insight ──────────────────────────────────────────
   static Future<void> showSalaryInsight(String targetRole) async {
     _ensureInit();
-    final insight = _salaryInsights[targetRole] ??
-        _salaryInsights['AI Engineer']!;
+    final insight =
+        _salaryInsights[targetRole] ?? _salaryInsights['AI Engineer']!;
     await _plugin.show(
       _NID.salaryInsight,
       '💰 Salary Insight: $targetRole',
@@ -574,7 +591,8 @@ class NotificationService {
           summaryText: 'AI Career App · Salary Insight',
         ),
         actions: const [
-          AndroidNotificationAction('open_roadmap', 'View Roadmap', showsUserInterface: true),
+          AndroidNotificationAction('open_roadmap', 'View Roadmap',
+              showsUserInterface: true),
         ],
       ),
       payload: NotificationPayload.roadmap,
@@ -586,11 +604,11 @@ class NotificationService {
     _ensureInit();
     final job = _hotJobs[Random().nextInt(_hotJobs.length)];
     await showNewJobAlert(
-      title:    job['title']!,
-      company:  job['company']!,
+      title: job['title']!,
+      company: job['company']!,
       location: job['location']!,
-      salary:   job['salary']!,
-      skills:   (job['skills'] as String).split(', '),
+      salary: job['salary']!,
+      skills: (job['skills'] as String).split(', '),
       applyUrl: job['url'],
     );
   }
@@ -601,9 +619,9 @@ class NotificationService {
     final c = _featuredCourses[Random().nextInt(_featuredCourses.length)];
     await showCourseRecommendation(
       courseTitle: c['title']!,
-      platform:    c['platform']!,
-      price:       c['price']!,
-      url:         c['url'],
+      platform: c['platform']!,
+      price: c['price']!,
+      url: c['url'],
     );
   }
 
@@ -635,16 +653,17 @@ class NotificationService {
 
   static void _ensureInit() {
     if (!_initialised) {
-      debugPrint('⚠️ NotificationService.init() not called. Call it in main.dart.');
+      debugPrint(
+          '⚠️ NotificationService.init() not called. Call it in main.dart.');
     }
   }
 
   static String _levelForXp(int xp) {
     if (xp >= 3000) return '🏆 Master';
     if (xp >= 1500) return '🚀 Expert';
-    if (xp >= 800)  return '🔥 Builder';
-    if (xp >= 400)  return '⚡ Practitioner';
-    if (xp >= 150)  return '📚 Learner';
+    if (xp >= 800) return '🔥 Builder';
+    if (xp >= 400) return '⚡ Practitioner';
+    if (xp >= 150) return '📚 Learner';
     return '🌱 Beginner';
   }
 
@@ -654,44 +673,254 @@ class NotificationService {
 
   /// Real AI/ML companies and roles — matches kJobs in models.dart
   static const List<Map<String, String>> _hotJobs = [
-    {'title':'AI Engineer',          'company':'OpenAI',           'location':'Remote / USA',         'salary':'₹18–28 LPA', 'skills':'Python, LLMs, PyTorch, API',              'url':'https://openai.com/careers'},
-    {'title':'Research Scientist',   'company':'Anthropic',        'location':'San Francisco, USA',   'salary':'₹25–40 LPA', 'skills':'Python, RL, Transformers, Safety',         'url':'https://anthropic.com/careers'},
-    {'title':'ML Engineer',          'company':'Google DeepMind',  'location':'London, UK',           'salary':'₹30–50 LPA', 'skills':'JAX, Python, TensorFlow, Research',        'url':'https://deepmind.google/careers'},
-    {'title':'Data Scientist',       'company':'Microsoft',        'location':'Hyderabad, India',     'salary':'₹15–22 LPA', 'skills':'Python, Azure ML, SQL, Power BI',          'url':'https://careers.microsoft.com'},
-    {'title':'NLP Engineer',         'company':'Amazon',           'location':'Bengaluru, India',     'salary':'₹14–20 LPA', 'skills':'NLP, BERT, Python, AWS',                   'url':'https://amazon.jobs'},
-    {'title':'Computer Vision Eng',  'company':'Tesla AI',         'location':'Palo Alto, USA',       'salary':'₹22–35 LPA', 'skills':'Python, OpenCV, YOLO, PyTorch',            'url':'https://www.tesla.com/careers'},
-    {'title':'Generative AI Eng',    'company':'Adobe',            'location':'Bengaluru, India',     'salary':'₹18–28 LPA', 'skills':'Diffusion Models, Python, PyTorch',        'url':'https://adobe.com/careers'},
-    {'title':'LLM Engineer',         'company':'Mistral AI',       'location':'Paris, France',        'salary':'₹28–45 LPA', 'skills':'Python, PyTorch, Transformers, LoRA',      'url':'https://mistral.ai/careers'},
-    {'title':'MLOps Engineer',       'company':'Swiggy',           'location':'Bengaluru, India',     'salary':'₹12–20 LPA', 'skills':'Python, Docker, Kubernetes, MLflow',       'url':'https://careers.swiggy.com'},
-    {'title':'AI Product Manager',   'company':'Meesho',           'location':'Bengaluru, India',     'salary':'₹15–25 LPA', 'skills':'ML Concepts, SQL, Product Management',     'url':'https://careers.meesho.com'},
-    {'title':'Applied Scientist',    'company':'Flipkart',         'location':'Bengaluru, India',     'salary':'₹18–30 LPA', 'skills':'Python, ML, NLP, Recommendation Systems',  'url':'https://www.flipkartcareers.com'},
-    {'title':'Deep Learning Eng',    'company':'NVIDIA India',     'location':'Pune, India',          'salary':'₹20–35 LPA', 'skills':'CUDA, C++, Python, TensorRT',              'url':'https://nvidia.wd5.myworkdayjobs.com'},
-    {'title':'Prompt Engineer',      'company':'Krutrim',          'location':'Bengaluru, India',     'salary':'₹10–18 LPA', 'skills':'Python, LLMs, Prompt Engineering',         'url':'https://krutrim.com/careers'},
-    {'title':'AI Safety Researcher', 'company':'Anthropic',        'location':'Remote',               'salary':'₹30–55 LPA', 'skills':'Python, Interpretability, Safety, RLHF',   'url':'https://anthropic.com/careers'},
-    {'title':'Speech AI Engineer',   'company':'Sarvam AI',        'location':'Bengaluru, India',     'salary':'₹15–25 LPA', 'skills':'ASR, TTS, Python, Indic NLP',              'url':'https://sarvam.ai/careers'},
-    {'title':'RAG Engineer',         'company':'Glean',            'location':'Palo Alto, USA',       'salary':'₹25–42 LPA', 'skills':'Python, LangChain, Vector DB, LLMs',       'url':'https://glean.com/careers'},
-    {'title':'AI Research Intern',   'company':'Google Brain',     'location':'Mountain View, USA',   'salary':'₹8–14 LPA',  'skills':'Python, JAX, Research Papers',             'url':'https://research.google/careers'},
-    {'title':'Robotics ML Engineer', 'company':'Figure AI',        'location':'Sunnyvale, USA',       'salary':'₹35–60 LPA', 'skills':'Python, C++, ROS, PyTorch, RL',            'url':'https://figure.ai/careers'},
+    {
+      'title': 'AI Engineer',
+      'company': 'OpenAI',
+      'location': 'Remote / USA',
+      'salary': '₹18–28 LPA',
+      'skills': 'Python, LLMs, PyTorch, API',
+      'url': 'https://openai.com/careers'
+    },
+    {
+      'title': 'Research Scientist',
+      'company': 'Anthropic',
+      'location': 'San Francisco, USA',
+      'salary': '₹25–40 LPA',
+      'skills': 'Python, RL, Transformers, Safety',
+      'url': 'https://anthropic.com/careers'
+    },
+    {
+      'title': 'ML Engineer',
+      'company': 'Google DeepMind',
+      'location': 'London, UK',
+      'salary': '₹30–50 LPA',
+      'skills': 'JAX, Python, TensorFlow, Research',
+      'url': 'https://deepmind.google/careers'
+    },
+    {
+      'title': 'Data Scientist',
+      'company': 'Microsoft',
+      'location': 'Hyderabad, India',
+      'salary': '₹15–22 LPA',
+      'skills': 'Python, Azure ML, SQL, Power BI',
+      'url': 'https://careers.microsoft.com'
+    },
+    {
+      'title': 'NLP Engineer',
+      'company': 'Amazon',
+      'location': 'Bengaluru, India',
+      'salary': '₹14–20 LPA',
+      'skills': 'NLP, BERT, Python, AWS',
+      'url': 'https://amazon.jobs'
+    },
+    {
+      'title': 'Computer Vision Eng',
+      'company': 'Tesla AI',
+      'location': 'Palo Alto, USA',
+      'salary': '₹22–35 LPA',
+      'skills': 'Python, OpenCV, YOLO, PyTorch',
+      'url': 'https://www.tesla.com/careers'
+    },
+    {
+      'title': 'Generative AI Eng',
+      'company': 'Adobe',
+      'location': 'Bengaluru, India',
+      'salary': '₹18–28 LPA',
+      'skills': 'Diffusion Models, Python, PyTorch',
+      'url': 'https://adobe.com/careers'
+    },
+    {
+      'title': 'LLM Engineer',
+      'company': 'Mistral AI',
+      'location': 'Paris, France',
+      'salary': '₹28–45 LPA',
+      'skills': 'Python, PyTorch, Transformers, LoRA',
+      'url': 'https://mistral.ai/careers'
+    },
+    {
+      'title': 'MLOps Engineer',
+      'company': 'Swiggy',
+      'location': 'Bengaluru, India',
+      'salary': '₹12–20 LPA',
+      'skills': 'Python, Docker, Kubernetes, MLflow',
+      'url': 'https://careers.swiggy.com'
+    },
+    {
+      'title': 'AI Product Manager',
+      'company': 'Meesho',
+      'location': 'Bengaluru, India',
+      'salary': '₹15–25 LPA',
+      'skills': 'ML Concepts, SQL, Product Management',
+      'url': 'https://careers.meesho.com'
+    },
+    {
+      'title': 'Applied Scientist',
+      'company': 'Flipkart',
+      'location': 'Bengaluru, India',
+      'salary': '₹18–30 LPA',
+      'skills': 'Python, ML, NLP, Recommendation Systems',
+      'url': 'https://www.flipkartcareers.com'
+    },
+    {
+      'title': 'Deep Learning Eng',
+      'company': 'NVIDIA India',
+      'location': 'Pune, India',
+      'salary': '₹20–35 LPA',
+      'skills': 'CUDA, C++, Python, TensorRT',
+      'url': 'https://nvidia.wd5.myworkdayjobs.com'
+    },
+    {
+      'title': 'Prompt Engineer',
+      'company': 'Krutrim',
+      'location': 'Bengaluru, India',
+      'salary': '₹10–18 LPA',
+      'skills': 'Python, LLMs, Prompt Engineering',
+      'url': 'https://krutrim.com/careers'
+    },
+    {
+      'title': 'AI Safety Researcher',
+      'company': 'Anthropic',
+      'location': 'Remote',
+      'salary': '₹30–55 LPA',
+      'skills': 'Python, Interpretability, Safety, RLHF',
+      'url': 'https://anthropic.com/careers'
+    },
+    {
+      'title': 'Speech AI Engineer',
+      'company': 'Sarvam AI',
+      'location': 'Bengaluru, India',
+      'salary': '₹15–25 LPA',
+      'skills': 'ASR, TTS, Python, Indic NLP',
+      'url': 'https://sarvam.ai/careers'
+    },
+    {
+      'title': 'RAG Engineer',
+      'company': 'Glean',
+      'location': 'Palo Alto, USA',
+      'salary': '₹25–42 LPA',
+      'skills': 'Python, LangChain, Vector DB, LLMs',
+      'url': 'https://glean.com/careers'
+    },
+    {
+      'title': 'AI Research Intern',
+      'company': 'Google Brain',
+      'location': 'Mountain View, USA',
+      'salary': '₹8–14 LPA',
+      'skills': 'Python, JAX, Research Papers',
+      'url': 'https://research.google/careers'
+    },
+    {
+      'title': 'Robotics ML Engineer',
+      'company': 'Figure AI',
+      'location': 'Sunnyvale, USA',
+      'salary': '₹35–60 LPA',
+      'skills': 'Python, C++, ROS, PyTorch, RL',
+      'url': 'https://figure.ai/careers'
+    },
   ];
 
   /// Real courses from kCourses + extended set
   static const List<Map<String, String>> _featuredCourses = [
-    {'title':'Machine Learning Specialization', 'platform':'Coursera — Andrew Ng',     'price':'Free to audit', 'url':'https://www.coursera.org/specializations/machine-learning-introduction'},
-    {'title':'Practical Deep Learning for Coders', 'platform':'fast.ai',              'price':'100% Free',     'url':'https://course.fast.ai'},
-    {'title':'LLM Engineering & Prompt Design', 'platform':'DeepLearning.AI',         'price':'Free',          'url':'https://www.deeplearning.ai/short-courses/'},
-    {'title':'HuggingFace NLP Course',          'platform':'HuggingFace',             'price':'Free',          'url':'https://huggingface.co/learn/nlp-course'},
-    {'title':'MLOps Zoomcamp',                  'platform':'DataTalks.Club',          'price':'Free',          'url':'https://github.com/DataTalksClub/mlops-zoomcamp'},
-    {'title':'Deep Learning Specialization',    'platform':'DeepLearning.AI',         'price':'Free to audit', 'url':'https://www.coursera.org/specializations/deep-learning'},
-    {'title':'CS229: Machine Learning',         'platform':'Stanford (YouTube)',       'price':'Free',          'url':'https://www.youtube.com/playlist?list=PLoROMvodv4rMiGQp3WXShtMGgzqpfVfbU'},
-    {'title':'Spinning Up in Deep RL',          'platform':'OpenAI',                  'price':'Free',          'url':'https://spinningup.openai.com'},
-    {'title':'MIT 6.S191: Deep Learning',       'platform':'MIT OpenCourseWare',      'price':'Free',          'url':'http://introtodeeplearning.com'},
-    {'title':'AI Agents in LangGraph',          'platform':'DeepLearning.AI',         'price':'Free',          'url':'https://www.deeplearning.ai/short-courses/ai-agents-in-langgraph/'},
-    {'title':'Building RAG Applications',       'platform':'DeepLearning.AI',         'price':'Free',          'url':'https://www.deeplearning.ai/short-courses/building-and-evaluating-advanced-rag/'},
-    {'title':'Google ML Crash Course',          'platform':'Google Developers',       'price':'Free',          'url':'https://developers.google.com/machine-learning/crash-course'},
-    {'title':'LLM Course by Maxime Labonne',    'platform':'GitHub',                  'price':'Free',          'url':'https://github.com/mlabonne/llm-course'},
-    {'title':'CS231n: CNN for Visual Recognition','platform':'Stanford (YouTube)',    'price':'Free',          'url':'http://cs231n.stanford.edu/'},
-    {'title':'Deep RL Course',                  'platform':'HuggingFace',             'price':'Free',          'url':'https://huggingface.co/learn/deep-rl-course'},
-    {'title':'Quantization Fundamentals',       'platform':'DeepLearning.AI',         'price':'Free',          'url':'https://www.deeplearning.ai/short-courses/quantization-fundamentals-with-hugging-face/'},
+    {
+      'title': 'Machine Learning Specialization',
+      'platform': 'Coursera — Andrew Ng',
+      'price': 'Free to audit',
+      'url':
+          'https://www.coursera.org/specializations/machine-learning-introduction'
+    },
+    {
+      'title': 'Practical Deep Learning for Coders',
+      'platform': 'fast.ai',
+      'price': '100% Free',
+      'url': 'https://course.fast.ai'
+    },
+    {
+      'title': 'LLM Engineering & Prompt Design',
+      'platform': 'DeepLearning.AI',
+      'price': 'Free',
+      'url': 'https://www.deeplearning.ai/short-courses/'
+    },
+    {
+      'title': 'HuggingFace NLP Course',
+      'platform': 'HuggingFace',
+      'price': 'Free',
+      'url': 'https://huggingface.co/learn/nlp-course'
+    },
+    {
+      'title': 'MLOps Zoomcamp',
+      'platform': 'DataTalks.Club',
+      'price': 'Free',
+      'url': 'https://github.com/DataTalksClub/mlops-zoomcamp'
+    },
+    {
+      'title': 'Deep Learning Specialization',
+      'platform': 'DeepLearning.AI',
+      'price': 'Free to audit',
+      'url': 'https://www.coursera.org/specializations/deep-learning'
+    },
+    {
+      'title': 'CS229: Machine Learning',
+      'platform': 'Stanford (YouTube)',
+      'price': 'Free',
+      'url':
+          'https://www.youtube.com/playlist?list=PLoROMvodv4rMiGQp3WXShtMGgzqpfVfbU'
+    },
+    {
+      'title': 'Spinning Up in Deep RL',
+      'platform': 'OpenAI',
+      'price': 'Free',
+      'url': 'https://spinningup.openai.com'
+    },
+    {
+      'title': 'MIT 6.S191: Deep Learning',
+      'platform': 'MIT OpenCourseWare',
+      'price': 'Free',
+      'url': 'http://introtodeeplearning.com'
+    },
+    {
+      'title': 'AI Agents in LangGraph',
+      'platform': 'DeepLearning.AI',
+      'price': 'Free',
+      'url': 'https://www.deeplearning.ai/short-courses/ai-agents-in-langgraph/'
+    },
+    {
+      'title': 'Building RAG Applications',
+      'platform': 'DeepLearning.AI',
+      'price': 'Free',
+      'url':
+          'https://www.deeplearning.ai/short-courses/building-and-evaluating-advanced-rag/'
+    },
+    {
+      'title': 'Google ML Crash Course',
+      'platform': 'Google Developers',
+      'price': 'Free',
+      'url': 'https://developers.google.com/machine-learning/crash-course'
+    },
+    {
+      'title': 'LLM Course by Maxime Labonne',
+      'platform': 'GitHub',
+      'price': 'Free',
+      'url': 'https://github.com/mlabonne/llm-course'
+    },
+    {
+      'title': 'CS231n: CNN for Visual Recognition',
+      'platform': 'Stanford (YouTube)',
+      'price': 'Free',
+      'url': 'http://cs231n.stanford.edu/'
+    },
+    {
+      'title': 'Deep RL Course',
+      'platform': 'HuggingFace',
+      'price': 'Free',
+      'url': 'https://huggingface.co/learn/deep-rl-course'
+    },
+    {
+      'title': 'Quantization Fundamentals',
+      'platform': 'DeepLearning.AI',
+      'price': 'Free',
+      'url':
+          'https://www.deeplearning.ai/short-courses/quantization-fundamentals-with-hugging-face/'
+    },
   ];
 
   /// Morning motivational tips (career-specific)
@@ -714,99 +943,121 @@ class NotificationService {
   static const List<Map<String, String>> _interviewTips = [
     {
       'title': 'Explain Gradient Descent',
-      'tip':   'Always start with intuition before math.',
-      'detail': 'Say: "Gradient descent is like finding the lowest point in a valley by always stepping downhill." Then derive the update rule. Interviewers at Google and Anthropic look for intuition first, equations second.',
+      'tip': 'Always start with intuition before math.',
+      'detail':
+          'Say: "Gradient descent is like finding the lowest point in a valley by always stepping downhill." Then derive the update rule. Interviewers at Google and Anthropic look for intuition first, equations second.',
     },
     {
       'title': 'Bias-Variance Tradeoff',
-      'tip':   'Draw the curves — don\'t just explain.',
-      'detail': 'Sketch U-shaped test error and decreasing training error on paper. Then say: "The sweet spot is model complexity that minimises both." This visual approach is remembered far longer than verbal explanations.',
+      'tip': 'Draw the curves — don\'t just explain.',
+      'detail':
+          'Sketch U-shaped test error and decreasing training error on paper. Then say: "The sweet spot is model complexity that minimises both." This visual approach is remembered far longer than verbal explanations.',
     },
     {
       'title': 'System Design for ML',
-      'tip':   'Start with data, not the model.',
-      'detail': 'When asked "design a recommendation system", say: "Before models, I need to understand data freshness requirements, feedback loop latency, and serving constraints." This signals senior-level thinking.',
+      'tip': 'Start with data, not the model.',
+      'detail':
+          'When asked "design a recommendation system", say: "Before models, I need to understand data freshness requirements, feedback loop latency, and serving constraints." This signals senior-level thinking.',
     },
     {
       'title': 'Describe a Failed Project',
-      'tip':   'Use STAR + what you learned.',
-      'detail': 'Structure: Situation → Task → Action → Result (and what you\'d do differently). Hiring managers at top AI labs value intellectual honesty and learning agility more than success stories.',
+      'tip': 'Use STAR + what you learned.',
+      'detail':
+          'Structure: Situation → Task → Action → Result (and what you\'d do differently). Hiring managers at top AI labs value intellectual honesty and learning agility more than success stories.',
     },
     {
       'title': 'Transformer Architecture',
-      'tip':   'Explain attention in one sentence first.',
-      'detail': '"Attention lets the model look at all input tokens simultaneously and weight them by relevance." Then go deeper: Q/K/V matrices, multi-head, positional encodings. This is asked at 80% of ML engineer screens.',
+      'tip': 'Explain attention in one sentence first.',
+      'detail':
+          '"Attention lets the model look at all input tokens simultaneously and weight them by relevance." Then go deeper: Q/K/V matrices, multi-head, positional encodings. This is asked at 80% of ML engineer screens.',
     },
     {
       'title': 'Why Do LLMs Hallucinate?',
-      'tip':   'Root cause: next-token prediction doesn\'t know truth.',
-      'detail': 'LLMs are trained to predict the most likely next token, not to verify factual accuracy. They don\'t have a truth module. Mention RAG and RLHF as mitigation strategies — this shows applied knowledge.',
+      'tip': 'Root cause: next-token prediction doesn\'t know truth.',
+      'detail':
+          'LLMs are trained to predict the most likely next token, not to verify factual accuracy. They don\'t have a truth module. Mention RAG and RLHF as mitigation strategies — this shows applied knowledge.',
     },
     {
       'title': 'Handle Imbalanced Data',
-      'tip':   'Name 4 techniques — then pick based on context.',
-      'detail': '1. SMOTE oversampling 2. Class weights 3. Focal loss 4. Threshold tuning. The key insight: "The right technique depends on whether false positives or false negatives are more costly for the business." Context wins.',
+      'tip': 'Name 4 techniques — then pick based on context.',
+      'detail':
+          '1. SMOTE oversampling 2. Class weights 3. Focal loss 4. Threshold tuning. The key insight: "The right technique depends on whether false positives or false negatives are more costly for the business." Context wins.',
     },
     {
       'title': 'Explain LoRA Fine-tuning',
-      'tip':   'Low-rank = fewer parameters = same quality.',
-      'detail': '"LoRA freezes the base model and trains small low-rank matrices A and B. Their product approximates the full weight update, using 0.1% of parameters with ~95% of the performance." This is heavily asked in 2025.',
+      'tip': 'Low-rank = fewer parameters = same quality.',
+      'detail':
+          '"LoRA freezes the base model and trains small low-rank matrices A and B. Their product approximates the full weight update, using 0.1% of parameters with ~95% of the performance." This is heavily asked in 2025.',
     },
   ];
 
   /// Weekly hot jobs digest
   static const List<Map<String, String>> _weeklyJobs = [
-    {'role':'AI Engineer',        'company':'OpenAI',          'salary':'₹18–28 LPA'},
-    {'role':'ML Engineer',        'company':'Google DeepMind', 'salary':'₹30–50 LPA'},
-    {'role':'NLP Engineer',       'company':'Amazon',          'salary':'₹14–20 LPA'},
-    {'role':'LLM Engineer',       'company':'Mistral AI',      'salary':'₹28–45 LPA'},
-    {'role':'MLOps Engineer',     'company':'Swiggy',          'salary':'₹12–20 LPA'},
-    {'role':'Deep Learning Eng',  'company':'NVIDIA India',    'salary':'₹20–35 LPA'},
-    {'role':'GenAI Engineer',     'company':'Adobe',           'salary':'₹18–28 LPA'},
-    {'role':'Speech AI Engineer', 'company':'Sarvam AI',       'salary':'₹15–25 LPA'},
+    {'role': 'AI Engineer', 'company': 'OpenAI', 'salary': '₹18–28 LPA'},
+    {
+      'role': 'ML Engineer',
+      'company': 'Google DeepMind',
+      'salary': '₹30–50 LPA'
+    },
+    {'role': 'NLP Engineer', 'company': 'Amazon', 'salary': '₹14–20 LPA'},
+    {'role': 'LLM Engineer', 'company': 'Mistral AI', 'salary': '₹28–45 LPA'},
+    {'role': 'MLOps Engineer', 'company': 'Swiggy', 'salary': '₹12–20 LPA'},
+    {
+      'role': 'Deep Learning Eng',
+      'company': 'NVIDIA India',
+      'salary': '₹20–35 LPA'
+    },
+    {'role': 'GenAI Engineer', 'company': 'Adobe', 'salary': '₹18–28 LPA'},
+    {
+      'role': 'Speech AI Engineer',
+      'company': 'Sarvam AI',
+      'salary': '₹15–25 LPA'
+    },
   ];
 
   /// Salary insights per role
   static const Map<String, Map<String, String>> _salaryInsights = {
     'AI Engineer': {
-      'india':  '₹12–35 LPA (fresher to senior)',
+      'india': '₹12–35 LPA (fresher to senior)',
       'global': '\$110–220K USD',
-      'tip':    'LLM + deployed product experience adds 20–30% to offers',
+      'tip': 'LLM + deployed product experience adds 20–30% to offers',
     },
     'ML Engineer': {
-      'india':  '₹10–30 LPA',
+      'india': '₹10–30 LPA',
       'global': '\$100–180K USD',
-      'tip':    'Kaggle Master rank or FAANG experience = instant shortlist',
+      'tip': 'Kaggle Master rank or FAANG experience = instant shortlist',
     },
     'Data Scientist': {
-      'india':  '₹8–25 LPA',
+      'india': '₹8–25 LPA',
       'global': '\$90–160K USD',
-      'tip':    'SQL + domain knowledge (fintech/health) = 15% salary premium',
+      'tip': 'SQL + domain knowledge (fintech/health) = 15% salary premium',
     },
     'NLP Engineer': {
-      'india':  '₹12–28 LPA',
+      'india': '₹12–28 LPA',
       'global': '\$110–165K USD',
-      'tip':    'Indic language expertise is scarce and commands 20% premium in India',
+      'tip':
+          'Indic language expertise is scarce and commands 20% premium in India',
     },
     'CV Engineer': {
-      'india':  '₹12–30 LPA',
+      'india': '₹12–30 LPA',
       'global': '\$110–170K USD',
-      'tip':    'C++ + real-time inference skills double your interview conversion rate',
+      'tip':
+          'C++ + real-time inference skills double your interview conversion rate',
     },
     'Prompt Engineer': {
-      'india':  '₹8–18 LPA',
+      'india': '₹8–18 LPA',
       'global': '\$60–130K USD',
-      'tip':    'Domain expertise (law/medicine/code) adds 3–5× to pay rate',
+      'tip': 'Domain expertise (law/medicine/code) adds 3–5× to pay rate',
     },
     'AI Researcher': {
-      'india':  '₹25–70 LPA',
+      'india': '₹25–70 LPA',
       'global': '\$150–300K USD',
-      'tip':    'One NeurIPS/ICML paper is worth more than 5 certifications',
+      'tip': 'One NeurIPS/ICML paper is worth more than 5 certifications',
     },
     'AI Product Manager': {
-      'india':  '₹15–35 LPA',
+      'india': '₹15–35 LPA',
       'global': '\$120–200K USD',
-      'tip':    'Shipped AI products beat MBA at top AI companies',
+      'tip': 'Shipped AI products beat MBA at top AI companies',
     },
   };
 }

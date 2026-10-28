@@ -1,7 +1,6 @@
 import '../../models/course_content_data.dart';
 
 const List<TopicCourse> claudeEngineerLevel5 = [
-
   // ────────────────────────────────────────────────────────────────────
   // LEVEL 5 — CLAUDE ENGINEER: RETRIEVAL-AUGMENTED GENERATION (RAG)
   // ────────────────────────────────────────────────────────────────────
@@ -15,107 +14,176 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 22,
     totalXp: 125,
     emoji: '📚',
-    intro: 'Welcome to Level 5! Level 4 taught Claude to take real actions. This level teaches Claude to genuinely know YOUR content — grounding responses in your own large document collections through Retrieval-Augmented Generation, one of the most important techniques in production Claude applications.',
+    intro:
+        'Welcome to Level 5! Level 4 taught Claude to take real actions. This level teaches Claude to genuinely know YOUR content — grounding responses in your own large document collections through Retrieval-Augmented Generation, one of the most important techniques in production Claude applications.',
     concepts: [
       ConceptLesson(
         title: 'The Problem RAG Solves',
-        definition: 'Claude\'s training knowledge is frozen at a point in time (Level 1\'s training-cutoff lesson) and genuinely does not include your company\'s private documents, internal wikis, or any content created after training — RAG solves this by retrieving relevant content and providing it in context.',
-        analogy: 'This is like an extremely well-read new employee who has read every publicly available book, but has genuinely never seen your company\'s internal handbook — RAG is the process of handing them exactly the right internal pages before they answer a question.',
-        example: 'Asked "what is our company\'s parental leave policy," Claude has no genuine way to know this from training alone — RAG retrieves the actual, current policy document and provides it in context before Claude answers.',
-        keyTakeaway: 'RAG directly extends Level 1\'s "grounding reduces hallucination" lesson to work at genuine SCALE — instead of manually pasting one document into context, RAG automatically finds and retrieves the RIGHT document from potentially thousands.',
+        definition:
+            'Claude\'s training knowledge is frozen at a point in time (Level 1\'s training-cutoff lesson) and genuinely does not include your company\'s private documents, internal wikis, or any content created after training — RAG solves this by retrieving relevant content and providing it in context.',
+        analogy:
+            'This is like an extremely well-read new employee who has read every publicly available book, but has genuinely never seen your company\'s internal handbook — RAG is the process of handing them exactly the right internal pages before they answer a question.',
+        example:
+            'Asked "what is our company\'s parental leave policy," Claude has no genuine way to know this from training alone — RAG retrieves the actual, current policy document and provides it in context before Claude answers.',
+        keyTakeaway:
+            'RAG directly extends Level 1\'s "grounding reduces hallucination" lesson to work at genuine SCALE — instead of manually pasting one document into context, RAG automatically finds and retrieves the RIGHT document from potentially thousands.',
       ),
       ConceptLesson(
         title: 'Why Not Just Paste Everything Into the Context Window?',
-        definition: 'Even with Level 1\'s large context windows, pasting an entire document library (potentially millions of words) into every single request is genuinely impractical — it would be enormously expensive in tokens (Level 1) and often exceeds the context window entirely.',
-        analogy: 'This is like handing that new employee your ENTIRE company archive for every single question, rather than the specific, relevant page — technically possible for a small archive, but genuinely absurd and wasteful at real scale.',
-        example: 'A company with 50,000 pages of internal documentation cannot reasonably paste all 50,000 pages into every single request — RAG instead retrieves only the small handful of genuinely relevant pages for each specific question.',
-        keyTakeaway: 'RAG exists precisely because of this scale problem — it lets Claude effectively "access" a genuinely enormous knowledge base while only ever consuming the token budget for the small, relevant portion actually needed for a specific request.',
+        definition:
+            'Even with Level 1\'s large context windows, pasting an entire document library (potentially millions of words) into every single request is genuinely impractical — it would be enormously expensive in tokens (Level 1) and often exceeds the context window entirely.',
+        analogy:
+            'This is like handing that new employee your ENTIRE company archive for every single question, rather than the specific, relevant page — technically possible for a small archive, but genuinely absurd and wasteful at real scale.',
+        example:
+            'A company with 50,000 pages of internal documentation cannot reasonably paste all 50,000 pages into every single request — RAG instead retrieves only the small handful of genuinely relevant pages for each specific question.',
+        keyTakeaway:
+            'RAG exists precisely because of this scale problem — it lets Claude effectively "access" a genuinely enormous knowledge base while only ever consuming the token budget for the small, relevant portion actually needed for a specific request.',
       ),
       ConceptLesson(
         title: 'RAG vs Fine-Tuning: A Genuine Comparison',
-        definition: 'RAG retrieves relevant information at query time without changing the model itself, while fine-tuning (Level 8) actually adjusts the model\'s weights through additional training — these solve genuinely different problems and are not simply interchangeable alternatives.',
-        analogy: 'RAG is like giving someone a genuinely current reference manual to consult for each specific question; fine-tuning is like sending them through additional specialized job training that changes how they fundamentally approach every task, not just one specific lookup.',
-        example: 'A rapidly changing internal policy document is a strong fit for RAG (easy to update the source document); teaching Claude to consistently adopt your company\'s very specific writing style across every response might be better suited to fine-tuning (Level 8).',
-        keyTakeaway: 'This directly extends Level 4\'s tool-use-vs-RAG-vs-fine-tuning comparison — RAG is genuinely the best fit for frequently-updated, factual, document-based knowledge, not for teaching consistent style or behavior patterns.',
+        definition:
+            'RAG retrieves relevant information at query time without changing the model itself, while fine-tuning (Level 8) actually adjusts the model\'s weights through additional training — these solve genuinely different problems and are not simply interchangeable alternatives.',
+        analogy:
+            'RAG is like giving someone a genuinely current reference manual to consult for each specific question; fine-tuning is like sending them through additional specialized job training that changes how they fundamentally approach every task, not just one specific lookup.',
+        example:
+            'A rapidly changing internal policy document is a strong fit for RAG (easy to update the source document); teaching Claude to consistently adopt your company\'s very specific writing style across every response might be better suited to fine-tuning (Level 8).',
+        keyTakeaway:
+            'This directly extends Level 4\'s tool-use-vs-RAG-vs-fine-tuning comparison — RAG is genuinely the best fit for frequently-updated, factual, document-based knowledge, not for teaching consistent style or behavior patterns.',
       ),
       ConceptLesson(
         title: 'The High-Level RAG Pipeline',
-        definition: 'A complete RAG system has 2 genuine phases: an INDEXING phase (processing and storing your documents ahead of time so they can be searched) and a RETRIEVAL phase (at query time, finding and providing the most relevant stored content to Claude).',
-        analogy: 'This is like a librarian first organizing an entire library into a genuinely searchable card catalog (indexing, done once ahead of time), then later using that catalog to quickly find the right specific books when a patron asks a real question (retrieval, done for every query).',
-        example: 'Indexing: converting your 50,000 documentation pages into a searchable format ahead of time. Retrieval: when a user asks about parental leave, quickly finding and returning just the 2-3 genuinely most relevant pages from that pre-built index.',
-        keyTakeaway: 'This level\'s remaining lessons will teach you each specific piece of this 2-phase pipeline — embeddings and vector databases (indexing), then chunking and retrieval (both phases), before combining everything into Claude\'s final response.',
+        definition:
+            'A complete RAG system has 2 genuine phases: an INDEXING phase (processing and storing your documents ahead of time so they can be searched) and a RETRIEVAL phase (at query time, finding and providing the most relevant stored content to Claude).',
+        analogy:
+            'This is like a librarian first organizing an entire library into a genuinely searchable card catalog (indexing, done once ahead of time), then later using that catalog to quickly find the right specific books when a patron asks a real question (retrieval, done for every query).',
+        example:
+            'Indexing: converting your 50,000 documentation pages into a searchable format ahead of time. Retrieval: when a user asks about parental leave, quickly finding and returning just the 2-3 genuinely most relevant pages from that pre-built index.',
+        keyTakeaway:
+            'This level\'s remaining lessons will teach you each specific piece of this 2-phase pipeline — embeddings and vector databases (indexing), then chunking and retrieval (both phases), before combining everything into Claude\'s final response.',
       ),
       ConceptLesson(
         title: 'When RAG Genuinely Adds Value',
-        definition: 'RAG is most valuable when you have a genuinely large, evolving collection of factual, reference-style content (documentation, policies, knowledge bases, past support tickets) that Claude needs to accurately reference but was never part of its training data.',
-        analogy: 'Just as Level 4 taught you to match tool use to genuine task need, RAG should be reserved for genuinely large, reference-heavy knowledge needs — not applied reflexively to every single Claude-powered feature regardless of actual requirements.',
-        example: 'A customer-support assistant referencing thousands of product manuals genuinely benefits from RAG. A simple chatbot only ever discussing general, publicly well-known information likely does not need RAG at all.',
-        keyTakeaway: 'Recognizing when RAG is genuinely the right architectural choice — versus tool use (Level 4), simple context injection (Level 1), or fine-tuning (Level 8) — is precisely the architectural judgment this entire roadmap is building in you.',
+        definition:
+            'RAG is most valuable when you have a genuinely large, evolving collection of factual, reference-style content (documentation, policies, knowledge bases, past support tickets) that Claude needs to accurately reference but was never part of its training data.',
+        analogy:
+            'Just as Level 4 taught you to match tool use to genuine task need, RAG should be reserved for genuinely large, reference-heavy knowledge needs — not applied reflexively to every single Claude-powered feature regardless of actual requirements.',
+        example:
+            'A customer-support assistant referencing thousands of product manuals genuinely benefits from RAG. A simple chatbot only ever discussing general, publicly well-known information likely does not need RAG at all.',
+        keyTakeaway:
+            'Recognizing when RAG is genuinely the right architectural choice — versus tool use (Level 4), simple context injection (Level 1), or fine-tuning (Level 8) — is precisely the architectural judgment this entire roadmap is building in you.',
       ),
     ],
     quiz: [
       QuizQuestion(
         question: 'What genuine problem does RAG primarily solve?',
-        options: ['RAG makes Claude generate text faster', 'RAG lets Claude access and be grounded in your own private, current, or large document collections that were never part of its training data', 'RAG eliminates the need for any prompt engineering whatsoever', 'RAG automatically increases the temperature setting'],
+        options: [
+          'RAG makes Claude generate text faster',
+          'RAG lets Claude access and be grounded in your own private, current, or large document collections that were never part of its training data',
+          'RAG eliminates the need for any prompt engineering whatsoever',
+          'RAG automatically increases the temperature setting'
+        ],
         correctIndex: 1,
-        explanation: 'RAG solves the genuine problem of Claude needing to reference private, current, or extremely large document collections that fall outside its frozen training data, directly extending Level 1\'s grounding lesson to real scale.',
+        explanation:
+            'RAG solves the genuine problem of Claude needing to reference private, current, or extremely large document collections that fall outside its frozen training data, directly extending Level 1\'s grounding lesson to real scale.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why can\'t you simply paste an entire 50,000-page document library into every single request, even with a large context window?',
-        options: ['This approach is always the ideal, recommended solution with no downside', 'It would be enormously expensive in tokens and often genuinely exceed even a large context window\'s actual capacity', 'Context windows have no genuine size limit whatsoever', 'Pasting large amounts of text has no effect on cost or feasibility'],
+        question:
+            'Why can\'t you simply paste an entire 50,000-page document library into every single request, even with a large context window?',
+        options: [
+          'This approach is always the ideal, recommended solution with no downside',
+          'It would be enormously expensive in tokens and often genuinely exceed even a large context window\'s actual capacity',
+          'Context windows have no genuine size limit whatsoever',
+          'Pasting large amounts of text has no effect on cost or feasibility'
+        ],
         correctIndex: 1,
-        explanation: 'Pasting an entire large document library into every request is genuinely impractical due to token cost and context window limits — RAG solves this by retrieving only the small, relevant portion actually needed.',
+        explanation:
+            'Pasting an entire large document library into every request is genuinely impractical due to token cost and context window limits — RAG solves this by retrieving only the small, relevant portion actually needed.',
         xpReward: 10,
       ),
       QuizQuestion(
         question: 'How does RAG genuinely differ from fine-tuning?',
-        options: ['RAG and fine-tuning are the exact same technique with different names', 'RAG retrieves relevant information at query time without changing the model itself, while fine-tuning actually adjusts the model\'s weights through additional training', 'Fine-tuning is only ever used for retrieving documents, never RAG', 'RAG and fine-tuning can never genuinely be used for related purposes'],
+        options: [
+          'RAG and fine-tuning are the exact same technique with different names',
+          'RAG retrieves relevant information at query time without changing the model itself, while fine-tuning actually adjusts the model\'s weights through additional training',
+          'Fine-tuning is only ever used for retrieving documents, never RAG',
+          'RAG and fine-tuning can never genuinely be used for related purposes'
+        ],
         correctIndex: 1,
-        explanation: 'RAG and fine-tuning solve genuinely different problems — RAG retrieves relevant content at query time, while fine-tuning (Level 8) changes the underlying model through additional training.',
+        explanation:
+            'RAG and fine-tuning solve genuinely different problems — RAG retrieves relevant content at query time, while fine-tuning (Level 8) changes the underlying model through additional training.',
         xpReward: 10,
       ),
       QuizQuestion(
         question: 'What are the two genuine phases of a complete RAG pipeline?',
-        options: ['A pricing phase and a billing phase', 'An indexing phase (processing and storing documents ahead of time) and a retrieval phase (finding relevant content at query time)', 'RAG has only a single phase with no meaningful distinction', 'A training phase and a fine-tuning phase'],
+        options: [
+          'A pricing phase and a billing phase',
+          'An indexing phase (processing and storing documents ahead of time) and a retrieval phase (finding relevant content at query time)',
+          'RAG has only a single phase with no meaningful distinction',
+          'A training phase and a fine-tuning phase'
+        ],
         correctIndex: 1,
-        explanation: 'RAG involves an indexing phase, where documents are processed and stored in a searchable format ahead of time, and a retrieval phase, where the most relevant content is found for each specific query.',
+        explanation:
+            'RAG involves an indexing phase, where documents are processed and stored in a searchable format ahead of time, and a retrieval phase, where the most relevant content is found for each specific query.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'For which type of application would RAG genuinely add the most value?',
-        options: ['A simple chatbot only ever discussing general, publicly well-known information', 'A customer-support assistant that needs to accurately reference thousands of evolving product manuals and documentation pages', 'RAG adds identical value to literally every possible Claude-powered application', 'RAG is only ever useful for creative writing tasks'],
+        question:
+            'For which type of application would RAG genuinely add the most value?',
+        options: [
+          'A simple chatbot only ever discussing general, publicly well-known information',
+          'A customer-support assistant that needs to accurately reference thousands of evolving product manuals and documentation pages',
+          'RAG adds identical value to literally every possible Claude-powered application',
+          'RAG is only ever useful for creative writing tasks'
+        ],
         correctIndex: 1,
-        explanation: 'RAG is most valuable for applications with genuinely large, evolving, reference-style content that Claude needs to accurately access — not every application genuinely requires this architecture.',
+        explanation:
+            'RAG is most valuable for applications with genuinely large, evolving, reference-style content that Claude needs to accurately access — not every application genuinely requires this architecture.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A company wants Claude to accurately answer questions using their constantly-updated, 20,000-page internal knowledge base, which changes weekly as new articles are added. What is the most appropriate architectural approach?',
-        options: ['Paste all 20,000 pages into the context window for every single request', 'Retrain (fine-tune) the model every single week to memorize the updated content', 'Implement RAG, indexing the knowledge base so relevant articles can be retrieved and provided in context for each specific query', 'Assume Claude already knows this private, internal content from its training data'],
+        prompt:
+            'A company wants Claude to accurately answer questions using their constantly-updated, 20,000-page internal knowledge base, which changes weekly as new articles are added. What is the most appropriate architectural approach?',
+        options: [
+          'Paste all 20,000 pages into the context window for every single request',
+          'Retrain (fine-tune) the model every single week to memorize the updated content',
+          'Implement RAG, indexing the knowledge base so relevant articles can be retrieved and provided in context for each specific query',
+          'Assume Claude already knows this private, internal content from its training data'
+        ],
         correctIndex: 2,
-        explanation: 'RAG is precisely designed for this scenario — a large, frequently-updated document collection that needs to be searchable and retrievable at query time, without the impracticality of pasting everything or constantly retraining.',
+        explanation:
+            'RAG is precisely designed for this scenario — a large, frequently-updated document collection that needs to be searchable and retrievable at query time, without the impracticality of pasting everything or constantly retraining.',
         xpReward: 15,
       ),
       MiniChallenge(
-        prompt: 'A team wants Claude to consistently write in their company\'s very specific, unusual brand voice across every single response, regardless of topic. A developer proposes implementing RAG to solve this. What is the concern with this approach?',
-        options: ['This is the ideal use case for RAG with no genuine concerns', 'RAG is designed for retrieving relevant factual content, not for teaching a consistent style or behavior pattern — this need might be better suited to fine-tuning (Level 8) or strong prompt engineering (Levels 1-2)', 'RAG can never actually be implemented for any application', 'Style consistency has no genuine relationship to either RAG or fine-tuning'],
+        prompt:
+            'A team wants Claude to consistently write in their company\'s very specific, unusual brand voice across every single response, regardless of topic. A developer proposes implementing RAG to solve this. What is the concern with this approach?',
+        options: [
+          'This is the ideal use case for RAG with no genuine concerns',
+          'RAG is designed for retrieving relevant factual content, not for teaching a consistent style or behavior pattern — this need might be better suited to fine-tuning (Level 8) or strong prompt engineering (Levels 1-2)',
+          'RAG can never actually be implemented for any application',
+          'Style consistency has no genuine relationship to either RAG or fine-tuning'
+        ],
         correctIndex: 1,
-        explanation: 'RAG genuinely excels at retrieving relevant factual content, not at teaching consistent style or behavior — this specific need is more likely to be well-served by fine-tuning or strong, consistent prompt engineering instead.',
+        explanation:
+            'RAG genuinely excels at retrieving relevant factual content, not at teaching consistent style or behavior — this specific need is more likely to be well-served by fine-tuning or strong, consistent prompt engineering instead.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Decide: Does This Product Genuinely Need RAG?',
-      goal: 'Practice the architectural judgment of recognizing when RAG is genuinely the right solution, versus tool use, simple context injection, or fine-tuning.',
+      goal:
+          'Practice the architectural judgment of recognizing when RAG is genuinely the right solution, versus tool use, simple context injection, or fine-tuning.',
       steps: [
         'Describe 3 different realistic Claude-powered product features',
         'For each feature, decide whether it genuinely needs RAG, tool use (Level 4), simple one-off context injection (Level 1), or fine-tuning (a Level 8 preview), with justification',
         'For the feature(s) needing RAG, briefly describe what document collection would need to be indexed',
         'Write 2-3 sentences explaining why pasting the entire document collection into context directly would not be a practical alternative for this specific feature',
       ],
-      expectedOutput: '3 features each classified with a justified architectural approach, a description of the document collection for the RAG-appropriate feature(s), and a note on why direct context-pasting is impractical there.',
+      expectedOutput:
+          '3 features each classified with a justified architectural approach, a description of the document collection for the RAG-appropriate feature(s), and a note on why direct context-pasting is impractical there.',
       xpReward: 55,
     ),
   ),
@@ -129,100 +197,170 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 24,
     totalXp: 130,
     emoji: '🧭',
-    intro: 'Before Claude can retrieve the "right" document, your system needs a way to genuinely measure which documents are relevant to a question. This lesson introduces embeddings — the mathematical foundation that makes semantic search possible.',
+    intro:
+        'Before Claude can retrieve the "right" document, your system needs a way to genuinely measure which documents are relevant to a question. This lesson introduces embeddings — the mathematical foundation that makes semantic search possible.',
     concepts: [
       ConceptLesson(
         title: 'What is an Embedding?',
-        definition: 'An embedding is a list of numbers (a vector) that represents the MEANING of a piece of text, generated by a specialized embedding model — texts with genuinely similar meaning produce vectors that are mathematically close to each other.',
-        analogy: 'This is like plotting every book in a library on a giant map based on genuine TOPIC similarity, rather than alphabetically by title — books about similar subjects end up physically close together on this map, regardless of their actual titles.',
-        example: '"The cat sat on the mat" and "A feline rested on the rug" have genuinely similar MEANING despite sharing almost no exact words — a good embedding model produces mathematically close vectors for both sentences.',
-        keyTakeaway: 'Embeddings capture semantic MEANING, not just literal keyword overlap — this is precisely why embedding-based search can find genuinely relevant content even when the exact wording differs from the user\'s question.',
+        definition:
+            'An embedding is a list of numbers (a vector) that represents the MEANING of a piece of text, generated by a specialized embedding model — texts with genuinely similar meaning produce vectors that are mathematically close to each other.',
+        analogy:
+            'This is like plotting every book in a library on a giant map based on genuine TOPIC similarity, rather than alphabetically by title — books about similar subjects end up physically close together on this map, regardless of their actual titles.',
+        example:
+            '"The cat sat on the mat" and "A feline rested on the rug" have genuinely similar MEANING despite sharing almost no exact words — a good embedding model produces mathematically close vectors for both sentences.',
+        keyTakeaway:
+            'Embeddings capture semantic MEANING, not just literal keyword overlap — this is precisely why embedding-based search can find genuinely relevant content even when the exact wording differs from the user\'s question.',
       ),
       ConceptLesson(
         title: 'Measuring Similarity Between Embeddings',
-        definition: 'Once text is converted to vectors, similarity between two pieces of text can be measured mathematically (commonly using "cosine similarity") — a higher similarity score means the two texts are genuinely more semantically related.',
-        analogy: 'This is like measuring the actual physical distance between two books\' locations on that topic-based library map — books plotted close together are genuinely more related than books plotted far apart.',
-        example: 'The embedding for "What is our refund policy?" would have HIGH similarity to a document chunk about "Returns and Refunds," and LOW similarity to a chunk about "Office Holiday Schedule."',
-        keyTakeaway: 'This similarity-scoring mechanism is precisely what powers "semantic search" — finding content based on genuine meaning-relatedness, rather than requiring the user\'s exact words to literally appear in the source document.',
+        definition:
+            'Once text is converted to vectors, similarity between two pieces of text can be measured mathematically (commonly using "cosine similarity") — a higher similarity score means the two texts are genuinely more semantically related.',
+        analogy:
+            'This is like measuring the actual physical distance between two books\' locations on that topic-based library map — books plotted close together are genuinely more related than books plotted far apart.',
+        example:
+            'The embedding for "What is our refund policy?" would have HIGH similarity to a document chunk about "Returns and Refunds," and LOW similarity to a chunk about "Office Holiday Schedule."',
+        keyTakeaway:
+            'This similarity-scoring mechanism is precisely what powers "semantic search" — finding content based on genuine meaning-relatedness, rather than requiring the user\'s exact words to literally appear in the source document.',
       ),
       ConceptLesson(
         title: 'Generating Embeddings for Your Document Collection',
-        definition: 'During RAG\'s indexing phase (from the previous lesson), every document (or document chunk, covered in an upcoming lesson) in your collection is run through an embedding model ONCE, ahead of time, and the resulting vectors are stored for later, fast retrieval.',
-        analogy: 'This is exactly the librarian pre-plotting every single book on that topic-map ONE time when the library is first organized, rather than re-plotting the entire library every single time a patron asks a new question.',
-        example: 'A one-time indexing process converts each of your 50,000 documentation chunks into its own embedding vector, storing all 50,000 vectors for fast future lookup — this genuinely happens once, not per query.',
-        keyTakeaway: 'This "embed once during indexing, search many times during retrieval" pattern is precisely why RAG can scale to enormous document collections — the expensive embedding generation work happens once, not on every single user query.',
+        definition:
+            'During RAG\'s indexing phase (from the previous lesson), every document (or document chunk, covered in an upcoming lesson) in your collection is run through an embedding model ONCE, ahead of time, and the resulting vectors are stored for later, fast retrieval.',
+        analogy:
+            'This is exactly the librarian pre-plotting every single book on that topic-map ONE time when the library is first organized, rather than re-plotting the entire library every single time a patron asks a new question.',
+        example:
+            'A one-time indexing process converts each of your 50,000 documentation chunks into its own embedding vector, storing all 50,000 vectors for fast future lookup — this genuinely happens once, not per query.',
+        keyTakeaway:
+            'This "embed once during indexing, search many times during retrieval" pattern is precisely why RAG can scale to enormous document collections — the expensive embedding generation work happens once, not on every single user query.',
       ),
       ConceptLesson(
         title: 'Embedding the User\'s Query at Search Time',
-        definition: 'At retrieval time, the user\'s actual question is ALSO converted into an embedding (using the exact SAME embedding model used for indexing), and this query embedding is compared against all the stored document embeddings to find the genuinely closest matches.',
-        analogy: 'This is like a patron\'s specific question being plotted onto that same topic-map, so the librarian can quickly find which pre-plotted books are genuinely closest to — and therefore most relevant to — that specific location.',
-        example: 'A user asks "How do I get my money back for a defective item?" — this question is embedded, then compared against all stored document embeddings, surfacing the "Returns and Refunds" chunk as the closest, genuine match.',
-        keyTakeaway: 'A genuinely critical detail: the SAME embedding model must be used for both indexing your documents AND embedding user queries — using two different, mismatched embedding models would produce vectors that cannot be meaningfully compared.',
+        definition:
+            'At retrieval time, the user\'s actual question is ALSO converted into an embedding (using the exact SAME embedding model used for indexing), and this query embedding is compared against all the stored document embeddings to find the genuinely closest matches.',
+        analogy:
+            'This is like a patron\'s specific question being plotted onto that same topic-map, so the librarian can quickly find which pre-plotted books are genuinely closest to — and therefore most relevant to — that specific location.',
+        example:
+            'A user asks "How do I get my money back for a defective item?" — this question is embedded, then compared against all stored document embeddings, surfacing the "Returns and Refunds" chunk as the closest, genuine match.',
+        keyTakeaway:
+            'A genuinely critical detail: the SAME embedding model must be used for both indexing your documents AND embedding user queries — using two different, mismatched embedding models would produce vectors that cannot be meaningfully compared.',
       ),
       ConceptLesson(
         title: 'Embeddings Are Not Perfect — Genuine Limitations',
-        definition: 'Embedding-based similarity search, while genuinely powerful, is not flawless — it can occasionally miss content that uses very different terminology for the same concept, or surface content that is topically similar but not genuinely what the user actually needs.',
-        analogy: 'Even a genuinely well-organized topic-map occasionally misfiles a book, or two genuinely unrelated books end up placed surprisingly close together due to a coincidental surface-level similarity — the system is powerful but not infallible.',
-        example: 'A search for "how to cancel my subscription" might occasionally miss a document titled only "Terminating Your Plan" if the embedding model does not recognize these as genuinely, strongly synonymous phrases.',
-        keyTakeaway: 'This genuine limitation is precisely why this level\'s upcoming hybrid-search lesson combines embedding-based semantic search WITH traditional keyword search — each approach\'s weaknesses are covered by the other\'s strengths.',
+        definition:
+            'Embedding-based similarity search, while genuinely powerful, is not flawless — it can occasionally miss content that uses very different terminology for the same concept, or surface content that is topically similar but not genuinely what the user actually needs.',
+        analogy:
+            'Even a genuinely well-organized topic-map occasionally misfiles a book, or two genuinely unrelated books end up placed surprisingly close together due to a coincidental surface-level similarity — the system is powerful but not infallible.',
+        example:
+            'A search for "how to cancel my subscription" might occasionally miss a document titled only "Terminating Your Plan" if the embedding model does not recognize these as genuinely, strongly synonymous phrases.',
+        keyTakeaway:
+            'This genuine limitation is precisely why this level\'s upcoming hybrid-search lesson combines embedding-based semantic search WITH traditional keyword search — each approach\'s weaknesses are covered by the other\'s strengths.',
       ),
     ],
     quiz: [
       QuizQuestion(
         question: 'What does an embedding fundamentally represent?',
-        options: ['The exact, literal word count of a piece of text', 'A list of numbers (a vector) representing the semantic MEANING of a piece of text, such that similar meanings produce mathematically close vectors', 'A compressed, literal copy of the original text', 'The exact date a piece of text was created'],
+        options: [
+          'The exact, literal word count of a piece of text',
+          'A list of numbers (a vector) representing the semantic MEANING of a piece of text, such that similar meanings produce mathematically close vectors',
+          'A compressed, literal copy of the original text',
+          'The exact date a piece of text was created'
+        ],
         correctIndex: 1,
-        explanation: 'An embedding is a numerical vector representing semantic meaning — texts with genuinely similar meaning produce vectors that are mathematically close together, regardless of exact wording.',
+        explanation:
+            'An embedding is a numerical vector representing semantic meaning — texts with genuinely similar meaning produce vectors that are mathematically close together, regardless of exact wording.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why can embedding-based search find relevant content even when the user\'s exact words do not appear in the source document?',
-        options: ['Embedding-based search actually requires exact word matches to function at all', 'Embeddings capture semantic MEANING rather than literal keyword overlap, so genuinely related concepts produce similar vectors even with different wording', 'This capability does not actually exist for any embedding-based system', 'Embeddings only ever work for documents written in the exact same language and phrasing'],
+        question:
+            'Why can embedding-based search find relevant content even when the user\'s exact words do not appear in the source document?',
+        options: [
+          'Embedding-based search actually requires exact word matches to function at all',
+          'Embeddings capture semantic MEANING rather than literal keyword overlap, so genuinely related concepts produce similar vectors even with different wording',
+          'This capability does not actually exist for any embedding-based system',
+          'Embeddings only ever work for documents written in the exact same language and phrasing'
+        ],
         correctIndex: 1,
-        explanation: 'Since embeddings capture meaning rather than exact wording, semantically related content produces similar vectors even when the specific words used differ significantly.',
+        explanation:
+            'Since embeddings capture meaning rather than exact wording, semantically related content produces similar vectors even when the specific words used differ significantly.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'When does the "embed once during indexing" pattern genuinely happen in a RAG system?',
-        options: ['Documents are re-embedded from scratch on every single user query', 'Documents are embedded ONE time during the indexing phase, and those stored vectors are reused for fast lookup across many future queries', 'Embeddings are never actually stored anywhere for later use', 'Only user queries are ever embedded, never the actual documents'],
+        question:
+            'When does the "embed once during indexing" pattern genuinely happen in a RAG system?',
+        options: [
+          'Documents are re-embedded from scratch on every single user query',
+          'Documents are embedded ONE time during the indexing phase, and those stored vectors are reused for fast lookup across many future queries',
+          'Embeddings are never actually stored anywhere for later use',
+          'Only user queries are ever embedded, never the actual documents'
+        ],
         correctIndex: 1,
-        explanation: 'Documents are embedded once during indexing and stored for reuse — this is precisely why RAG can scale efficiently, since the expensive embedding work does not need to be repeated for every query.',
+        explanation:
+            'Documents are embedded once during indexing and stored for reuse — this is precisely why RAG can scale efficiently, since the expensive embedding work does not need to be repeated for every query.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why must the SAME embedding model be used for both indexing documents and embedding user queries?',
-        options: ['Using different embedding models for each step has no genuine effect on retrieval quality', 'Vectors produced by different, mismatched embedding models cannot be meaningfully compared against each other for similarity', 'Only documents ever need to be embedded, never the actual user query', 'The embedding model used genuinely does not matter at all for RAG to function correctly'],
+        question:
+            'Why must the SAME embedding model be used for both indexing documents and embedding user queries?',
+        options: [
+          'Using different embedding models for each step has no genuine effect on retrieval quality',
+          'Vectors produced by different, mismatched embedding models cannot be meaningfully compared against each other for similarity',
+          'Only documents ever need to be embedded, never the actual user query',
+          'The embedding model used genuinely does not matter at all for RAG to function correctly'
+        ],
         correctIndex: 1,
-        explanation: 'Using a consistent embedding model for both indexing and querying is essential, since vectors from different, mismatched models exist in genuinely incompatible mathematical spaces and cannot be meaningfully compared.',
+        explanation:
+            'Using a consistent embedding model for both indexing and querying is essential, since vectors from different, mismatched models exist in genuinely incompatible mathematical spaces and cannot be meaningfully compared.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why does this level plan to introduce hybrid search (combining embeddings with keyword search) in a later lesson?',
-        options: ['Embedding-based search is always completely perfect with absolutely no genuine limitations', 'Embedding-based search can occasionally miss content using very different terminology for the same concept, so combining it with keyword search covers this genuine limitation', 'Keyword search is always strictly inferior and should never actually be used', 'Hybrid search has no genuine relationship to embedding-based search\'s limitations'],
+        question:
+            'Why does this level plan to introduce hybrid search (combining embeddings with keyword search) in a later lesson?',
+        options: [
+          'Embedding-based search is always completely perfect with absolutely no genuine limitations',
+          'Embedding-based search can occasionally miss content using very different terminology for the same concept, so combining it with keyword search covers this genuine limitation',
+          'Keyword search is always strictly inferior and should never actually be used',
+          'Hybrid search has no genuine relationship to embedding-based search\'s limitations'
+        ],
         correctIndex: 1,
-        explanation: 'Since embedding-based search has genuine limitations (like missing very differently-worded but conceptually identical content), combining it with keyword search in a hybrid approach covers each method\'s individual weaknesses.',
+        explanation:
+            'Since embedding-based search has genuine limitations (like missing very differently-worded but conceptually identical content), combining it with keyword search in a hybrid approach covers each method\'s individual weaknesses.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A user searches "how do I reset my password" and the system fails to retrieve a genuinely relevant document titled "Account Access Recovery Steps," which covers the exact same topic using different terminology. What does this lesson suggest is happening?',
-        options: ['This is impossible and could never actually occur with any embedding-based system', 'This illustrates embedding-based search\'s genuine limitation — occasionally missing content that uses very different terminology for the same underlying concept', 'The embedding model must be completely broken and non-functional', 'This has no relationship to how embeddings or semantic search actually work'],
+        prompt:
+            'A user searches "how do I reset my password" and the system fails to retrieve a genuinely relevant document titled "Account Access Recovery Steps," which covers the exact same topic using different terminology. What does this lesson suggest is happening?',
+        options: [
+          'This is impossible and could never actually occur with any embedding-based system',
+          'This illustrates embedding-based search\'s genuine limitation — occasionally missing content that uses very different terminology for the same underlying concept',
+          'The embedding model must be completely broken and non-functional',
+          'This has no relationship to how embeddings or semantic search actually work'
+        ],
         correctIndex: 1,
-        explanation: 'This is a realistic example of embedding-based search\'s genuine limitation with very differently-worded but conceptually related content — exactly the scenario that motivates this level\'s later hybrid-search lesson.',
+        explanation:
+            'This is a realistic example of embedding-based search\'s genuine limitation with very differently-worded but conceptually related content — exactly the scenario that motivates this level\'s later hybrid-search lesson.',
         xpReward: 15,
       ),
       MiniChallenge(
-        prompt: 'A team indexes their documents using Embedding Model A, but later switches to embedding user queries with a completely different Embedding Model B, without re-indexing their documents. What problem will this likely cause?',
-        options: ['No problem, all embedding models always produce identical, interchangeable vectors', 'The document vectors (from Model A) and query vectors (from Model B) exist in incompatible mathematical spaces, making meaningful similarity comparison unreliable or broken', 'This mismatch only affects retrieval speed, never retrieval quality', 'Switching embedding models has no genuine effect on a RAG system\'s function'],
+        prompt:
+            'A team indexes their documents using Embedding Model A, but later switches to embedding user queries with a completely different Embedding Model B, without re-indexing their documents. What problem will this likely cause?',
+        options: [
+          'No problem, all embedding models always produce identical, interchangeable vectors',
+          'The document vectors (from Model A) and query vectors (from Model B) exist in incompatible mathematical spaces, making meaningful similarity comparison unreliable or broken',
+          'This mismatch only affects retrieval speed, never retrieval quality',
+          'Switching embedding models has no genuine effect on a RAG system\'s function'
+        ],
         correctIndex: 1,
-        explanation: 'Using mismatched embedding models for documents versus queries breaks the fundamental comparability of the vectors, since different models produce vectors in genuinely incompatible mathematical spaces.',
+        explanation:
+            'Using mismatched embedding models for documents versus queries breaks the fundamental comparability of the vectors, since different models produce vectors in genuinely incompatible mathematical spaces.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Trace Through an Embedding-Based Retrieval Scenario',
-      goal: 'Practice reasoning through how embeddings enable semantic search, including recognizing a realistic limitation.',
+      goal:
+          'Practice reasoning through how embeddings enable semantic search, including recognizing a realistic limitation.',
       steps: [
         'Describe a realistic document collection (e.g., a company\'s HR policy documents)',
         'Write 3 different document titles/topics from this collection',
@@ -230,7 +368,8 @@ const List<TopicCourse> claudeEngineerLevel5 = [
         'Describe one realistic scenario where embedding-based search might miss a genuinely relevant document due to very different terminology',
         'Write 1-2 sentences on why the same embedding model must be used consistently across your entire system',
       ],
-      expectedOutput: 'A document collection with 3 topics, a query with the expected highest-similarity match explained, a realistic terminology-mismatch scenario, and a note on embedding model consistency.',
+      expectedOutput:
+          'A document collection with 3 topics, a query with the expected highest-similarity match explained, a realistic terminology-mismatch scenario, and a note on embedding model consistency.',
       xpReward: 55,
     ),
   ),
@@ -244,107 +383,178 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 22,
     totalXp: 125,
     emoji: '🗄️',
-    intro: 'You now understand embeddings conceptually — this lesson teaches you where they actually LIVE and how they are searched efficiently at genuine scale: vector databases, the specialized storage systems that power real-world RAG.',
+    intro:
+        'You now understand embeddings conceptually — this lesson teaches you where they actually LIVE and how they are searched efficiently at genuine scale: vector databases, the specialized storage systems that power real-world RAG.',
     concepts: [
       ConceptLesson(
         title: 'What is a Vector Database?',
-        definition: 'A vector database is a specialized storage system designed specifically to store large numbers of embedding vectors and efficiently search them for the most similar matches to a given query vector — genuinely different from a traditional database designed for exact-match lookups.',
-        analogy: 'This is like a specialized map room specifically designed for finding the nearest locations to any given point, versus a traditional filing cabinet designed for finding one specific, exactly-named folder — genuinely different tools for genuinely different search needs.',
-        example: 'A vector database storing 50,000 document embeddings can find the 5 most similar vectors to a query vector in a fraction of a second, even at that genuine scale — a capability traditional databases are not optimized for.',
-        keyTakeaway: 'Vector databases exist specifically because traditional databases are not efficiently designed for "find the closest matches" similarity search across potentially millions of high-dimensional vectors.',
+        definition:
+            'A vector database is a specialized storage system designed specifically to store large numbers of embedding vectors and efficiently search them for the most similar matches to a given query vector — genuinely different from a traditional database designed for exact-match lookups.',
+        analogy:
+            'This is like a specialized map room specifically designed for finding the nearest locations to any given point, versus a traditional filing cabinet designed for finding one specific, exactly-named folder — genuinely different tools for genuinely different search needs.',
+        example:
+            'A vector database storing 50,000 document embeddings can find the 5 most similar vectors to a query vector in a fraction of a second, even at that genuine scale — a capability traditional databases are not optimized for.',
+        keyTakeaway:
+            'Vector databases exist specifically because traditional databases are not efficiently designed for "find the closest matches" similarity search across potentially millions of high-dimensional vectors.',
       ),
       ConceptLesson(
         title: 'Why Naive Similarity Search Does Not Scale',
-        definition: 'Comparing a query vector against EVERY single stored vector one by one (naive, brute-force search) becomes genuinely too slow once a collection grows to millions of vectors — vector databases use specialized indexing algorithms to make this search dramatically faster.',
-        analogy: 'This is like the difference between a librarian checking every single book in a massive library one by one, versus using a well-organized index that lets them jump almost directly to the genuinely relevant section.',
-        example: 'Brute-force comparison against 10 million vectors for every single query would be genuinely too slow for a real-time application — specialized vector-database indexing techniques make this search dramatically faster at that same scale.',
-        keyTakeaway: 'You do not need to understand the internal mathematics of these specialized indexing algorithms to use a vector database effectively — understanding WHY they exist (genuine scale) is what matters most for your architectural decisions.',
+        definition:
+            'Comparing a query vector against EVERY single stored vector one by one (naive, brute-force search) becomes genuinely too slow once a collection grows to millions of vectors — vector databases use specialized indexing algorithms to make this search dramatically faster.',
+        analogy:
+            'This is like the difference between a librarian checking every single book in a massive library one by one, versus using a well-organized index that lets them jump almost directly to the genuinely relevant section.',
+        example:
+            'Brute-force comparison against 10 million vectors for every single query would be genuinely too slow for a real-time application — specialized vector-database indexing techniques make this search dramatically faster at that same scale.',
+        keyTakeaway:
+            'You do not need to understand the internal mathematics of these specialized indexing algorithms to use a vector database effectively — understanding WHY they exist (genuine scale) is what matters most for your architectural decisions.',
       ),
       ConceptLesson(
         title: 'Storing Metadata Alongside Vectors',
-        definition: 'A genuinely well-designed vector database entry stores not just the embedding vector itself, but also useful METADATA — the original text chunk, its source document, and other relevant fields — since you genuinely need the actual text back, not just a bare vector.',
-        analogy: 'This is like that map-room location marker also including a genuine note about what is actually AT that location, not just its bare coordinates — the coordinates alone are not useful without knowing what they actually represent.',
-        example: 'A stored entry might include: {vector: [0.23, -0.11, ...], text: "Refunds are processed within 5-7 business days...", source_document: "returns_policy.pdf", section: "Refund Timeline"}.',
-        keyTakeaway: 'This metadata is precisely what gets returned and used in your RAG pipeline\'s next steps — the vector itself is only used internally for the similarity SEARCH, while the metadata is what actually gets provided to Claude.',
+        definition:
+            'A genuinely well-designed vector database entry stores not just the embedding vector itself, but also useful METADATA — the original text chunk, its source document, and other relevant fields — since you genuinely need the actual text back, not just a bare vector.',
+        analogy:
+            'This is like that map-room location marker also including a genuine note about what is actually AT that location, not just its bare coordinates — the coordinates alone are not useful without knowing what they actually represent.',
+        example:
+            'A stored entry might include: {vector: [0.23, -0.11, ...], text: "Refunds are processed within 5-7 business days...", source_document: "returns_policy.pdf", section: "Refund Timeline"}.',
+        keyTakeaway:
+            'This metadata is precisely what gets returned and used in your RAG pipeline\'s next steps — the vector itself is only used internally for the similarity SEARCH, while the metadata is what actually gets provided to Claude.',
       ),
       ConceptLesson(
         title: 'Filtering Search Results with Metadata',
-        definition: 'Beyond pure similarity search, vector databases typically support FILTERING results by metadata fields — letting you narrow a search to, for example, only documents from a specific category, date range, or access-permission level, combined with the semantic similarity ranking.',
-        analogy: 'This is like telling that map-room assistant "find the nearest matches, but only within THIS specific city district" — combining genuine proximity search with a meaningful, relevant constraint.',
-        example: 'A search might request "find the most semantically similar chunks to this query, but only from documents tagged category: "HR Policy" and last_updated after 2025."',
-        keyTakeaway: 'This filtering capability is genuinely important for real applications — for example, ensuring a user only ever retrieves content they have genuine permission to access, a topic this level\'s security-adjacent lessons will touch on.',
+        definition:
+            'Beyond pure similarity search, vector databases typically support FILTERING results by metadata fields — letting you narrow a search to, for example, only documents from a specific category, date range, or access-permission level, combined with the semantic similarity ranking.',
+        analogy:
+            'This is like telling that map-room assistant "find the nearest matches, but only within THIS specific city district" — combining genuine proximity search with a meaningful, relevant constraint.',
+        example:
+            'A search might request "find the most semantically similar chunks to this query, but only from documents tagged category: "HR Policy" and last_updated after 2025."',
+        keyTakeaway:
+            'This filtering capability is genuinely important for real applications — for example, ensuring a user only ever retrieves content they have genuine permission to access, a topic this level\'s security-adjacent lessons will touch on.',
       ),
       ConceptLesson(
         title: 'Choosing and Configuring a Vector Database',
-        definition: 'Several vector database options exist, ranging from dedicated, standalone vector database services to vector-search features built into more general-purpose databases — the right choice depends on your genuine application\'s scale, existing infrastructure, and specific requirements.',
-        analogy: 'This mirrors Level 3\'s SDK-vs-raw-HTTP decision — there is no single, universally "correct" choice; the right option depends on your specific application\'s genuine context and existing technical constraints.',
-        example: 'A small application with an existing general-purpose database might reasonably use that database\'s built-in vector-search extension, while a large-scale application with millions of documents might genuinely warrant a dedicated, specialized vector database service.',
-        keyTakeaway: 'This is a genuine architectural decision worth researching for your specific project\'s needs — this roadmap teaches you the underlying CONCEPTS that apply regardless of which specific vector database technology you ultimately choose.',
+        definition:
+            'Several vector database options exist, ranging from dedicated, standalone vector database services to vector-search features built into more general-purpose databases — the right choice depends on your genuine application\'s scale, existing infrastructure, and specific requirements.',
+        analogy:
+            'This mirrors Level 3\'s SDK-vs-raw-HTTP decision — there is no single, universally "correct" choice; the right option depends on your specific application\'s genuine context and existing technical constraints.',
+        example:
+            'A small application with an existing general-purpose database might reasonably use that database\'s built-in vector-search extension, while a large-scale application with millions of documents might genuinely warrant a dedicated, specialized vector database service.',
+        keyTakeaway:
+            'This is a genuine architectural decision worth researching for your specific project\'s needs — this roadmap teaches you the underlying CONCEPTS that apply regardless of which specific vector database technology you ultimately choose.',
       ),
     ],
     quiz: [
       QuizQuestion(
         question: 'What is a vector database specifically designed to do?',
-        options: ['Store only exact-match text records, exactly like a traditional database', 'Efficiently store large numbers of embedding vectors and quickly search them for the most similar matches to a given query vector', 'Only store numbers unrelated to any genuine text content', 'Replace the need for any embedding model entirely'],
+        options: [
+          'Store only exact-match text records, exactly like a traditional database',
+          'Efficiently store large numbers of embedding vectors and quickly search them for the most similar matches to a given query vector',
+          'Only store numbers unrelated to any genuine text content',
+          'Replace the need for any embedding model entirely'
+        ],
         correctIndex: 1,
-        explanation: 'A vector database is specifically optimized for storing embedding vectors and efficiently performing similarity search across potentially millions of them — a genuinely different capability than a traditional exact-match database.',
+        explanation:
+            'A vector database is specifically optimized for storing embedding vectors and efficiently performing similarity search across potentially millions of them — a genuinely different capability than a traditional exact-match database.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why does naive, brute-force similarity search (comparing a query against every single stored vector one by one) not scale well?',
-        options: ['Brute-force search actually scales perfectly well to any genuine size with no issues', 'It becomes genuinely too slow once a collection grows to millions of vectors, which is why vector databases use specialized indexing algorithms instead', 'Similarity search never actually needs to scale beyond a handful of vectors', 'Vector databases never actually use any specialized indexing techniques'],
+        question:
+            'Why does naive, brute-force similarity search (comparing a query against every single stored vector one by one) not scale well?',
+        options: [
+          'Brute-force search actually scales perfectly well to any genuine size with no issues',
+          'It becomes genuinely too slow once a collection grows to millions of vectors, which is why vector databases use specialized indexing algorithms instead',
+          'Similarity search never actually needs to scale beyond a handful of vectors',
+          'Vector databases never actually use any specialized indexing techniques'
+        ],
         correctIndex: 1,
-        explanation: 'Comparing a query against every single vector individually becomes genuinely too slow at large scale — specialized vector-database indexing algorithms exist specifically to make this search dramatically faster.',
+        explanation:
+            'Comparing a query against every single vector individually becomes genuinely too slow at large scale — specialized vector-database indexing algorithms exist specifically to make this search dramatically faster.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why is storing metadata (the original text, source document) alongside each vector genuinely important?',
-        options: ['Metadata storage has no genuine purpose in a vector database', 'The vector alone is only useful for the similarity SEARCH itself — the metadata (like the actual text) is what actually gets provided to Claude in the next RAG pipeline step', 'Only the bare vector numbers are ever genuinely useful for anything', 'Metadata should always be stored in a genuinely separate, completely unrelated system'],
+        question:
+            'Why is storing metadata (the original text, source document) alongside each vector genuinely important?',
+        options: [
+          'Metadata storage has no genuine purpose in a vector database',
+          'The vector alone is only useful for the similarity SEARCH itself — the metadata (like the actual text) is what actually gets provided to Claude in the next RAG pipeline step',
+          'Only the bare vector numbers are ever genuinely useful for anything',
+          'Metadata should always be stored in a genuinely separate, completely unrelated system'
+        ],
         correctIndex: 1,
-        explanation: 'The vector is used internally for similarity search, but the associated metadata (especially the actual text content) is what gets returned and actually provided to Claude in the RAG pipeline.',
+        explanation:
+            'The vector is used internally for similarity search, but the associated metadata (especially the actual text content) is what gets returned and actually provided to Claude in the RAG pipeline.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why is the ability to filter vector search results by metadata (category, date, permissions) genuinely useful?',
-        options: ['Metadata filtering has no genuine practical use case', 'It lets you narrow a semantic search to relevant subsets, such as ensuring a user only retrieves content they have genuine permission to access', 'Filtering always completely replaces the need for any similarity search', 'Metadata filtering can never actually be combined with similarity ranking'],
+        question:
+            'Why is the ability to filter vector search results by metadata (category, date, permissions) genuinely useful?',
+        options: [
+          'Metadata filtering has no genuine practical use case',
+          'It lets you narrow a semantic search to relevant subsets, such as ensuring a user only retrieves content they have genuine permission to access',
+          'Filtering always completely replaces the need for any similarity search',
+          'Metadata filtering can never actually be combined with similarity ranking'
+        ],
         correctIndex: 1,
-        explanation: 'Metadata filtering, combined with similarity search, lets you narrow results to genuinely relevant subsets — for example, ensuring appropriate access permissions are respected during retrieval.',
+        explanation:
+            'Metadata filtering, combined with similarity search, lets you narrow results to genuinely relevant subsets — for example, ensuring appropriate access permissions are respected during retrieval.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Is there a single, universally "correct" vector database choice for every application?',
-        options: ['Yes, there is always exactly one correct choice for every single application', 'No, the right choice depends on the application\'s genuine scale, existing infrastructure, and specific requirements, similar to Level 3\'s SDK-vs-raw-HTTP decision', 'Vector databases are all functionally and technically identical with no genuine differences', 'Only one single vector database technology has ever genuinely existed'],
+        question:
+            'Is there a single, universally "correct" vector database choice for every application?',
+        options: [
+          'Yes, there is always exactly one correct choice for every single application',
+          'No, the right choice depends on the application\'s genuine scale, existing infrastructure, and specific requirements, similar to Level 3\'s SDK-vs-raw-HTTP decision',
+          'Vector databases are all functionally and technically identical with no genuine differences',
+          'Only one single vector database technology has ever genuinely existed'
+        ],
         correctIndex: 1,
-        explanation: 'Similar to Level 3\'s SDK-vs-raw-HTTP decision, the right vector database choice genuinely depends on the specific application\'s scale, existing infrastructure, and requirements — there is no single universal answer.',
+        explanation:
+            'Similar to Level 3\'s SDK-vs-raw-HTTP decision, the right vector database choice genuinely depends on the specific application\'s scale, existing infrastructure, and requirements — there is no single universal answer.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A company\'s document collection grows from 500 documents to 5 million documents, and their RAG system\'s retrieval speed becomes genuinely too slow because they are comparing every query against every single stored vector one by one. What does this lesson suggest as the appropriate fix?',
-        options: ['This performance problem cannot genuinely be solved through any technical means', 'Use a proper vector database with specialized indexing algorithms, rather than naive brute-force comparison, to make similarity search dramatically faster at this genuine scale', 'Simply reduce the number of documents back down to 500', 'Increase the temperature setting to improve retrieval speed'],
+        prompt:
+            'A company\'s document collection grows from 500 documents to 5 million documents, and their RAG system\'s retrieval speed becomes genuinely too slow because they are comparing every query against every single stored vector one by one. What does this lesson suggest as the appropriate fix?',
+        options: [
+          'This performance problem cannot genuinely be solved through any technical means',
+          'Use a proper vector database with specialized indexing algorithms, rather than naive brute-force comparison, to make similarity search dramatically faster at this genuine scale',
+          'Simply reduce the number of documents back down to 500',
+          'Increase the temperature setting to improve retrieval speed'
+        ],
         correctIndex: 1,
-        explanation: 'This is exactly the scaling problem vector databases with specialized indexing are designed to solve — naive brute-force comparison genuinely does not scale to millions of vectors efficiently.',
+        explanation:
+            'This is exactly the scaling problem vector databases with specialized indexing are designed to solve — naive brute-force comparison genuinely does not scale to millions of vectors efficiently.',
         xpReward: 15,
       ),
       MiniChallenge(
-        prompt: 'A vector database entry only stores the raw embedding vector itself, with no associated text or metadata whatsoever. What genuine problem does this design create for the rest of the RAG pipeline?',
-        options: ['There is no genuine problem, the bare vector alone is always fully sufficient', 'Without the associated text and metadata, there is no way to actually provide the genuinely relevant content back to Claude, even after finding the closest matching vector', 'Metadata storage is never actually necessary in any vector database', 'This design is the ideal, recommended approach for every use case'],
+        prompt:
+            'A vector database entry only stores the raw embedding vector itself, with no associated text or metadata whatsoever. What genuine problem does this design create for the rest of the RAG pipeline?',
+        options: [
+          'There is no genuine problem, the bare vector alone is always fully sufficient',
+          'Without the associated text and metadata, there is no way to actually provide the genuinely relevant content back to Claude, even after finding the closest matching vector',
+          'Metadata storage is never actually necessary in any vector database',
+          'This design is the ideal, recommended approach for every use case'
+        ],
         correctIndex: 1,
-        explanation: 'Without stored metadata (especially the original text), finding the closest matching vector is useless on its own — the actual text content is what needs to be retrieved and provided to Claude.',
+        explanation:
+            'Without stored metadata (especially the original text), finding the closest matching vector is useless on its own — the actual text content is what needs to be retrieved and provided to Claude.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Design a Vector Database Entry Schema',
-      goal: 'Practice designing a genuinely complete vector database entry structure, including metadata and filtering considerations.',
+      goal:
+          'Practice designing a genuinely complete vector database entry structure, including metadata and filtering considerations.',
       steps: [
         'Choose a realistic document collection (e.g., a company\'s product support articles)',
         'Design the complete structure of one vector database entry for a single chunk from this collection, including the vector placeholder and all relevant metadata fields',
         'Identify 2 metadata fields you would want to filter by during retrieval (e.g., category, access_level), and explain why',
         'Write 1-2 sentences on why naive, brute-force comparison would not scale for this collection if it grew to millions of chunks',
       ],
-      expectedOutput: 'A complete entry schema with vector placeholder and metadata fields, 2 justified filtering fields, and a brief note on scaling considerations.',
+      expectedOutput:
+          'A complete entry schema with vector placeholder and metadata fields, 2 justified filtering fields, and a brief note on scaling considerations.',
       xpReward: 50,
     ),
   ),
@@ -358,100 +568,169 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 24,
     totalXp: 130,
     emoji: '✂️',
-    intro: 'You cannot simply embed an entire 100-page document as one single vector — it needs to be broken into smaller, genuinely meaningful pieces first. This lesson teaches you chunking, a deceptively important design decision that significantly affects your RAG system\'s genuine quality.',
+    intro:
+        'You cannot simply embed an entire 100-page document as one single vector — it needs to be broken into smaller, genuinely meaningful pieces first. This lesson teaches you chunking, a deceptively important design decision that significantly affects your RAG system\'s genuine quality.',
     concepts: [
       ConceptLesson(
         title: 'Why Documents Must Be Chunked',
-        definition: 'A single embedding vector represents ONE overall meaning — embedding an entire 100-page document as a single vector would produce an overly generic, blurred representation that fails to capture the genuinely specific, distinct topics covered across its many different sections.',
-        analogy: 'This is like trying to summarize an entire 100-page book with just ONE single word — technically possible, but it genuinely loses almost all the specific, useful detail contained across the book\'s many different chapters and sections.',
-        example: 'A 100-page HR handbook covering vacation policy, parental leave, and expense reports would produce one blurred, unhelpful embedding if treated as a single chunk — chunking it into distinct sections captures each topic genuinely separately.',
-        keyTakeaway: 'Chunking breaks documents into smaller, more specific pieces, each with its own genuinely focused embedding — this is what allows retrieval to find the SPECIFIC, relevant section rather than an entire, overly broad document.',
+        definition:
+            'A single embedding vector represents ONE overall meaning — embedding an entire 100-page document as a single vector would produce an overly generic, blurred representation that fails to capture the genuinely specific, distinct topics covered across its many different sections.',
+        analogy:
+            'This is like trying to summarize an entire 100-page book with just ONE single word — technically possible, but it genuinely loses almost all the specific, useful detail contained across the book\'s many different chapters and sections.',
+        example:
+            'A 100-page HR handbook covering vacation policy, parental leave, and expense reports would produce one blurred, unhelpful embedding if treated as a single chunk — chunking it into distinct sections captures each topic genuinely separately.',
+        keyTakeaway:
+            'Chunking breaks documents into smaller, more specific pieces, each with its own genuinely focused embedding — this is what allows retrieval to find the SPECIFIC, relevant section rather than an entire, overly broad document.',
       ),
       ConceptLesson(
         title: 'Fixed-Size Chunking',
-        definition: 'The simplest chunking strategy splits text into chunks of a fixed size (e.g., every 500 tokens), regardless of the document\'s actual content or structure — straightforward to implement, but it can genuinely cut across the middle of a sentence, paragraph, or logical idea.',
-        analogy: 'This is like cutting a book into sections every exactly 10 pages, regardless of where chapters actually begin and end — simple and consistent, but it can genuinely slice a chapter awkwardly in half at an arbitrary point.',
-        example: 'A fixed 500-token chunk boundary might cut off mid-sentence right in the middle of the "Refund Timeline" section, splitting one genuinely coherent idea awkwardly across two separate, disconnected chunks.',
-        keyTakeaway: 'Fixed-size chunking is a reasonable, simple starting point, but its genuine weakness — arbitrarily splitting coherent ideas — is precisely what more sophisticated chunking strategies aim to address.',
+        definition:
+            'The simplest chunking strategy splits text into chunks of a fixed size (e.g., every 500 tokens), regardless of the document\'s actual content or structure — straightforward to implement, but it can genuinely cut across the middle of a sentence, paragraph, or logical idea.',
+        analogy:
+            'This is like cutting a book into sections every exactly 10 pages, regardless of where chapters actually begin and end — simple and consistent, but it can genuinely slice a chapter awkwardly in half at an arbitrary point.',
+        example:
+            'A fixed 500-token chunk boundary might cut off mid-sentence right in the middle of the "Refund Timeline" section, splitting one genuinely coherent idea awkwardly across two separate, disconnected chunks.',
+        keyTakeaway:
+            'Fixed-size chunking is a reasonable, simple starting point, but its genuine weakness — arbitrarily splitting coherent ideas — is precisely what more sophisticated chunking strategies aim to address.',
       ),
       ConceptLesson(
         title: 'Structure-Aware Chunking',
-        definition: 'A more sophisticated approach chunks documents along their NATURAL structural boundaries (headings, paragraphs, sections) rather than a purely arbitrary fixed size — keeping genuinely coherent ideas intact within a single chunk.',
-        analogy: 'This is like cutting that same book along its actual chapter and section breaks, rather than an arbitrary fixed page count — respecting the author\'s own genuine, natural organizational structure.',
-        example: 'Structure-aware chunking would keep the ENTIRE "Refund Timeline" section together as one single, coherent chunk, rather than arbitrarily splitting it in half based on a fixed token count.',
-        keyTakeaway: 'When your source documents have genuine natural structure (headings, sections), structure-aware chunking typically produces noticeably higher retrieval quality than purely fixed-size chunking.',
+        definition:
+            'A more sophisticated approach chunks documents along their NATURAL structural boundaries (headings, paragraphs, sections) rather than a purely arbitrary fixed size — keeping genuinely coherent ideas intact within a single chunk.',
+        analogy:
+            'This is like cutting that same book along its actual chapter and section breaks, rather than an arbitrary fixed page count — respecting the author\'s own genuine, natural organizational structure.',
+        example:
+            'Structure-aware chunking would keep the ENTIRE "Refund Timeline" section together as one single, coherent chunk, rather than arbitrarily splitting it in half based on a fixed token count.',
+        keyTakeaway:
+            'When your source documents have genuine natural structure (headings, sections), structure-aware chunking typically produces noticeably higher retrieval quality than purely fixed-size chunking.',
       ),
       ConceptLesson(
         title: 'Chunk Overlap: Preserving Context at Boundaries',
-        definition: 'Many chunking strategies include a small amount of OVERLAP between consecutive chunks (repeating the last few sentences of one chunk at the start of the next) to avoid genuinely losing important context that happens to fall right at a chunk boundary.',
-        analogy: 'This is like slightly overlapping consecutive photograph frames when photographing a very long document, ensuring nothing genuinely important gets lost in the seam between two adjacent shots.',
-        example: 'If chunk 1 ends with "...refunds require the original receipt" and chunk 2 begins with a new topic, a small overlap ensures the receipt-requirement detail is not genuinely isolated and orphaned right at that boundary.',
-        keyTakeaway: 'A reasonable overlap (commonly 10-20% of a chunk\'s size) is a genuinely simple, low-cost technique for reducing the risk of splitting important, closely related context right at an arbitrary chunk boundary.',
+        definition:
+            'Many chunking strategies include a small amount of OVERLAP between consecutive chunks (repeating the last few sentences of one chunk at the start of the next) to avoid genuinely losing important context that happens to fall right at a chunk boundary.',
+        analogy:
+            'This is like slightly overlapping consecutive photograph frames when photographing a very long document, ensuring nothing genuinely important gets lost in the seam between two adjacent shots.',
+        example:
+            'If chunk 1 ends with "...refunds require the original receipt" and chunk 2 begins with a new topic, a small overlap ensures the receipt-requirement detail is not genuinely isolated and orphaned right at that boundary.',
+        keyTakeaway:
+            'A reasonable overlap (commonly 10-20% of a chunk\'s size) is a genuinely simple, low-cost technique for reducing the risk of splitting important, closely related context right at an arbitrary chunk boundary.',
       ),
       ConceptLesson(
         title: 'Matching Chunk Size to Genuine Content and Query Needs',
-        definition: 'Chunk size involves a genuine trade-off: smaller chunks produce more precise, focused retrieval but may lack surrounding context, while larger chunks preserve more context but can dilute the embedding\'s focus and consume more of your retrieved-context token budget (Level 1).',
-        analogy: 'This mirrors choosing the right zoom level on a genuine map — too zoomed in, and you lose important surrounding context; too zoomed out, and you lose the specific, precise detail you actually needed.',
-        example: 'For short, precise FAQ-style content, smaller chunks (e.g., 200-300 tokens) often work well. For narrative, more context-dependent content, larger chunks (e.g., 800-1000 tokens) may genuinely preserve necessary surrounding context.',
-        keyTakeaway: 'There is no single, universally "correct" chunk size — this is a genuine design decision requiring the same test-and-iterate discipline from Level 2\'s iterative-refinement lesson, applied specifically to your content and query patterns.',
+        definition:
+            'Chunk size involves a genuine trade-off: smaller chunks produce more precise, focused retrieval but may lack surrounding context, while larger chunks preserve more context but can dilute the embedding\'s focus and consume more of your retrieved-context token budget (Level 1).',
+        analogy:
+            'This mirrors choosing the right zoom level on a genuine map — too zoomed in, and you lose important surrounding context; too zoomed out, and you lose the specific, precise detail you actually needed.',
+        example:
+            'For short, precise FAQ-style content, smaller chunks (e.g., 200-300 tokens) often work well. For narrative, more context-dependent content, larger chunks (e.g., 800-1000 tokens) may genuinely preserve necessary surrounding context.',
+        keyTakeaway:
+            'There is no single, universally "correct" chunk size — this is a genuine design decision requiring the same test-and-iterate discipline from Level 2\'s iterative-refinement lesson, applied specifically to your content and query patterns.',
       ),
     ],
     quiz: [
       QuizQuestion(
-        question: 'Why can\'t an entire 100-page document simply be embedded as one single vector?',
-        options: ['Embedding models can never actually process more than one page at a time', 'A single embedding for an entire long document would produce an overly generic, blurred representation, failing to capture the genuinely specific, distinct topics within it', 'There is no genuine reason, embedding an entire document as one vector is always the ideal approach', 'Documents longer than 10 pages cannot technically be embedded under any circumstances'],
+        question:
+            'Why can\'t an entire 100-page document simply be embedded as one single vector?',
+        options: [
+          'Embedding models can never actually process more than one page at a time',
+          'A single embedding for an entire long document would produce an overly generic, blurred representation, failing to capture the genuinely specific, distinct topics within it',
+          'There is no genuine reason, embedding an entire document as one vector is always the ideal approach',
+          'Documents longer than 10 pages cannot technically be embedded under any circumstances'
+        ],
         correctIndex: 1,
-        explanation: 'A single embedding for a large, multi-topic document would be an overly generic, blurred representation of everything within it, failing to capture the genuinely specific detail needed for precise retrieval.',
+        explanation:
+            'A single embedding for a large, multi-topic document would be an overly generic, blurred representation of everything within it, failing to capture the genuinely specific detail needed for precise retrieval.',
         xpReward: 10,
       ),
       QuizQuestion(
         question: 'What is a genuine weakness of fixed-size chunking?',
-        options: ['Fixed-size chunking has no genuine weaknesses whatsoever', 'It can arbitrarily cut across the middle of a sentence, paragraph, or coherent idea, since it ignores the document\'s actual natural structure', 'Fixed-size chunking always produces the highest possible retrieval quality with no exceptions', 'Fixed-size chunking is technically impossible to actually implement'],
+        options: [
+          'Fixed-size chunking has no genuine weaknesses whatsoever',
+          'It can arbitrarily cut across the middle of a sentence, paragraph, or coherent idea, since it ignores the document\'s actual natural structure',
+          'Fixed-size chunking always produces the highest possible retrieval quality with no exceptions',
+          'Fixed-size chunking is technically impossible to actually implement'
+        ],
         correctIndex: 1,
-        explanation: 'Fixed-size chunking\'s genuine weakness is that it can arbitrarily split coherent ideas mid-sentence or mid-paragraph, since it ignores the document\'s actual natural structure.',
+        explanation:
+            'Fixed-size chunking\'s genuine weakness is that it can arbitrarily split coherent ideas mid-sentence or mid-paragraph, since it ignores the document\'s actual natural structure.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'How does structure-aware chunking genuinely differ from fixed-size chunking?',
-        options: ['These two approaches are functionally and practically identical', 'Structure-aware chunking splits along the document\'s natural boundaries (headings, sections), keeping genuinely coherent ideas intact within a single chunk', 'Structure-aware chunking always produces exactly one single chunk per entire document', 'Fixed-size chunking always respects a document\'s natural structure by definition'],
+        question:
+            'How does structure-aware chunking genuinely differ from fixed-size chunking?',
+        options: [
+          'These two approaches are functionally and practically identical',
+          'Structure-aware chunking splits along the document\'s natural boundaries (headings, sections), keeping genuinely coherent ideas intact within a single chunk',
+          'Structure-aware chunking always produces exactly one single chunk per entire document',
+          'Fixed-size chunking always respects a document\'s natural structure by definition'
+        ],
         correctIndex: 1,
-        explanation: 'Structure-aware chunking respects a document\'s natural organizational boundaries, keeping coherent sections intact, unlike fixed-size chunking\'s purely arbitrary, structure-agnostic splitting.',
+        explanation:
+            'Structure-aware chunking respects a document\'s natural organizational boundaries, keeping coherent sections intact, unlike fixed-size chunking\'s purely arbitrary, structure-agnostic splitting.',
         xpReward: 10,
       ),
       QuizQuestion(
         question: 'What genuine purpose does chunk overlap serve?',
-        options: ['Chunk overlap serves no genuine purpose and should always be avoided entirely', 'It reduces the risk of losing important, closely related context that happens to fall right at an arbitrary chunk boundary', 'Overlap always doubles the total genuine storage cost with no other effect', 'Chunk overlap is only ever relevant for structure-aware chunking, never fixed-size chunking'],
+        options: [
+          'Chunk overlap serves no genuine purpose and should always be avoided entirely',
+          'It reduces the risk of losing important, closely related context that happens to fall right at an arbitrary chunk boundary',
+          'Overlap always doubles the total genuine storage cost with no other effect',
+          'Chunk overlap is only ever relevant for structure-aware chunking, never fixed-size chunking'
+        ],
         correctIndex: 1,
-        explanation: 'A small amount of overlap between consecutive chunks helps preserve important context that might otherwise be awkwardly split right at a chunk boundary.',
+        explanation:
+            'A small amount of overlap between consecutive chunks helps preserve important context that might otherwise be awkwardly split right at a chunk boundary.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'What is the genuine trade-off involved in choosing a chunk size?',
-        options: ['There is no genuine trade-off, larger chunks are always strictly better in every way', 'Smaller chunks produce more precise, focused retrieval but may lack surrounding context, while larger chunks preserve more context but can dilute embedding focus and consume more of your token budget', 'Chunk size has no genuine relationship to retrieval quality or token cost', 'Only one single, universally correct chunk size genuinely exists for every application'],
+        question:
+            'What is the genuine trade-off involved in choosing a chunk size?',
+        options: [
+          'There is no genuine trade-off, larger chunks are always strictly better in every way',
+          'Smaller chunks produce more precise, focused retrieval but may lack surrounding context, while larger chunks preserve more context but can dilute embedding focus and consume more of your token budget',
+          'Chunk size has no genuine relationship to retrieval quality or token cost',
+          'Only one single, universally correct chunk size genuinely exists for every application'
+        ],
         correctIndex: 1,
-        explanation: 'Chunk size involves a genuine trade-off between retrieval precision (favoring smaller chunks) and preserved context (favoring larger chunks) — the right choice depends on your specific content and query patterns.',
+        explanation:
+            'Chunk size involves a genuine trade-off between retrieval precision (favoring smaller chunks) and preserved context (favoring larger chunks) — the right choice depends on your specific content and query patterns.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A company uses fixed-size, 500-token chunking on their well-structured policy documents (which have clear headings and sections), and notices that important policy details are frequently split awkwardly across two separate, disconnected chunks. What does this lesson suggest as an improvement?',
-        options: ['Continue using fixed-size chunking, since this is always the ideal approach for every document type', 'Switch to structure-aware chunking, which would respect the documents\' existing natural headings and sections, keeping coherent policy details intact within single chunks', 'Abandon RAG entirely for this specific use case', 'Reduce the fixed chunk size to exactly 10 tokens'],
+        prompt:
+            'A company uses fixed-size, 500-token chunking on their well-structured policy documents (which have clear headings and sections), and notices that important policy details are frequently split awkwardly across two separate, disconnected chunks. What does this lesson suggest as an improvement?',
+        options: [
+          'Continue using fixed-size chunking, since this is always the ideal approach for every document type',
+          'Switch to structure-aware chunking, which would respect the documents\' existing natural headings and sections, keeping coherent policy details intact within single chunks',
+          'Abandon RAG entirely for this specific use case',
+          'Reduce the fixed chunk size to exactly 10 tokens'
+        ],
         correctIndex: 1,
-        explanation: 'Since these documents genuinely have clear natural structure, switching to structure-aware chunking would respect that structure and keep coherent sections intact, directly addressing the observed splitting problem.',
+        explanation:
+            'Since these documents genuinely have clear natural structure, switching to structure-aware chunking would respect that structure and keep coherent sections intact, directly addressing the observed splitting problem.',
         xpReward: 15,
       ),
       MiniChallenge(
-        prompt: 'A RAG system uses genuinely very large chunks (2,000 tokens each) for short, simple FAQ-style content where each individual question and answer is typically only 2-3 sentences long. What does this lesson suggest about this chunk-size choice?',
-        options: ['This is the ideal chunk size for every single type of content, including short FAQs', 'This chunk size is likely too large for this genuinely short, precise content type — smaller chunks would likely produce more precise, focused retrieval for individual FAQ entries', 'Chunk size has no genuine relationship to content type or retrieval precision', 'FAQ-style content should never actually be indexed using RAG at all'],
+        prompt:
+            'A RAG system uses genuinely very large chunks (2,000 tokens each) for short, simple FAQ-style content where each individual question and answer is typically only 2-3 sentences long. What does this lesson suggest about this chunk-size choice?',
+        options: [
+          'This is the ideal chunk size for every single type of content, including short FAQs',
+          'This chunk size is likely too large for this genuinely short, precise content type — smaller chunks would likely produce more precise, focused retrieval for individual FAQ entries',
+          'Chunk size has no genuine relationship to content type or retrieval precision',
+          'FAQ-style content should never actually be indexed using RAG at all'
+        ],
         correctIndex: 1,
-        explanation: 'For short, precise FAQ-style content, smaller chunks typically produce more focused, precise retrieval — an overly large chunk size for this content type would likely dilute the embedding\'s specific focus.',
+        explanation:
+            'For short, precise FAQ-style content, smaller chunks typically produce more focused, precise retrieval — an overly large chunk size for this content type would likely dilute the embedding\'s specific focus.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Design a Chunking Strategy for a Real Document Collection',
-      goal: 'Practice choosing and justifying a chunking approach matched to genuine document structure and content type.',
+      goal:
+          'Practice choosing and justifying a chunking approach matched to genuine document structure and content type.',
       steps: [
         'Choose a realistic document collection (e.g., a legal contract library, or a collection of short customer FAQ entries)',
         'Decide between fixed-size or structure-aware chunking for this collection, with clear justification based on the document\'s actual structure',
@@ -459,7 +738,8 @@ const List<TopicCourse> claudeEngineerLevel5 = [
         'Decide whether you would use chunk overlap, and if so, roughly how much, with justification',
         'Write 1-2 sentences describing a realistic scenario where a poorly chosen chunk size could hurt retrieval quality for this specific collection',
       ],
-      expectedOutput: 'A complete chunking strategy: chosen approach, chunk size with justification, overlap decision, and a scenario illustrating the risk of a poorly matched chunk size.',
+      expectedOutput:
+          'A complete chunking strategy: chosen approach, chunk size with justification, overlap decision, and a scenario illustrating the risk of a poorly matched chunk size.',
       xpReward: 55,
     ),
   ),
@@ -473,101 +753,172 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 24,
     totalXp: 130,
     emoji: '⚙️',
-    intro: 'You now understand embeddings, vector databases, and chunking individually. This lesson combines them into one complete, working retrieval pipeline — the concrete, step-by-step code pattern behind every real RAG system.',
+    intro:
+        'You now understand embeddings, vector databases, and chunking individually. This lesson combines them into one complete, working retrieval pipeline — the concrete, step-by-step code pattern behind every real RAG system.',
     concepts: [
       ConceptLesson(
         title: 'The Complete Indexing Pipeline, Step by Step',
-        definition: 'Indexing combines this level\'s earlier lessons into a genuine sequence: (1) load your source documents, (2) chunk each document (this level\'s chunking lesson), (3) generate an embedding for each chunk, (4) store each chunk\'s text, metadata, and embedding in your vector database.',
-        analogy: 'This is like a librarian\'s complete cataloging process: receive new books, divide them into genuinely meaningful sections, determine each section\'s topic location on the map, and file everything away in the organized, searchable catalog.',
-        example: 'For a 50-page policy PDF: load the PDF text, split it into 40 structure-aware chunks, generate 40 embeddings (one per chunk), and store all 40 chunks with their text, source metadata, and embeddings in the vector database.',
-        keyTakeaway: 'This indexing pipeline runs ONCE per document (and again whenever a document is updated) — it is genuinely separate from, and happens before, the retrieval pipeline that runs on every single user query.',
-        codeSnippet: '// Conceptual indexing pipeline (pseudocode)\nfor document in sourceDocuments:\n    chunks = chunkDocument(document)\n    for chunk in chunks:\n        embedding = generateEmbedding(chunk.text)\n        vectorDatabase.store(vector: embedding, text: chunk.text, metadata: document.metadata)',
+        definition:
+            'Indexing combines this level\'s earlier lessons into a genuine sequence: (1) load your source documents, (2) chunk each document (this level\'s chunking lesson), (3) generate an embedding for each chunk, (4) store each chunk\'s text, metadata, and embedding in your vector database.',
+        analogy:
+            'This is like a librarian\'s complete cataloging process: receive new books, divide them into genuinely meaningful sections, determine each section\'s topic location on the map, and file everything away in the organized, searchable catalog.',
+        example:
+            'For a 50-page policy PDF: load the PDF text, split it into 40 structure-aware chunks, generate 40 embeddings (one per chunk), and store all 40 chunks with their text, source metadata, and embeddings in the vector database.',
+        keyTakeaway:
+            'This indexing pipeline runs ONCE per document (and again whenever a document is updated) — it is genuinely separate from, and happens before, the retrieval pipeline that runs on every single user query.',
+        codeSnippet:
+            '// Conceptual indexing pipeline (pseudocode)\nfor document in sourceDocuments:\n    chunks = chunkDocument(document)\n    for chunk in chunks:\n        embedding = generateEmbedding(chunk.text)\n        vectorDatabase.store(vector: embedding, text: chunk.text, metadata: document.metadata)',
       ),
       ConceptLesson(
         title: 'The Complete Retrieval Pipeline, Step by Step',
-        definition: 'At query time, retrieval combines: (1) embed the user\'s query (using the SAME embedding model from indexing), (2) search the vector database for the most similar stored chunks, (3) apply any relevant metadata filters, (4) return the top-matching chunks\' text.',
-        analogy: 'This is exactly that patron\'s specific question being processed by the librarian\'s now-organized system: locate the question\'s genuine topic on the map, find the closest matching, relevant sections, and retrieve those exact books.',
-        example: 'A user asks about refund timelines: embed this question, search the vector database, filter to only documents tagged category: "Policy," and return the top 3 most similar chunks\' actual text.',
-        keyTakeaway: 'This retrieval pipeline runs on EVERY single user query — unlike the one-time indexing pipeline, this step must be genuinely fast, since it directly affects your application\'s real-time response latency.',
+        definition:
+            'At query time, retrieval combines: (1) embed the user\'s query (using the SAME embedding model from indexing), (2) search the vector database for the most similar stored chunks, (3) apply any relevant metadata filters, (4) return the top-matching chunks\' text.',
+        analogy:
+            'This is exactly that patron\'s specific question being processed by the librarian\'s now-organized system: locate the question\'s genuine topic on the map, find the closest matching, relevant sections, and retrieve those exact books.',
+        example:
+            'A user asks about refund timelines: embed this question, search the vector database, filter to only documents tagged category: "Policy," and return the top 3 most similar chunks\' actual text.',
+        keyTakeaway:
+            'This retrieval pipeline runs on EVERY single user query — unlike the one-time indexing pipeline, this step must be genuinely fast, since it directly affects your application\'s real-time response latency.',
       ),
       ConceptLesson(
         title: 'Choosing How Many Chunks to Retrieve (Top-K)',
-        definition: 'A genuine parameter you must decide is "top-k" — how many of the most similar chunks to actually retrieve and provide to Claude (e.g., the top 3, top 5, top 10 most similar matches) — directly connecting to Level 1\'s token-cost lesson.',
-        analogy: 'This is like deciding how many of the genuinely closest-matching books to actually pull off the shelf for a patron — too few, and you risk missing something relevant; too many, and you overwhelm them with excess, less relevant material.',
-        example: 'Retrieving top-3 chunks might provide focused, highly relevant context at low token cost, while retrieving top-10 provides more comprehensive coverage but consumes significantly more of your context window and token budget.',
-        keyTakeaway: 'Top-k is a genuine tuning parameter, similar to Level 1\'s temperature setting — the right value depends on your specific content\'s density and your application\'s tolerance for token cost versus retrieval comprehensiveness.',
+        definition:
+            'A genuine parameter you must decide is "top-k" — how many of the most similar chunks to actually retrieve and provide to Claude (e.g., the top 3, top 5, top 10 most similar matches) — directly connecting to Level 1\'s token-cost lesson.',
+        analogy:
+            'This is like deciding how many of the genuinely closest-matching books to actually pull off the shelf for a patron — too few, and you risk missing something relevant; too many, and you overwhelm them with excess, less relevant material.',
+        example:
+            'Retrieving top-3 chunks might provide focused, highly relevant context at low token cost, while retrieving top-10 provides more comprehensive coverage but consumes significantly more of your context window and token budget.',
+        keyTakeaway:
+            'Top-k is a genuine tuning parameter, similar to Level 1\'s temperature setting — the right value depends on your specific content\'s density and your application\'s tolerance for token cost versus retrieval comprehensiveness.',
       ),
       ConceptLesson(
         title: 'Handling the "No Genuinely Relevant Results" Case',
-        definition: 'Directly extending Level 2\'s ambiguity-handling lesson, a retrieval pipeline should genuinely check whether the top-matching results are ACTUALLY relevant (using a similarity-score threshold) rather than always blindly providing the top-k results regardless of whether they are genuinely useful.',
-        analogy: 'This is like a librarian honestly telling a patron "I genuinely don\'t have anything closely related to that in our collection" rather than handing over the closest — but still genuinely unrelated — books just because SOME result technically exists.',
-        example: 'If the top result\'s similarity score falls below a reasonable relevance threshold, your system should indicate "no relevant information found" rather than passing along a genuinely poor, low-relevance match to Claude.',
-        keyTakeaway: 'This directly extends Level 1\'s "explicitly permit I don\'t know" grounding technique — your retrieval pipeline should be honest about genuinely lacking relevant content, not force-feed a poor match just because a result technically exists.',
+        definition:
+            'Directly extending Level 2\'s ambiguity-handling lesson, a retrieval pipeline should genuinely check whether the top-matching results are ACTUALLY relevant (using a similarity-score threshold) rather than always blindly providing the top-k results regardless of whether they are genuinely useful.',
+        analogy:
+            'This is like a librarian honestly telling a patron "I genuinely don\'t have anything closely related to that in our collection" rather than handing over the closest — but still genuinely unrelated — books just because SOME result technically exists.',
+        example:
+            'If the top result\'s similarity score falls below a reasonable relevance threshold, your system should indicate "no relevant information found" rather than passing along a genuinely poor, low-relevance match to Claude.',
+        keyTakeaway:
+            'This directly extends Level 1\'s "explicitly permit I don\'t know" grounding technique — your retrieval pipeline should be honest about genuinely lacking relevant content, not force-feed a poor match just because a result technically exists.',
       ),
       ConceptLesson(
         title: 'Retrieval Latency and Caching Considerations',
-        definition: 'Directly connecting to Level 3\'s latency and streaming lessons, the retrieval step (embedding the query, searching the vector database) adds genuine latency BEFORE Claude even begins generating a response — this should be factored into your application\'s overall responsiveness design.',
-        analogy: 'This is like the genuine time it takes the librarian to actually locate the relevant books BEFORE they can even begin discussing them with the patron — this preparatory time is real and should be accounted for in the overall experience.',
-        example: 'A retrieval step adding 200-300ms before Claude even begins generating should be factored into your application\'s perceived responsiveness design, potentially alongside Level 3\'s streaming techniques for the eventual generation step.',
-        keyTakeaway: 'For frequently-repeated identical or very similar queries, caching retrieval results can genuinely reduce this added latency — a technique you will explore more deeply in Level 7\'s production-optimization lessons.',
+        definition:
+            'Directly connecting to Level 3\'s latency and streaming lessons, the retrieval step (embedding the query, searching the vector database) adds genuine latency BEFORE Claude even begins generating a response — this should be factored into your application\'s overall responsiveness design.',
+        analogy:
+            'This is like the genuine time it takes the librarian to actually locate the relevant books BEFORE they can even begin discussing them with the patron — this preparatory time is real and should be accounted for in the overall experience.',
+        example:
+            'A retrieval step adding 200-300ms before Claude even begins generating should be factored into your application\'s perceived responsiveness design, potentially alongside Level 3\'s streaming techniques for the eventual generation step.',
+        keyTakeaway:
+            'For frequently-repeated identical or very similar queries, caching retrieval results can genuinely reduce this added latency — a technique you will explore more deeply in Level 7\'s production-optimization lessons.',
       ),
     ],
     quiz: [
       QuizQuestion(
         question: 'What are the 4 genuine steps of the indexing pipeline?',
-        options: ['Embed the query, search, filter, and return — with no document processing involved', 'Load source documents, chunk each document, generate an embedding for each chunk, and store the chunk/metadata/embedding in the vector database', 'Indexing has no genuine, defined sequence of steps', 'Indexing and retrieval are the exact same single-step process'],
+        options: [
+          'Embed the query, search, filter, and return — with no document processing involved',
+          'Load source documents, chunk each document, generate an embedding for each chunk, and store the chunk/metadata/embedding in the vector database',
+          'Indexing has no genuine, defined sequence of steps',
+          'Indexing and retrieval are the exact same single-step process'
+        ],
         correctIndex: 1,
-        explanation: 'Indexing combines this level\'s earlier lessons into a genuine sequence: loading documents, chunking, generating embeddings, and storing everything in the vector database.',
+        explanation:
+            'Indexing combines this level\'s earlier lessons into a genuine sequence: loading documents, chunking, generating embeddings, and storing everything in the vector database.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why must the retrieval pipeline (unlike indexing) be genuinely fast?',
-        options: ['Retrieval speed has no genuine relationship to application performance', 'Unlike the one-time indexing pipeline, retrieval runs on EVERY single user query, directly affecting the application\'s real-time response latency', 'Retrieval only ever needs to run once per entire application lifetime, just like indexing', 'Speed is never actually a genuine concern for any part of a RAG pipeline'],
+        question:
+            'Why must the retrieval pipeline (unlike indexing) be genuinely fast?',
+        options: [
+          'Retrieval speed has no genuine relationship to application performance',
+          'Unlike the one-time indexing pipeline, retrieval runs on EVERY single user query, directly affecting the application\'s real-time response latency',
+          'Retrieval only ever needs to run once per entire application lifetime, just like indexing',
+          'Speed is never actually a genuine concern for any part of a RAG pipeline'
+        ],
         correctIndex: 1,
-        explanation: 'Since retrieval runs on every single user query (unlike the one-time indexing process), its speed directly and genuinely affects the application\'s real-time response latency.',
+        explanation:
+            'Since retrieval runs on every single user query (unlike the one-time indexing process), its speed directly and genuinely affects the application\'s real-time response latency.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'What does the "top-k" parameter control in a retrieval pipeline?',
-        options: ['The exact temperature setting used for the final Claude generation step', 'How many of the most similar chunks are actually retrieved and provided to Claude, involving a genuine trade-off with Level 1\'s token cost', 'The genuine number of documents in the entire indexed collection', 'Top-k has no genuine relationship to retrieval or token cost'],
+        question:
+            'What does the "top-k" parameter control in a retrieval pipeline?',
+        options: [
+          'The exact temperature setting used for the final Claude generation step',
+          'How many of the most similar chunks are actually retrieved and provided to Claude, involving a genuine trade-off with Level 1\'s token cost',
+          'The genuine number of documents in the entire indexed collection',
+          'Top-k has no genuine relationship to retrieval or token cost'
+        ],
         correctIndex: 1,
-        explanation: 'Top-k determines how many of the most similar chunks are retrieved, involving a genuine trade-off between comprehensiveness and token cost, directly connecting to Level 1\'s cost-awareness lesson.',
+        explanation:
+            'Top-k determines how many of the most similar chunks are retrieved, involving a genuine trade-off between comprehensiveness and token cost, directly connecting to Level 1\'s cost-awareness lesson.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why should a retrieval pipeline check whether top-matching results are genuinely relevant, rather than always blindly providing the top-k results?',
-        options: ['All retrieved results are always guaranteed to be genuinely relevant by definition, with no exceptions', 'Directly extending Level 1\'s "permit I don\'t know" grounding technique, the system should honestly indicate when no genuinely relevant content exists, rather than force-feeding a poor match', 'Relevance checking is never actually necessary or useful for any RAG system', 'Top-k results should always be provided to Claude regardless of their genuine relevance score'],
+        question:
+            'Why should a retrieval pipeline check whether top-matching results are genuinely relevant, rather than always blindly providing the top-k results?',
+        options: [
+          'All retrieved results are always guaranteed to be genuinely relevant by definition, with no exceptions',
+          'Directly extending Level 1\'s "permit I don\'t know" grounding technique, the system should honestly indicate when no genuinely relevant content exists, rather than force-feeding a poor match',
+          'Relevance checking is never actually necessary or useful for any RAG system',
+          'Top-k results should always be provided to Claude regardless of their genuine relevance score'
+        ],
         correctIndex: 1,
-        explanation: 'Directly extending Level 1\'s hallucination-reduction technique of permitting uncertainty, a retrieval pipeline should honestly recognize when no genuinely relevant content exists, rather than always passing along a poor match.',
+        explanation:
+            'Directly extending Level 1\'s hallucination-reduction technique of permitting uncertainty, a retrieval pipeline should honestly recognize when no genuinely relevant content exists, rather than always passing along a poor match.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why does the retrieval step\'s added latency matter for overall application design, directly connecting to Level 3?',
-        options: ['Retrieval latency has no genuine effect on the overall user experience', 'The retrieval step (embedding the query, searching the database) adds genuine latency BEFORE Claude even begins generating, which should be factored into overall responsiveness design alongside Level 3\'s streaming techniques', 'Retrieval always happens instantly with zero genuine latency in every case', 'Latency is only ever a genuine concern for the final Claude generation step, never for retrieval'],
+        question:
+            'Why does the retrieval step\'s added latency matter for overall application design, directly connecting to Level 3?',
+        options: [
+          'Retrieval latency has no genuine effect on the overall user experience',
+          'The retrieval step (embedding the query, searching the database) adds genuine latency BEFORE Claude even begins generating, which should be factored into overall responsiveness design alongside Level 3\'s streaming techniques',
+          'Retrieval always happens instantly with zero genuine latency in every case',
+          'Latency is only ever a genuine concern for the final Claude generation step, never for retrieval'
+        ],
         correctIndex: 1,
-        explanation: 'The retrieval step adds real, genuine latency before generation even begins, which should be factored into the overall responsiveness design, directly connecting to Level 3\'s latency and streaming considerations.',
+        explanation:
+            'The retrieval step adds real, genuine latency before generation even begins, which should be factored into the overall responsiveness design, directly connecting to Level 3\'s latency and streaming considerations.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A user asks a genuinely off-topic question completely unrelated to any content in the indexed document collection, and the retrieval pipeline still returns the top-3 "closest" matches, even though their similarity scores are genuinely very low. The system then passes these poor matches directly to Claude with no further handling. What does this lesson suggest as an improvement?',
-        options: ['This is the correct, ideal way to handle every single retrieval scenario', 'Apply a relevance-score threshold, so the system can honestly indicate "no relevant information found" rather than force-feeding genuinely poor, low-relevance matches to Claude', 'Always increase top-k to retrieve even more results in this situation', 'Remove the vector database entirely and rely purely on Claude\'s trained knowledge instead'],
+        prompt:
+            'A user asks a genuinely off-topic question completely unrelated to any content in the indexed document collection, and the retrieval pipeline still returns the top-3 "closest" matches, even though their similarity scores are genuinely very low. The system then passes these poor matches directly to Claude with no further handling. What does this lesson suggest as an improvement?',
+        options: [
+          'This is the correct, ideal way to handle every single retrieval scenario',
+          'Apply a relevance-score threshold, so the system can honestly indicate "no relevant information found" rather than force-feeding genuinely poor, low-relevance matches to Claude',
+          'Always increase top-k to retrieve even more results in this situation',
+          'Remove the vector database entirely and rely purely on Claude\'s trained knowledge instead'
+        ],
         correctIndex: 1,
-        explanation: 'This illustrates exactly the "no genuinely relevant results" scenario this lesson addresses — applying a relevance threshold and honestly indicating the lack of relevant content is the appropriate improvement.',
+        explanation:
+            'This illustrates exactly the "no genuinely relevant results" scenario this lesson addresses — applying a relevance threshold and honestly indicating the lack of relevant content is the appropriate improvement.',
         xpReward: 15,
       ),
       MiniChallenge(
-        prompt: 'A developer sets top-k to 50, retrieving 50 chunks for every single query in an application where most questions only genuinely need 2-3 specific chunks to answer well. What is the concern with this configuration?',
-        options: ['There is no genuine concern, more retrieved chunks are always strictly better with no downside', 'This likely wastes significant token budget (Level 1) on genuinely unnecessary, less-relevant chunks, when a much smaller top-k would likely serve most queries just as well', 'Top-k values above 10 are technically impossible to configure', 'This configuration has no genuine relationship to cost or response quality'],
+        prompt:
+            'A developer sets top-k to 50, retrieving 50 chunks for every single query in an application where most questions only genuinely need 2-3 specific chunks to answer well. What is the concern with this configuration?',
+        options: [
+          'There is no genuine concern, more retrieved chunks are always strictly better with no downside',
+          'This likely wastes significant token budget (Level 1) on genuinely unnecessary, less-relevant chunks, when a much smaller top-k would likely serve most queries just as well',
+          'Top-k values above 10 are technically impossible to configure',
+          'This configuration has no genuine relationship to cost or response quality'
+        ],
         correctIndex: 1,
-        explanation: 'Retrieving far more chunks than genuinely needed wastes token budget on less-relevant content — this directly illustrates the top-k trade-off this lesson describes, where a smaller value would likely be more appropriate here.',
+        explanation:
+            'Retrieving far more chunks than genuinely needed wastes token budget on less-relevant content — this directly illustrates the top-k trade-off this lesson describes, where a smaller value would likely be more appropriate here.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Design a Complete Indexing and Retrieval Pipeline',
-      goal: 'Synthesize embeddings, vector databases, and chunking into one complete, working RAG pipeline design with genuine relevance handling.',
+      goal:
+          'Synthesize embeddings, vector databases, and chunking into one complete, working RAG pipeline design with genuine relevance handling.',
       steps: [
         'Choose a realistic document collection from an earlier lesson in this level',
         'Write out the complete indexing pipeline for this collection, referencing your chosen chunking strategy from the previous lesson',
@@ -575,7 +926,8 @@ const List<TopicCourse> claudeEngineerLevel5 = [
         'Describe your relevance-threshold approach: what should happen if the top result\'s similarity score is genuinely too low',
         'Write 1-2 sentences on how you would account for retrieval latency in your application\'s overall response-time design',
       ],
-      expectedOutput: 'A complete indexing pipeline, a complete retrieval pipeline with justified top-k, a relevance-threshold handling plan, and a latency consideration note.',
+      expectedOutput:
+          'A complete indexing pipeline, a complete retrieval pipeline with justified top-k, a relevance-threshold handling plan, and a latency consideration note.',
       xpReward: 60,
     ),
   ),
@@ -589,107 +941,179 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 22,
     totalXp: 125,
     emoji: '🧷',
-    intro: 'You have retrieved the genuinely relevant chunks — now you need to actually get Claude to use them well. This lesson brings together Level 1-2\'s prompt-engineering skills specifically for the RAG context, where grounding quality genuinely matters most.',
+    intro:
+        'You have retrieved the genuinely relevant chunks — now you need to actually get Claude to use them well. This lesson brings together Level 1-2\'s prompt-engineering skills specifically for the RAG context, where grounding quality genuinely matters most.',
     concepts: [
       ConceptLesson(
         title: 'Structuring Retrieved Chunks with XML Tags',
-        definition: 'Directly reusing Level 1\'s XML-tagging technique, retrieved chunks should be clearly wrapped in tags (e.g., <retrieved_context>) and separated from the user\'s actual question, making the structure genuinely unambiguous for Claude.',
-        analogy: 'This is exactly the same "clearly labelled folders" principle from Level 1\'s XML lesson, now applied specifically to the genuinely retrieved reference material a RAG system provides.',
-        example: '<retrieved_context>\\n[chunk 1 text]\\n---\\n[chunk 2 text]\\n</retrieved_context>\\n\\n<question>\\nWhat is our refund policy timeline?\\n</question>',
-        keyTakeaway: 'This is a direct, concrete application of Level 1\'s XML-structuring lesson — RAG genuinely does not require learning an entirely new formatting technique, simply applying the one you already know to retrieved content specifically.',
+        definition:
+            'Directly reusing Level 1\'s XML-tagging technique, retrieved chunks should be clearly wrapped in tags (e.g., <retrieved_context>) and separated from the user\'s actual question, making the structure genuinely unambiguous for Claude.',
+        analogy:
+            'This is exactly the same "clearly labelled folders" principle from Level 1\'s XML lesson, now applied specifically to the genuinely retrieved reference material a RAG system provides.',
+        example:
+            '<retrieved_context>\\n[chunk 1 text]\\n---\\n[chunk 2 text]\\n</retrieved_context>\\n\\n<question>\\nWhat is our refund policy timeline?\\n</question>',
+        keyTakeaway:
+            'This is a direct, concrete application of Level 1\'s XML-structuring lesson — RAG genuinely does not require learning an entirely new formatting technique, simply applying the one you already know to retrieved content specifically.',
       ),
       ConceptLesson(
         title: 'Instructing Claude to Answer ONLY from Retrieved Context',
-        definition: 'Directly reusing Level 1\'s grounding techniques, the system prompt should explicitly instruct Claude to answer based ONLY on the provided retrieved context, and to explicitly say so if the retrieved context does not genuinely contain the answer.',
-        analogy: 'This is exactly Level 1\'s "answer only based on what is written here" grounding instruction, now specifically applied to RAG\'s retrieved chunks rather than a single, manually pasted document.',
-        example: 'System prompt: "Answer the user\'s question using ONLY the information in the <retrieved_context> tags. If the retrieved context does not contain the answer, clearly say so rather than using outside knowledge."',
-        keyTakeaway: 'This is precisely why Level 1\'s hallucination-reduction lesson was foundational — RAG\'s entire genuine value depends on Claude reliably following this exact same grounding discipline you already learned.',
+        definition:
+            'Directly reusing Level 1\'s grounding techniques, the system prompt should explicitly instruct Claude to answer based ONLY on the provided retrieved context, and to explicitly say so if the retrieved context does not genuinely contain the answer.',
+        analogy:
+            'This is exactly Level 1\'s "answer only based on what is written here" grounding instruction, now specifically applied to RAG\'s retrieved chunks rather than a single, manually pasted document.',
+        example:
+            'System prompt: "Answer the user\'s question using ONLY the information in the <retrieved_context> tags. If the retrieved context does not contain the answer, clearly say so rather than using outside knowledge."',
+        keyTakeaway:
+            'This is precisely why Level 1\'s hallucination-reduction lesson was foundational — RAG\'s entire genuine value depends on Claude reliably following this exact same grounding discipline you already learned.',
       ),
       ConceptLesson(
         title: 'Handling Retrieved Chunks That Are Genuinely Contradictory',
-        definition: 'Occasionally, retrieved chunks from different documents may genuinely contain contradictory or outdated information (e.g., an old policy document not yet removed from the index) — your prompt should instruct Claude on how to handle this specific, realistic scenario.',
-        analogy: 'This is like a librarian handing over two genuinely different reference books that happen to disagree on a specific detail — the reader needs guidance on how to handle this kind of real, occasional conflict, rather than being left confused.',
-        example: 'System prompt addition: "If retrieved chunks contain contradictory information, note this genuine discrepancy explicitly in your response rather than silently picking one source over the other."',
-        keyTakeaway: 'This directly extends Level 1\'s honest-uncertainty principle to a genuinely new, realistic RAG-specific scenario — contradictory sources are a real possibility in any large, evolving document collection, not a rare edge case to ignore.',
+        definition:
+            'Occasionally, retrieved chunks from different documents may genuinely contain contradictory or outdated information (e.g., an old policy document not yet removed from the index) — your prompt should instruct Claude on how to handle this specific, realistic scenario.',
+        analogy:
+            'This is like a librarian handing over two genuinely different reference books that happen to disagree on a specific detail — the reader needs guidance on how to handle this kind of real, occasional conflict, rather than being left confused.',
+        example:
+            'System prompt addition: "If retrieved chunks contain contradictory information, note this genuine discrepancy explicitly in your response rather than silently picking one source over the other."',
+        keyTakeaway:
+            'This directly extends Level 1\'s honest-uncertainty principle to a genuinely new, realistic RAG-specific scenario — contradictory sources are a real possibility in any large, evolving document collection, not a rare edge case to ignore.',
       ),
       ConceptLesson(
         title: 'Combining Retrieved Context with Conversation History',
-        definition: 'Directly extending Level 3\'s multi-turn conversation lesson, in a conversational RAG application, retrieved context typically needs to be added FRESH for each new user turn (based on that turn\'s specific query), rather than accumulating indefinitely within the growing conversation history.',
-        analogy: 'This is like a librarian fetching NEW, specifically relevant books for each new question a patron asks during an ongoing conversation, rather than just endlessly piling up every book ever retrieved throughout the entire conversation.',
-        example: 'Turn 1\'s retrieved context (about refund policy) should not necessarily remain relevant or be resent for Turn 3\'s genuinely different question (about parental leave) — each turn typically gets its own freshly retrieved context.',
-        keyTakeaway: 'This design decision directly connects Level 3\'s conversation-management skill with this level\'s retrieval pipeline — a genuinely well-architected conversational RAG system retrieves fresh, relevant context for each new turn.',
+        definition:
+            'Directly extending Level 3\'s multi-turn conversation lesson, in a conversational RAG application, retrieved context typically needs to be added FRESH for each new user turn (based on that turn\'s specific query), rather than accumulating indefinitely within the growing conversation history.',
+        analogy:
+            'This is like a librarian fetching NEW, specifically relevant books for each new question a patron asks during an ongoing conversation, rather than just endlessly piling up every book ever retrieved throughout the entire conversation.',
+        example:
+            'Turn 1\'s retrieved context (about refund policy) should not necessarily remain relevant or be resent for Turn 3\'s genuinely different question (about parental leave) — each turn typically gets its own freshly retrieved context.',
+        keyTakeaway:
+            'This design decision directly connects Level 3\'s conversation-management skill with this level\'s retrieval pipeline — a genuinely well-architected conversational RAG system retrieves fresh, relevant context for each new turn.',
       ),
       ConceptLesson(
         title: 'Balancing Retrieved Context with Claude\'s General Knowledge',
-        definition: 'For some queries, a genuinely good answer might reasonably combine retrieved, specific context with Claude\'s general reasoning ability — your prompt design should clarify when general reasoning is genuinely acceptable versus when strict, retrieved-context-only grounding is required.',
-        analogy: 'This is like clarifying for a consultant whether they should ONLY cite the specific reference material provided, or whether they may ALSO apply their own genuine, broader expertise to interpret and contextualize that material.',
-        example: 'For a strict company-policy lookup, strict retrieved-context-only grounding is appropriate. For "explain this policy in simpler terms," Claude may reasonably use its general language ability to REPHRASE the retrieved content, while still remaining factually grounded in it.',
-        keyTakeaway: 'Being explicit about this distinction in your prompt design prevents genuine ambiguity about how strictly Claude should adhere to the literal retrieved text versus reasonably applying its broader capabilities on top of it.',
+        definition:
+            'For some queries, a genuinely good answer might reasonably combine retrieved, specific context with Claude\'s general reasoning ability — your prompt design should clarify when general reasoning is genuinely acceptable versus when strict, retrieved-context-only grounding is required.',
+        analogy:
+            'This is like clarifying for a consultant whether they should ONLY cite the specific reference material provided, or whether they may ALSO apply their own genuine, broader expertise to interpret and contextualize that material.',
+        example:
+            'For a strict company-policy lookup, strict retrieved-context-only grounding is appropriate. For "explain this policy in simpler terms," Claude may reasonably use its general language ability to REPHRASE the retrieved content, while still remaining factually grounded in it.',
+        keyTakeaway:
+            'Being explicit about this distinction in your prompt design prevents genuine ambiguity about how strictly Claude should adhere to the literal retrieved text versus reasonably applying its broader capabilities on top of it.',
       ),
     ],
     quiz: [
       QuizQuestion(
-        question: 'How should retrieved chunks typically be structured within a RAG prompt?',
-        options: ['Pasted directly into the prompt with no structure or labelling whatsoever', 'Wrapped in clear XML tags (like <retrieved_context>) and separated from the user\'s question, directly reusing Level 1\'s XML-structuring technique', 'Retrieved chunks should never actually be included directly in the prompt at all', 'Only the vector similarity scores should be included, never the actual retrieved text'],
+        question:
+            'How should retrieved chunks typically be structured within a RAG prompt?',
+        options: [
+          'Pasted directly into the prompt with no structure or labelling whatsoever',
+          'Wrapped in clear XML tags (like <retrieved_context>) and separated from the user\'s question, directly reusing Level 1\'s XML-structuring technique',
+          'Retrieved chunks should never actually be included directly in the prompt at all',
+          'Only the vector similarity scores should be included, never the actual retrieved text'
+        ],
         correctIndex: 1,
-        explanation: 'Retrieved chunks should be clearly wrapped in XML tags and separated from the question, directly applying Level 1\'s XML-structuring technique specifically to RAG\'s retrieved content.',
+        explanation:
+            'Retrieved chunks should be clearly wrapped in XML tags and separated from the question, directly applying Level 1\'s XML-structuring technique specifically to RAG\'s retrieved content.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why should the system prompt explicitly instruct Claude to answer ONLY from the retrieved context?',
-        options: ['This instruction has no genuine effect on RAG response quality', 'This directly reuses Level 1\'s grounding technique, and RAG\'s entire genuine value depends on Claude reliably following this exact same grounding discipline', 'Claude should always be instructed to ignore any retrieved context entirely', 'Grounding instructions are only ever relevant outside of RAG applications'],
+        question:
+            'Why should the system prompt explicitly instruct Claude to answer ONLY from the retrieved context?',
+        options: [
+          'This instruction has no genuine effect on RAG response quality',
+          'This directly reuses Level 1\'s grounding technique, and RAG\'s entire genuine value depends on Claude reliably following this exact same grounding discipline',
+          'Claude should always be instructed to ignore any retrieved context entirely',
+          'Grounding instructions are only ever relevant outside of RAG applications'
+        ],
         correctIndex: 1,
-        explanation: 'This is a direct application of Level 1\'s grounding technique — RAG\'s genuine value fundamentally depends on Claude reliably answering based on the retrieved context, not fabricated or unrelated general knowledge.',
+        explanation:
+            'This is a direct application of Level 1\'s grounding technique — RAG\'s genuine value fundamentally depends on Claude reliably answering based on the retrieved context, not fabricated or unrelated general knowledge.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why might retrieved chunks occasionally contain genuinely contradictory information?',
-        options: ['Contradictory retrieved chunks can never actually occur in any real RAG system', 'A large, evolving document collection may genuinely contain outdated or conflicting documents (like an old, not-yet-removed policy) that get retrieved together', 'Contradictions only ever occur due to a genuinely broken embedding model', 'This scenario has no genuine relationship to how RAG systems actually work'],
+        question:
+            'Why might retrieved chunks occasionally contain genuinely contradictory information?',
+        options: [
+          'Contradictory retrieved chunks can never actually occur in any real RAG system',
+          'A large, evolving document collection may genuinely contain outdated or conflicting documents (like an old, not-yet-removed policy) that get retrieved together',
+          'Contradictions only ever occur due to a genuinely broken embedding model',
+          'This scenario has no genuine relationship to how RAG systems actually work'
+        ],
         correctIndex: 1,
-        explanation: 'A large, evolving document collection can genuinely contain outdated or conflicting content that has not yet been removed or updated, making contradictory retrieved chunks a realistic, real scenario to design for.',
+        explanation:
+            'A large, evolving document collection can genuinely contain outdated or conflicting content that has not yet been removed or updated, making contradictory retrieved chunks a realistic, real scenario to design for.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'In a conversational RAG application, should retrieved context typically accumulate indefinitely across the entire conversation history?',
-        options: ['Yes, all retrieved context from every turn should always be kept and resent forever', 'No, retrieved context is typically fetched FRESH for each new turn based on that turn\'s specific query, directly connecting to Level 3\'s conversation-management lesson', 'Retrieved context should never actually be included in a conversational RAG application at all', 'Conversation history and retrieved context have no genuine relationship to each other'],
+        question:
+            'In a conversational RAG application, should retrieved context typically accumulate indefinitely across the entire conversation history?',
+        options: [
+          'Yes, all retrieved context from every turn should always be kept and resent forever',
+          'No, retrieved context is typically fetched FRESH for each new turn based on that turn\'s specific query, directly connecting to Level 3\'s conversation-management lesson',
+          'Retrieved context should never actually be included in a conversational RAG application at all',
+          'Conversation history and retrieved context have no genuine relationship to each other'
+        ],
         correctIndex: 1,
-        explanation: 'Retrieved context is typically fetched fresh for each new turn based on that turn\'s specific query, rather than accumulating indefinitely, directly connecting this level\'s retrieval pipeline to Level 3\'s conversation-management principles.',
+        explanation:
+            'Retrieved context is typically fetched fresh for each new turn based on that turn\'s specific query, rather than accumulating indefinitely, directly connecting this level\'s retrieval pipeline to Level 3\'s conversation-management principles.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why should a RAG prompt clarify whether Claude may apply general reasoning on top of retrieved context, versus strict retrieved-context-only grounding?',
-        options: ['This distinction has no genuine relevance to RAG prompt design', 'Being explicit about this distinction prevents genuine ambiguity about how strictly Claude should adhere to the literal retrieved text versus reasonably applying broader capabilities', 'Claude should always be strictly limited to only quoting retrieved text verbatim in every single case', 'General reasoning should always be completely disabled in every RAG application'],
+        question:
+            'Why should a RAG prompt clarify whether Claude may apply general reasoning on top of retrieved context, versus strict retrieved-context-only grounding?',
+        options: [
+          'This distinction has no genuine relevance to RAG prompt design',
+          'Being explicit about this distinction prevents genuine ambiguity about how strictly Claude should adhere to the literal retrieved text versus reasonably applying broader capabilities',
+          'Claude should always be strictly limited to only quoting retrieved text verbatim in every single case',
+          'General reasoning should always be completely disabled in every RAG application'
+        ],
         correctIndex: 1,
-        explanation: 'Clarifying this distinction prevents ambiguity — some tasks genuinely need strict, literal grounding, while others reasonably benefit from Claude applying its broader language capabilities on top of the retrieved, factual content.',
+        explanation:
+            'Clarifying this distinction prevents ambiguity — some tasks genuinely need strict, literal grounding, while others reasonably benefit from Claude applying its broader language capabilities on top of the retrieved, factual content.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A RAG system\'s retrieved context happens to include both a current policy document AND an outdated, superseded version that has not yet been removed from the index, and these two documents genuinely disagree on a specific detail. The system prompt gives no guidance for this scenario. What is the risk?',
-        options: ['There is no genuine risk, Claude will always automatically know which document is correct', 'Claude might pick one contradictory source arbitrarily, or blend them confusingly, without alerting the user to the genuine discrepancy — explicit guidance for this scenario should be added', 'Contradictory documents can never actually occur in any real RAG system', 'This scenario has no genuine relationship to prompt design'],
+        prompt:
+            'A RAG system\'s retrieved context happens to include both a current policy document AND an outdated, superseded version that has not yet been removed from the index, and these two documents genuinely disagree on a specific detail. The system prompt gives no guidance for this scenario. What is the risk?',
+        options: [
+          'There is no genuine risk, Claude will always automatically know which document is correct',
+          'Claude might pick one contradictory source arbitrarily, or blend them confusingly, without alerting the user to the genuine discrepancy — explicit guidance for this scenario should be added',
+          'Contradictory documents can never actually occur in any real RAG system',
+          'This scenario has no genuine relationship to prompt design'
+        ],
         correctIndex: 1,
-        explanation: 'Without explicit guidance for handling contradictory retrieved sources, Claude might produce a confusing or arbitrarily one-sided answer — this is exactly the realistic scenario this lesson recommends explicitly addressing in the prompt.',
+        explanation:
+            'Without explicit guidance for handling contradictory retrieved sources, Claude might produce a confusing or arbitrarily one-sided answer — this is exactly the realistic scenario this lesson recommends explicitly addressing in the prompt.',
         xpReward: 15,
       ),
       MiniChallenge(
-        prompt: 'A conversational RAG application retrieves context for Turn 1\'s question about refund policy, and this same retrieved context is kept and resent unchanged for Turn 5\'s completely unrelated question about employee parking. What problem does this design likely cause?',
-        options: ['This is the correct, ideal way to handle a conversational RAG application', 'Turn 5\'s response will likely be poorly grounded, since it lacks genuinely fresh, relevant retrieved context for its actual, new topic — context should typically be re-fetched per turn', 'Retrieved context should always remain completely unchanged throughout an entire conversation', 'This design has no genuine relationship to response quality'],
+        prompt:
+            'A conversational RAG application retrieves context for Turn 1\'s question about refund policy, and this same retrieved context is kept and resent unchanged for Turn 5\'s completely unrelated question about employee parking. What problem does this design likely cause?',
+        options: [
+          'This is the correct, ideal way to handle a conversational RAG application',
+          'Turn 5\'s response will likely be poorly grounded, since it lacks genuinely fresh, relevant retrieved context for its actual, new topic — context should typically be re-fetched per turn',
+          'Retrieved context should always remain completely unchanged throughout an entire conversation',
+          'This design has no genuine relationship to response quality'
+        ],
         correctIndex: 1,
-        explanation: 'Reusing stale, irrelevant retrieved context from an earlier, unrelated turn means the later question lacks genuinely relevant grounding — retrieved context should typically be refreshed for each new, distinct query.',
+        explanation:
+            'Reusing stale, irrelevant retrieved context from an earlier, unrelated turn means the later question lacks genuinely relevant grounding — retrieved context should typically be refreshed for each new, distinct query.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Design a Complete RAG Prompt with Genuine Edge-Case Handling',
-      goal: 'Practice combining Level 1\'s grounding and XML techniques specifically for RAG, including handling contradictions and conversational context refresh.',
+      goal:
+          'Practice combining Level 1\'s grounding and XML techniques specifically for RAG, including handling contradictions and conversational context refresh.',
       steps: [
         'Write a complete system prompt for a RAG application, including the "answer only from retrieved context" grounding instruction and the "note contradictions explicitly" instruction',
         'Write an example user message using XML tags to structure 2 retrieved chunks and the actual question',
         'Describe your approach for a conversational version of this application: does context get refreshed per turn, and how?',
         'Write one example scenario where the retrieved chunks genuinely contradict each other, and the response you would expect Claude to generate given your system prompt\'s guidance',
       ],
-      expectedOutput: 'A complete system prompt with grounding and contradiction-handling instructions, an XML-structured example message, a conversational context-refresh approach, and one worked contradiction scenario.',
+      expectedOutput:
+          'A complete system prompt with grounding and contradiction-handling instructions, an XML-structured example message, a conversational context-refresh approach, and one worked contradiction scenario.',
       xpReward: 55,
     ),
   ),
@@ -703,100 +1127,171 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 22,
     totalXp: 125,
     emoji: '🔖',
-    intro: 'A genuinely trustworthy RAG application does not just answer questions — it shows users exactly WHERE that answer came from. This lesson teaches you to implement citations, directly building on Level 1\'s citation-requesting technique.',
+    intro:
+        'A genuinely trustworthy RAG application does not just answer questions — it shows users exactly WHERE that answer came from. This lesson teaches you to implement citations, directly building on Level 1\'s citation-requesting technique.',
     concepts: [
       ConceptLesson(
         title: 'Why Citations Genuinely Matter for RAG',
-        definition: 'Directly extending Level 1\'s "ask for citations" hallucination-reduction technique, showing users exactly which retrieved document or section supported a given answer builds genuine trust and lets users verify the information themselves.',
-        analogy: 'This is like a genuinely well-researched news article citing its specific sources, rather than making claims without any attribution — the citation itself is what lets a genuinely skeptical reader verify the claim independently.',
-        example: 'Rather than just "Refunds take 5-7 business days," a citation-enabled response says: "Refunds take 5-7 business days (Source: Returns Policy, Section 3.2)," letting the user verify this claim directly.',
-        keyTakeaway: 'This is a direct, concrete application of Level 1\'s citation-requesting technique — RAG applications are precisely where this technique genuinely delivers its most practical, tangible value.',
+        definition:
+            'Directly extending Level 1\'s "ask for citations" hallucination-reduction technique, showing users exactly which retrieved document or section supported a given answer builds genuine trust and lets users verify the information themselves.',
+        analogy:
+            'This is like a genuinely well-researched news article citing its specific sources, rather than making claims without any attribution — the citation itself is what lets a genuinely skeptical reader verify the claim independently.',
+        example:
+            'Rather than just "Refunds take 5-7 business days," a citation-enabled response says: "Refunds take 5-7 business days (Source: Returns Policy, Section 3.2)," letting the user verify this claim directly.',
+        keyTakeaway:
+            'This is a direct, concrete application of Level 1\'s citation-requesting technique — RAG applications are precisely where this technique genuinely delivers its most practical, tangible value.',
       ),
       ConceptLesson(
         title: 'Including Source Metadata for Citation',
-        definition: 'For citations to genuinely work, each retrieved chunk\'s metadata (from this level\'s vector-database lesson) must include enough identifying information — document name, section, page number — for Claude to reference it specifically and accurately in its response.',
-        analogy: 'This is exactly why the librarian\'s catalog entries needed genuinely detailed metadata, not just bare shelf coordinates — you need to know WHICH specific book and WHICH specific page a piece of information actually came from.',
-        example: 'A chunk\'s metadata including {document: "Returns Policy v3.2", section: "3.2 Refund Timeline", last_updated: "2026-06-01"} gives Claude everything genuinely needed to produce a specific, accurate, useful citation.',
-        keyTakeaway: 'This directly connects this level\'s vector-database lesson to this citation lesson — the metadata design decisions you made earlier in this level are precisely what makes reliable citation genuinely possible now.',
+        definition:
+            'For citations to genuinely work, each retrieved chunk\'s metadata (from this level\'s vector-database lesson) must include enough identifying information — document name, section, page number — for Claude to reference it specifically and accurately in its response.',
+        analogy:
+            'This is exactly why the librarian\'s catalog entries needed genuinely detailed metadata, not just bare shelf coordinates — you need to know WHICH specific book and WHICH specific page a piece of information actually came from.',
+        example:
+            'A chunk\'s metadata including {document: "Returns Policy v3.2", section: "3.2 Refund Timeline", last_updated: "2026-06-01"} gives Claude everything genuinely needed to produce a specific, accurate, useful citation.',
+        keyTakeaway:
+            'This directly connects this level\'s vector-database lesson to this citation lesson — the metadata design decisions you made earlier in this level are precisely what makes reliable citation genuinely possible now.',
       ),
       ConceptLesson(
         title: 'Instructing Claude to Cite Consistently',
-        definition: 'Directly reusing Level 2\'s output-formatting lesson, the system prompt should specify an EXACT, consistent citation format Claude should follow, rather than leaving citation style to vary unpredictably across different responses.',
-        analogy: 'This is exactly Level 2\'s "explicit format instructions" lesson, now applied specifically to citation formatting — consistency here is just as genuinely important as consistency in any other structured output.',
-        example: 'System prompt: "When citing a source, use the exact format (Source: [document name], [section]). Always cite the specific source for any factual claim drawn from the retrieved context."',
-        keyTakeaway: 'This is another direct, concrete example of an earlier level\'s technique (Level 2\'s format control) being applied specifically within this level\'s RAG context — you are genuinely combining, not relearning, these skills.',
+        definition:
+            'Directly reusing Level 2\'s output-formatting lesson, the system prompt should specify an EXACT, consistent citation format Claude should follow, rather than leaving citation style to vary unpredictably across different responses.',
+        analogy:
+            'This is exactly Level 2\'s "explicit format instructions" lesson, now applied specifically to citation formatting — consistency here is just as genuinely important as consistency in any other structured output.',
+        example:
+            'System prompt: "When citing a source, use the exact format (Source: [document name], [section]). Always cite the specific source for any factual claim drawn from the retrieved context."',
+        keyTakeaway:
+            'This is another direct, concrete example of an earlier level\'s technique (Level 2\'s format control) being applied specifically within this level\'s RAG context — you are genuinely combining, not relearning, these skills.',
       ),
       ConceptLesson(
         title: 'Displaying Citations in the User Interface',
-        definition: 'Beyond the prompt-level citation text itself, a genuinely well-designed application might present citations as clickable links or clearly visually distinguished elements in the UI, letting users easily jump to and verify the actual original source document.',
-        analogy: 'This is like a genuinely well-designed digital article where footnote citations are clickable, letting a curious reader jump straight to the original source with one click, rather than needing to manually search for it themselves.',
-        example: 'A citation like "(Source: Returns Policy, Section 3.2)" might be rendered in the UI as a clickable link that opens the actual Returns Policy document directly to Section 3.2.',
-        keyTakeaway: 'This UI-level consideration genuinely extends beyond pure prompt engineering into product design — the citation text Claude generates should be genuinely usable and actionable, not just cosmetically present.',
+        definition:
+            'Beyond the prompt-level citation text itself, a genuinely well-designed application might present citations as clickable links or clearly visually distinguished elements in the UI, letting users easily jump to and verify the actual original source document.',
+        analogy:
+            'This is like a genuinely well-designed digital article where footnote citations are clickable, letting a curious reader jump straight to the original source with one click, rather than needing to manually search for it themselves.',
+        example:
+            'A citation like "(Source: Returns Policy, Section 3.2)" might be rendered in the UI as a clickable link that opens the actual Returns Policy document directly to Section 3.2.',
+        keyTakeaway:
+            'This UI-level consideration genuinely extends beyond pure prompt engineering into product design — the citation text Claude generates should be genuinely usable and actionable, not just cosmetically present.',
       ),
       ConceptLesson(
         title: 'Citations as a Genuine Quality Signal',
-        definition: 'Directly connecting to this level\'s upcoming evaluation lesson, tracking whether Claude\'s citations genuinely, accurately match the actual retrieved content (rather than being fabricated or mismatched) is itself an important RAG quality metric.',
-        analogy: 'This is like periodically fact-checking whether a writer\'s claimed citations genuinely support the specific claims they are attached to, rather than simply trusting that citations are always automatically accurate just because they exist.',
-        example: 'A quality check might sample 20 responses and verify: does the cited section ACTUALLY contain the claimed information, or did Claude cite a plausible-sounding but genuinely incorrect source?',
-        keyTakeaway: 'This citation-accuracy check is precisely the kind of concrete, measurable quality signal you will formalize in this level\'s upcoming RAG-evaluation lesson — citations are not just a trust-building feature, they are also something genuinely worth measuring.',
+        definition:
+            'Directly connecting to this level\'s upcoming evaluation lesson, tracking whether Claude\'s citations genuinely, accurately match the actual retrieved content (rather than being fabricated or mismatched) is itself an important RAG quality metric.',
+        analogy:
+            'This is like periodically fact-checking whether a writer\'s claimed citations genuinely support the specific claims they are attached to, rather than simply trusting that citations are always automatically accurate just because they exist.',
+        example:
+            'A quality check might sample 20 responses and verify: does the cited section ACTUALLY contain the claimed information, or did Claude cite a plausible-sounding but genuinely incorrect source?',
+        keyTakeaway:
+            'This citation-accuracy check is precisely the kind of concrete, measurable quality signal you will formalize in this level\'s upcoming RAG-evaluation lesson — citations are not just a trust-building feature, they are also something genuinely worth measuring.',
       ),
     ],
     quiz: [
       QuizQuestion(
-        question: 'How does this lesson\'s citation technique directly connect to Level 1?',
-        options: ['This lesson has no genuine relationship to any earlier level\'s content', 'This is a direct, concrete application of Level 1\'s "ask for citations" hallucination-reduction technique, specifically applied within a RAG application', 'Citations were never actually mentioned anywhere in Level 1', 'Level 1\'s citation technique only applies outside of RAG applications, never within them'],
+        question:
+            'How does this lesson\'s citation technique directly connect to Level 1?',
+        options: [
+          'This lesson has no genuine relationship to any earlier level\'s content',
+          'This is a direct, concrete application of Level 1\'s "ask for citations" hallucination-reduction technique, specifically applied within a RAG application',
+          'Citations were never actually mentioned anywhere in Level 1',
+          'Level 1\'s citation technique only applies outside of RAG applications, never within them'
+        ],
         correctIndex: 1,
-        explanation: 'This lesson directly applies Level 1\'s citation-requesting technique specifically to RAG, which is precisely the context where this technique delivers its most practical, tangible value.',
+        explanation:
+            'This lesson directly applies Level 1\'s citation-requesting technique specifically to RAG, which is precisely the context where this technique delivers its most practical, tangible value.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why must a retrieved chunk\'s metadata include identifying information (document name, section) for citations to genuinely work?',
-        options: ['Metadata has no genuine relationship to citation functionality', 'Claude needs this identifying information to reference the source specifically and accurately, directly connecting this level\'s vector-database lesson to citation quality', 'Citations can always be generated accurately without any genuine source metadata', 'Only the bare embedding vector is ever needed for accurate citation'],
+        question:
+            'Why must a retrieved chunk\'s metadata include identifying information (document name, section) for citations to genuinely work?',
+        options: [
+          'Metadata has no genuine relationship to citation functionality',
+          'Claude needs this identifying information to reference the source specifically and accurately, directly connecting this level\'s vector-database lesson to citation quality',
+          'Citations can always be generated accurately without any genuine source metadata',
+          'Only the bare embedding vector is ever needed for accurate citation'
+        ],
         correctIndex: 1,
-        explanation: 'Accurate citation genuinely requires identifying metadata (document name, section) to be available — directly connecting this level\'s earlier vector-database metadata design to this lesson\'s citation quality.',
+        explanation:
+            'Accurate citation genuinely requires identifying metadata (document name, section) to be available — directly connecting this level\'s earlier vector-database metadata design to this lesson\'s citation quality.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why should a RAG system prompt specify an exact, consistent citation format?',
-        options: ['Citation format has no genuine effect on response usability', 'This directly reuses Level 2\'s explicit-format-instructions lesson, ensuring citation style remains consistent rather than varying unpredictably across responses', 'Citation formatting should always be left completely unspecified for maximum flexibility', 'Consistent formatting is only ever relevant outside of citation-related content'],
+        question:
+            'Why should a RAG system prompt specify an exact, consistent citation format?',
+        options: [
+          'Citation format has no genuine effect on response usability',
+          'This directly reuses Level 2\'s explicit-format-instructions lesson, ensuring citation style remains consistent rather than varying unpredictably across responses',
+          'Citation formatting should always be left completely unspecified for maximum flexibility',
+          'Consistent formatting is only ever relevant outside of citation-related content'
+        ],
         correctIndex: 1,
-        explanation: 'This is a direct application of Level 2\'s format-control lesson, specifically applied to citations — consistency here matters just as much as it does for any other structured output.',
+        explanation:
+            'This is a direct application of Level 2\'s format-control lesson, specifically applied to citations — consistency here matters just as much as it does for any other structured output.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why might a genuinely well-designed application render citations as clickable UI elements, beyond just including citation text in Claude\'s response?',
-        options: ['UI-level citation design has no genuine relationship to a RAG application\'s overall quality', 'Clickable citations let users easily jump to and verify the actual original source, extending pure prompt engineering into genuinely thoughtful product design', 'Citations should never actually be displayed anywhere in the user interface', 'Only prompt-level citation text matters, with no genuine UI consideration ever needed'],
+        question:
+            'Why might a genuinely well-designed application render citations as clickable UI elements, beyond just including citation text in Claude\'s response?',
+        options: [
+          'UI-level citation design has no genuine relationship to a RAG application\'s overall quality',
+          'Clickable citations let users easily jump to and verify the actual original source, extending pure prompt engineering into genuinely thoughtful product design',
+          'Citations should never actually be displayed anywhere in the user interface',
+          'Only prompt-level citation text matters, with no genuine UI consideration ever needed'
+        ],
         correctIndex: 1,
-        explanation: 'Presenting citations as clickable, actionable UI elements extends beyond prompt engineering into thoughtful product design, making the citation genuinely usable rather than just cosmetically present.',
+        explanation:
+            'Presenting citations as clickable, actionable UI elements extends beyond prompt engineering into thoughtful product design, making the citation genuinely usable rather than just cosmetically present.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why is tracking citation ACCURACY (whether cited sources genuinely support the claims) a genuine quality metric worth measuring?',
-        options: ['Citations are always automatically accurate the moment Claude generates them, with no need for verification', 'Verifying that citations genuinely, accurately match the retrieved content is an important RAG quality signal, directly connecting to this level\'s upcoming evaluation lesson', 'Citation accuracy has no genuine relationship to overall RAG system quality', 'Only citation FORMAT matters, never whether the citation is actually accurate'],
+        question:
+            'Why is tracking citation ACCURACY (whether cited sources genuinely support the claims) a genuine quality metric worth measuring?',
+        options: [
+          'Citations are always automatically accurate the moment Claude generates them, with no need for verification',
+          'Verifying that citations genuinely, accurately match the retrieved content is an important RAG quality signal, directly connecting to this level\'s upcoming evaluation lesson',
+          'Citation accuracy has no genuine relationship to overall RAG system quality',
+          'Only citation FORMAT matters, never whether the citation is actually accurate'
+        ],
         correctIndex: 1,
-        explanation: 'Verifying that citations genuinely, accurately reflect the retrieved content — not just checking their format — is an important, measurable quality signal that connects directly to this level\'s upcoming evaluation lesson.',
+        explanation:
+            'Verifying that citations genuinely, accurately reflect the retrieved content — not just checking their format — is an important, measurable quality signal that connects directly to this level\'s upcoming evaluation lesson.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A RAG application\'s retrieved chunks are stored with metadata containing only a bare, generic chunk_id number (e.g., "chunk_4821"), with no actual document name or section information included. What problem does this create for implementing citations?',
-        options: ['There is no genuine problem, a bare chunk ID number is always fully sufficient for a useful citation', 'Claude has no genuinely meaningful, human-readable information to cite — a bare ID number is not useful for a user trying to verify or locate the actual source', 'Citations do not actually require any metadata whatsoever to function well', 'This metadata design is the ideal, recommended approach for citation-enabled RAG'],
+        prompt:
+            'A RAG application\'s retrieved chunks are stored with metadata containing only a bare, generic chunk_id number (e.g., "chunk_4821"), with no actual document name or section information included. What problem does this create for implementing citations?',
+        options: [
+          'There is no genuine problem, a bare chunk ID number is always fully sufficient for a useful citation',
+          'Claude has no genuinely meaningful, human-readable information to cite — a bare ID number is not useful for a user trying to verify or locate the actual source',
+          'Citations do not actually require any metadata whatsoever to function well',
+          'This metadata design is the ideal, recommended approach for citation-enabled RAG'
+        ],
         correctIndex: 1,
-        explanation: 'A bare, non-descriptive chunk ID provides no genuinely useful, human-readable citation information — meaningful metadata (document name, section) is needed for citations to actually serve their intended purpose.',
+        explanation:
+            'A bare, non-descriptive chunk ID provides no genuinely useful, human-readable citation information — meaningful metadata (document name, section) is needed for citations to actually serve their intended purpose.',
         xpReward: 15,
       ),
       MiniChallenge(
-        prompt: 'A quality review reveals that in several RAG responses, Claude\'s cited source section does not actually contain the specific claim it was cited for supporting. What does this lesson suggest this indicates?',
-        options: ['This is expected and completely acceptable behavior with no genuine concern', 'This is a genuine citation-accuracy quality issue worth tracking and investigating, directly connecting to this level\'s evaluation lesson', 'Citation accuracy is never actually a genuine, measurable RAG quality concern', 'This finding has no genuine relationship to the RAG system\'s actual quality'],
+        prompt:
+            'A quality review reveals that in several RAG responses, Claude\'s cited source section does not actually contain the specific claim it was cited for supporting. What does this lesson suggest this indicates?',
+        options: [
+          'This is expected and completely acceptable behavior with no genuine concern',
+          'This is a genuine citation-accuracy quality issue worth tracking and investigating, directly connecting to this level\'s evaluation lesson',
+          'Citation accuracy is never actually a genuine, measurable RAG quality concern',
+          'This finding has no genuine relationship to the RAG system\'s actual quality'
+        ],
         correctIndex: 1,
-        explanation: 'Mismatched or inaccurate citations represent a genuine RAG quality issue worth tracking and investigating — exactly the kind of measurable signal this lesson connects to the upcoming evaluation lesson.',
+        explanation:
+            'Mismatched or inaccurate citations represent a genuine RAG quality issue worth tracking and investigating — exactly the kind of measurable signal this lesson connects to the upcoming evaluation lesson.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Design a Complete Citation-Enabled RAG Response Flow',
-      goal: 'Practice designing metadata, prompt instructions, and quality checks needed for genuinely reliable, trustworthy citations.',
+      goal:
+          'Practice designing metadata, prompt instructions, and quality checks needed for genuinely reliable, trustworthy citations.',
       steps: [
         'Design the metadata fields a retrieved chunk would need to support a genuinely useful citation (referencing this level\'s vector-database lesson)',
         'Write the exact citation-format instruction you would add to your system prompt',
@@ -804,7 +1299,8 @@ const List<TopicCourse> claudeEngineerLevel5 = [
         'Describe how you would present this citation in a user interface to make it genuinely actionable',
         'Describe one specific quality check you would perform to verify citation accuracy, not just citation format',
       ],
-      expectedOutput: 'Chunk metadata design, a citation-format prompt instruction, one example cited response, a UI presentation idea, and a citation-accuracy quality check.',
+      expectedOutput:
+          'Chunk metadata design, a citation-format prompt instruction, one example cited response, a UI presentation idea, and a citation-accuracy quality check.',
       xpReward: 55,
     ),
   ),
@@ -818,107 +1314,178 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 22,
     totalXp: 125,
     emoji: '🔀',
-    intro: 'Embeddings are powerful but genuinely imperfect (this level\'s embeddings lesson). This lesson teaches you hybrid search — combining semantic embedding search with traditional keyword search for genuinely more reliable retrieval.',
+    intro:
+        'Embeddings are powerful but genuinely imperfect (this level\'s embeddings lesson). This lesson teaches you hybrid search — combining semantic embedding search with traditional keyword search for genuinely more reliable retrieval.',
     concepts: [
       ConceptLesson(
         title: 'Revisiting Embedding Search\'s Genuine Limitations',
-        definition: 'Directly building on this level\'s embeddings lesson, semantic search can genuinely struggle with exact terms that matter precisely as written — specific product codes, exact legal terms, or precise proper nouns — where MEANING-based similarity is not actually the genuinely relevant signal.',
-        analogy: 'This is like that topic-based library map genuinely struggling to help someone searching for one very SPECIFIC book by its exact, precise catalog number — meaning-based proximity is not actually the relevant signal for this specific kind of exact-match search.',
-        example: 'A user searching for the exact error code "ERR-4471" needs an EXACT match, not a semantically "similar" error code — pure embedding-based search might genuinely surface a related but incorrect error code instead.',
-        keyTakeaway: 'This genuine limitation is precisely why hybrid search exists — recognizing WHEN exact-match keyword search is genuinely more appropriate than pure semantic similarity is an important, practical RAG design skill.',
+        definition:
+            'Directly building on this level\'s embeddings lesson, semantic search can genuinely struggle with exact terms that matter precisely as written — specific product codes, exact legal terms, or precise proper nouns — where MEANING-based similarity is not actually the genuinely relevant signal.',
+        analogy:
+            'This is like that topic-based library map genuinely struggling to help someone searching for one very SPECIFIC book by its exact, precise catalog number — meaning-based proximity is not actually the relevant signal for this specific kind of exact-match search.',
+        example:
+            'A user searching for the exact error code "ERR-4471" needs an EXACT match, not a semantically "similar" error code — pure embedding-based search might genuinely surface a related but incorrect error code instead.',
+        keyTakeaway:
+            'This genuine limitation is precisely why hybrid search exists — recognizing WHEN exact-match keyword search is genuinely more appropriate than pure semantic similarity is an important, practical RAG design skill.',
       ),
       ConceptLesson(
         title: 'What is Keyword (Lexical) Search?',
-        definition: 'Keyword search (also called lexical search) finds documents containing the EXACT words or phrases from a query, using traditional text-matching techniques — genuinely different from, and complementary to, embedding-based semantic similarity.',
-        analogy: 'This is like the traditional library card catalog\'s exact title and author lookup — genuinely excellent for precise queries, but lacking the topic-map\'s ability to find conceptually related content using different wording.',
-        example: 'A keyword search for "ERR-4471" reliably finds documents containing that exact string, regardless of the surrounding context\'s overall semantic meaning — precisely the capability pure embedding search can genuinely lack.',
-        keyTakeaway: 'Keyword search and semantic search have genuinely complementary strengths and weaknesses — this is precisely why COMBINING them, rather than choosing only one, often produces the most genuinely reliable retrieval.',
+        definition:
+            'Keyword search (also called lexical search) finds documents containing the EXACT words or phrases from a query, using traditional text-matching techniques — genuinely different from, and complementary to, embedding-based semantic similarity.',
+        analogy:
+            'This is like the traditional library card catalog\'s exact title and author lookup — genuinely excellent for precise queries, but lacking the topic-map\'s ability to find conceptually related content using different wording.',
+        example:
+            'A keyword search for "ERR-4471" reliably finds documents containing that exact string, regardless of the surrounding context\'s overall semantic meaning — precisely the capability pure embedding search can genuinely lack.',
+        keyTakeaway:
+            'Keyword search and semantic search have genuinely complementary strengths and weaknesses — this is precisely why COMBINING them, rather than choosing only one, often produces the most genuinely reliable retrieval.',
       ),
       ConceptLesson(
         title: 'How Hybrid Search Combines Both Approaches',
-        definition: 'Hybrid search runs BOTH a semantic (embedding) search and a keyword search for the same query, then combines and re-ranks the results from both approaches into one final, genuinely more reliable, combined result set.',
-        analogy: 'This is like consulting BOTH the topic-based map AND the traditional exact-title catalog for the same search, then genuinely combining the best findings from each approach into one final, more complete answer.',
-        example: 'For "ERR-4471 troubleshooting," hybrid search might combine keyword search\'s exact match for "ERR-4471" with semantic search\'s conceptual understanding of "troubleshooting," surfacing genuinely more complete, relevant results.',
-        keyTakeaway: 'Hybrid search is not an either-or choice — it is a genuine combination technique, directly addressing each individual approach\'s specific weaknesses by pairing it with the other approach\'s corresponding strength.',
+        definition:
+            'Hybrid search runs BOTH a semantic (embedding) search and a keyword search for the same query, then combines and re-ranks the results from both approaches into one final, genuinely more reliable, combined result set.',
+        analogy:
+            'This is like consulting BOTH the topic-based map AND the traditional exact-title catalog for the same search, then genuinely combining the best findings from each approach into one final, more complete answer.',
+        example:
+            'For "ERR-4471 troubleshooting," hybrid search might combine keyword search\'s exact match for "ERR-4471" with semantic search\'s conceptual understanding of "troubleshooting," surfacing genuinely more complete, relevant results.',
+        keyTakeaway:
+            'Hybrid search is not an either-or choice — it is a genuine combination technique, directly addressing each individual approach\'s specific weaknesses by pairing it with the other approach\'s corresponding strength.',
       ),
       ConceptLesson(
         title: 'Weighting and Re-Ranking Combined Results',
-        definition: 'A genuine design decision in hybrid search is how to WEIGHT and combine results from the two different search methods — giving more weight to keyword matches for queries with clear exact terms, or more weight to semantic matches for genuinely conceptual, exploratory questions.',
-        analogy: 'This is like a genuinely experienced librarian intuitively knowing when to weight the exact-catalog lookup more heavily (for a specific, precise request) versus the topic-map more heavily (for a broader, more conceptual, exploratory question).',
-        example: 'A query containing an exact product code might weight keyword-match results more heavily, while a query like "how do I improve team morale" might weight semantic-similarity results more heavily instead.',
-        keyTakeaway: 'This weighting decision is genuinely another tunable parameter (similar to this level\'s top-k lesson) that benefits from the test-and-iterate discipline from Level 2\'s iterative-refinement lesson, applied to your specific content and query patterns.',
+        definition:
+            'A genuine design decision in hybrid search is how to WEIGHT and combine results from the two different search methods — giving more weight to keyword matches for queries with clear exact terms, or more weight to semantic matches for genuinely conceptual, exploratory questions.',
+        analogy:
+            'This is like a genuinely experienced librarian intuitively knowing when to weight the exact-catalog lookup more heavily (for a specific, precise request) versus the topic-map more heavily (for a broader, more conceptual, exploratory question).',
+        example:
+            'A query containing an exact product code might weight keyword-match results more heavily, while a query like "how do I improve team morale" might weight semantic-similarity results more heavily instead.',
+        keyTakeaway:
+            'This weighting decision is genuinely another tunable parameter (similar to this level\'s top-k lesson) that benefits from the test-and-iterate discipline from Level 2\'s iterative-refinement lesson, applied to your specific content and query patterns.',
       ),
       ConceptLesson(
         title: 'When Pure Semantic Search Is Genuinely Sufficient',
-        definition: 'Not every RAG application genuinely needs hybrid search\'s added complexity — for content and queries that are genuinely conceptual and rarely involve exact codes or precise terminology, pure embedding-based semantic search alone may be entirely sufficient.',
-        analogy: 'Just as Level 2 taught you to avoid over-engineering simple prompts, a RAG system for genuinely conceptual, narrative content (like general company culture documentation) may not genuinely need the added complexity of implementing hybrid search.',
-        example: 'A RAG system answering broad, conceptual questions about company values and culture likely does not genuinely need hybrid search\'s exact-match capability, while a technical support system full of precise error codes very likely does.',
-        keyTakeaway: 'This is precisely the same "match technique to genuine need" principle from throughout this roadmap — assess whether your specific content genuinely contains exact-match-critical terms before adding hybrid search\'s implementation complexity.',
+        definition:
+            'Not every RAG application genuinely needs hybrid search\'s added complexity — for content and queries that are genuinely conceptual and rarely involve exact codes or precise terminology, pure embedding-based semantic search alone may be entirely sufficient.',
+        analogy:
+            'Just as Level 2 taught you to avoid over-engineering simple prompts, a RAG system for genuinely conceptual, narrative content (like general company culture documentation) may not genuinely need the added complexity of implementing hybrid search.',
+        example:
+            'A RAG system answering broad, conceptual questions about company values and culture likely does not genuinely need hybrid search\'s exact-match capability, while a technical support system full of precise error codes very likely does.',
+        keyTakeaway:
+            'This is precisely the same "match technique to genuine need" principle from throughout this roadmap — assess whether your specific content genuinely contains exact-match-critical terms before adding hybrid search\'s implementation complexity.',
       ),
     ],
     quiz: [
       QuizQuestion(
-        question: 'What is a genuine limitation of pure embedding-based semantic search, directly building on this level\'s embeddings lesson?',
-        options: ['Embedding-based search has no genuine limitations of any kind whatsoever', 'It can genuinely struggle with exact terms that matter precisely as written — like specific product codes or exact legal terms — where meaning-based similarity is not the relevant signal', 'Embedding-based search is always strictly and completely superior to keyword search in every case', 'This limitation only applies to documents written in non-English languages'],
+        question:
+            'What is a genuine limitation of pure embedding-based semantic search, directly building on this level\'s embeddings lesson?',
+        options: [
+          'Embedding-based search has no genuine limitations of any kind whatsoever',
+          'It can genuinely struggle with exact terms that matter precisely as written — like specific product codes or exact legal terms — where meaning-based similarity is not the relevant signal',
+          'Embedding-based search is always strictly and completely superior to keyword search in every case',
+          'This limitation only applies to documents written in non-English languages'
+        ],
         correctIndex: 1,
-        explanation: 'Pure semantic search can genuinely struggle with exact-match needs (precise codes, specific terms) where meaning-based similarity is not actually the relevant matching signal — exactly this level\'s embeddings lesson\'s noted limitation.',
+        explanation:
+            'Pure semantic search can genuinely struggle with exact-match needs (precise codes, specific terms) where meaning-based similarity is not actually the relevant matching signal — exactly this level\'s embeddings lesson\'s noted limitation.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'What does keyword (lexical) search do differently from semantic search?',
-        options: ['Keyword search and semantic search are functionally identical with no genuine differences', 'Keyword search finds documents containing the EXACT words or phrases from a query, using traditional text-matching, rather than meaning-based similarity', 'Keyword search only ever works for documents containing no genuine text content', 'Semantic search always finds documents based purely on exact string matching'],
+        question:
+            'What does keyword (lexical) search do differently from semantic search?',
+        options: [
+          'Keyword search and semantic search are functionally identical with no genuine differences',
+          'Keyword search finds documents containing the EXACT words or phrases from a query, using traditional text-matching, rather than meaning-based similarity',
+          'Keyword search only ever works for documents containing no genuine text content',
+          'Semantic search always finds documents based purely on exact string matching'
+        ],
         correctIndex: 1,
-        explanation: 'Keyword search relies on exact word/phrase matching using traditional text-matching techniques, genuinely different from and complementary to embedding-based semantic similarity.',
+        explanation:
+            'Keyword search relies on exact word/phrase matching using traditional text-matching techniques, genuinely different from and complementary to embedding-based semantic similarity.',
         xpReward: 10,
       ),
       QuizQuestion(
         question: 'How does hybrid search combine semantic and keyword search?',
-        options: ['Hybrid search only ever uses one of the two approaches, never genuinely both together', 'It runs BOTH a semantic search and a keyword search for the same query, then combines and re-ranks results from both into one final, more reliable result set', 'Hybrid search is simply a completely different name for pure semantic search', 'Combining these two approaches is technically impossible to actually implement'],
+        options: [
+          'Hybrid search only ever uses one of the two approaches, never genuinely both together',
+          'It runs BOTH a semantic search and a keyword search for the same query, then combines and re-ranks results from both into one final, more reliable result set',
+          'Hybrid search is simply a completely different name for pure semantic search',
+          'Combining these two approaches is technically impossible to actually implement'
+        ],
         correctIndex: 1,
-        explanation: 'Hybrid search genuinely runs both search approaches for the same query and combines their results, directly addressing each individual method\'s specific weaknesses with the other\'s corresponding strength.',
+        explanation:
+            'Hybrid search genuinely runs both search approaches for the same query and combines their results, directly addressing each individual method\'s specific weaknesses with the other\'s corresponding strength.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why might a hybrid search system weight keyword matches more heavily for some queries and semantic matches more heavily for others?',
-        options: ['Weighting should always remain completely fixed and identical regardless of the specific query type', 'Different query types (precise, exact-term queries vs broad, conceptual questions) genuinely benefit from different relative weighting between the two search approaches', 'Weighting has no genuine relationship to query type or search quality', 'Only semantic search results should ever genuinely be weighted or considered at all'],
+        question:
+            'Why might a hybrid search system weight keyword matches more heavily for some queries and semantic matches more heavily for others?',
+        options: [
+          'Weighting should always remain completely fixed and identical regardless of the specific query type',
+          'Different query types (precise, exact-term queries vs broad, conceptual questions) genuinely benefit from different relative weighting between the two search approaches',
+          'Weighting has no genuine relationship to query type or search quality',
+          'Only semantic search results should ever genuinely be weighted or considered at all'
+        ],
         correctIndex: 1,
-        explanation: 'Different query types genuinely benefit from different weighting — precise, exact-term queries favor keyword-match weighting, while broad, conceptual questions favor semantic-match weighting.',
+        explanation:
+            'Different query types genuinely benefit from different weighting — precise, exact-term queries favor keyword-match weighting, while broad, conceptual questions favor semantic-match weighting.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'When might pure semantic search alone genuinely be sufficient, without needing hybrid search\'s added complexity?',
-        options: ['Pure semantic search is never actually sufficient on its own under any circumstances', 'For content and queries that are genuinely conceptual and rarely involve exact codes or precise terminology, directly applying this roadmap\'s "match technique to genuine need" principle', 'Hybrid search should always be implemented for absolutely every single RAG application without exception', 'This decision has no genuine relationship to the actual content or query patterns involved'],
+        question:
+            'When might pure semantic search alone genuinely be sufficient, without needing hybrid search\'s added complexity?',
+        options: [
+          'Pure semantic search is never actually sufficient on its own under any circumstances',
+          'For content and queries that are genuinely conceptual and rarely involve exact codes or precise terminology, directly applying this roadmap\'s "match technique to genuine need" principle',
+          'Hybrid search should always be implemented for absolutely every single RAG application without exception',
+          'This decision has no genuine relationship to the actual content or query patterns involved'
+        ],
         correctIndex: 1,
-        explanation: 'For genuinely conceptual content without exact-match-critical terms, pure semantic search may be entirely sufficient, directly applying this roadmap\'s recurring theme of matching technique to genuine task need.',
+        explanation:
+            'For genuinely conceptual content without exact-match-critical terms, pure semantic search may be entirely sufficient, directly applying this roadmap\'s recurring theme of matching technique to genuine task need.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A technical support RAG system, full of precise error codes and exact product model numbers, uses only pure embedding-based semantic search, and users frequently report that searching for a specific, exact error code fails to surface the genuinely correct, matching document. What does this lesson suggest?',
-        options: ['This is expected and cannot genuinely be improved through any means', 'Implementing hybrid search, adding exact keyword matching alongside semantic search, would likely directly address this genuine limitation for exact-code queries', 'Pure semantic search is always fully sufficient for every type of content, including precise technical codes', 'The embedding model itself must be completely broken and non-functional'],
+        prompt:
+            'A technical support RAG system, full of precise error codes and exact product model numbers, uses only pure embedding-based semantic search, and users frequently report that searching for a specific, exact error code fails to surface the genuinely correct, matching document. What does this lesson suggest?',
+        options: [
+          'This is expected and cannot genuinely be improved through any means',
+          'Implementing hybrid search, adding exact keyword matching alongside semantic search, would likely directly address this genuine limitation for exact-code queries',
+          'Pure semantic search is always fully sufficient for every type of content, including precise technical codes',
+          'The embedding model itself must be completely broken and non-functional'
+        ],
         correctIndex: 1,
-        explanation: 'This scenario — exact codes failing to match well with pure semantic search — is precisely the genuine limitation hybrid search is designed to address by adding reliable exact-match keyword search alongside semantic similarity.',
+        explanation:
+            'This scenario — exact codes failing to match well with pure semantic search — is precisely the genuine limitation hybrid search is designed to address by adding reliable exact-match keyword search alongside semantic similarity.',
         xpReward: 15,
       ),
       MiniChallenge(
-        prompt: 'A team implements genuinely complex hybrid search, with careful custom weighting logic, for a RAG system that only ever answers broad, conceptual questions about company culture and values, with no exact codes or precise terminology ever genuinely involved. What does this lesson suggest about this design choice?',
-        options: ['This is the ideal, necessary approach for every single RAG application regardless of content type', 'This may be unnecessary complexity for this specific content type — pure semantic search alone might have been genuinely sufficient, consistent with this roadmap\'s "match technique to genuine need" principle', 'Hybrid search should always be avoided entirely under all circumstances', 'This design choice has no genuine relationship to the actual content or query patterns involved'],
+        prompt:
+            'A team implements genuinely complex hybrid search, with careful custom weighting logic, for a RAG system that only ever answers broad, conceptual questions about company culture and values, with no exact codes or precise terminology ever genuinely involved. What does this lesson suggest about this design choice?',
+        options: [
+          'This is the ideal, necessary approach for every single RAG application regardless of content type',
+          'This may be unnecessary complexity for this specific content type — pure semantic search alone might have been genuinely sufficient, consistent with this roadmap\'s "match technique to genuine need" principle',
+          'Hybrid search should always be avoided entirely under all circumstances',
+          'This design choice has no genuine relationship to the actual content or query patterns involved'
+        ],
         correctIndex: 1,
-        explanation: 'For genuinely conceptual content without exact-match-critical needs, implementing hybrid search\'s added complexity may not have been genuinely necessary — pure semantic search alone likely would have sufficed here.',
+        explanation:
+            'For genuinely conceptual content without exact-match-critical needs, implementing hybrid search\'s added complexity may not have been genuinely necessary — pure semantic search alone likely would have sufficed here.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Decide: Pure Semantic Search or Hybrid Search?',
-      goal: 'Practice the genuine architectural judgment of deciding when hybrid search\'s added complexity is warranted versus unnecessary.',
+      goal:
+          'Practice the genuine architectural judgment of deciding when hybrid search\'s added complexity is warranted versus unnecessary.',
       steps: [
         'Describe 2 different realistic document collections: one likely to genuinely benefit from hybrid search (e.g., technical documentation with exact codes), and one likely well-served by pure semantic search alone (e.g., general company culture content)',
         'For each collection, justify your pure-semantic vs hybrid-search decision',
         'For the hybrid-search collection, describe a specific example query and how you would weight keyword vs semantic results for it',
         'Write 1-2 sentences reflecting on how this decision connects to this roadmap\'s recurring "match technique to genuine need" theme',
       ],
-      expectedOutput: 'Two document collections with justified search-approach decisions, a weighting example for the hybrid case, and a reflection connecting this decision to the roadmap\'s recurring theme.',
+      expectedOutput:
+          'Two document collections with justified search-approach decisions, a weighting example for the hybrid case, and a reflection connecting this decision to the roadmap\'s recurring theme.',
       xpReward: 55,
     ),
   ),
@@ -932,100 +1499,170 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 24,
     totalXp: 130,
     emoji: '📏',
-    intro: 'A RAG system that "seems to work" in casual testing is not the same as one genuinely validated for production. This lesson teaches you to systematically evaluate RAG quality — directly extending Level 2\'s iterative-refinement discipline into this level\'s specific, more complex pipeline.',
+    intro:
+        'A RAG system that "seems to work" in casual testing is not the same as one genuinely validated for production. This lesson teaches you to systematically evaluate RAG quality — directly extending Level 2\'s iterative-refinement discipline into this level\'s specific, more complex pipeline.',
     concepts: [
       ConceptLesson(
         title: 'RAG Has Two Genuinely Distinct Quality Dimensions',
-        definition: 'Unlike a simple prompt, RAG quality genuinely has TWO distinct dimensions to evaluate: RETRIEVAL quality (did the system find the genuinely right chunks?) and GENERATION quality (did Claude produce a genuinely good answer FROM those chunks?) — a failure in either genuinely hurts the final result.',
-        analogy: 'This is like evaluating both whether a librarian found the genuinely right reference books (retrieval) AND whether the consultant then wrote a genuinely good answer using those books (generation) — a failure in either step produces a genuinely poor final result.',
-        example: 'A RAG system might retrieve the genuinely PERFECT, relevant chunk (good retrieval) but still generate a confusing, poorly-worded answer from it (poor generation) — or retrieve a genuinely irrelevant chunk (poor retrieval) despite excellent generation ability.',
-        keyTakeaway: 'Diagnosing WHICH dimension is genuinely failing — retrieval or generation — is essential for targeted improvement, directly extending Level 2\'s "diagnose why, not just that, a prompt failed" lesson to this level\'s more complex, 2-part pipeline.',
+        definition:
+            'Unlike a simple prompt, RAG quality genuinely has TWO distinct dimensions to evaluate: RETRIEVAL quality (did the system find the genuinely right chunks?) and GENERATION quality (did Claude produce a genuinely good answer FROM those chunks?) — a failure in either genuinely hurts the final result.',
+        analogy:
+            'This is like evaluating both whether a librarian found the genuinely right reference books (retrieval) AND whether the consultant then wrote a genuinely good answer using those books (generation) — a failure in either step produces a genuinely poor final result.',
+        example:
+            'A RAG system might retrieve the genuinely PERFECT, relevant chunk (good retrieval) but still generate a confusing, poorly-worded answer from it (poor generation) — or retrieve a genuinely irrelevant chunk (poor retrieval) despite excellent generation ability.',
+        keyTakeaway:
+            'Diagnosing WHICH dimension is genuinely failing — retrieval or generation — is essential for targeted improvement, directly extending Level 2\'s "diagnose why, not just that, a prompt failed" lesson to this level\'s more complex, 2-part pipeline.',
       ),
       ConceptLesson(
         title: 'Evaluating Retrieval Quality',
-        definition: 'Retrieval quality can be measured by building a test set of realistic queries paired with their genuinely known correct source chunk(s), then checking whether your retrieval pipeline actually surfaces those correct chunks within its top-k results.',
-        analogy: 'This is like testing a librarian\'s cataloging system with questions you already genuinely know the correct book answers to, specifically checking whether the system reliably finds those known-correct books.',
-        example: 'A test case: "Query: \'refund timeline\' → Expected chunk: \'Returns Policy, Section 3.2\'." Running this through retrieval and checking if that exact expected chunk appears within the top-3 results measures genuine retrieval quality.',
-        keyTakeaway: 'This directly extends Level 2\'s diverse-test-set principle — build a genuinely representative test set of realistic queries with known-correct expected results, not just one convenient, easy example.',
+        definition:
+            'Retrieval quality can be measured by building a test set of realistic queries paired with their genuinely known correct source chunk(s), then checking whether your retrieval pipeline actually surfaces those correct chunks within its top-k results.',
+        analogy:
+            'This is like testing a librarian\'s cataloging system with questions you already genuinely know the correct book answers to, specifically checking whether the system reliably finds those known-correct books.',
+        example:
+            'A test case: "Query: \'refund timeline\' → Expected chunk: \'Returns Policy, Section 3.2\'." Running this through retrieval and checking if that exact expected chunk appears within the top-3 results measures genuine retrieval quality.',
+        keyTakeaway:
+            'This directly extends Level 2\'s diverse-test-set principle — build a genuinely representative test set of realistic queries with known-correct expected results, not just one convenient, easy example.',
       ),
       ConceptLesson(
         title: 'Evaluating Generation Quality',
-        definition: 'Given genuinely GOOD retrieved context, generation quality asks: did Claude produce an accurate, well-grounded, appropriately-cited answer FROM that context — this can be evaluated through human review or, increasingly, using Claude itself as an evaluator (a technique explored more deeply in Level 8).',
-        analogy: 'This is like evaluating whether the consultant, given genuinely excellent reference material, actually wrote a genuinely accurate, well-communicated final answer using it — a genuinely separate skill from whether the right reference material was found in the first place.',
-        example: 'Given the correct "Returns Policy, Section 3.2" chunk, does Claude\'s generated answer accurately reflect the 5-7 business day timeline, correctly cite the source, and avoid adding any unsupported, fabricated detail?',
-        keyTakeaway: 'This lesson genuinely previews Level 8\'s dedicated evaluation lessons — RAG generation quality is a specific, important application of the broader evaluation discipline you will formalize significantly further in that later level.',
+        definition:
+            'Given genuinely GOOD retrieved context, generation quality asks: did Claude produce an accurate, well-grounded, appropriately-cited answer FROM that context — this can be evaluated through human review or, increasingly, using Claude itself as an evaluator (a technique explored more deeply in Level 8).',
+        analogy:
+            'This is like evaluating whether the consultant, given genuinely excellent reference material, actually wrote a genuinely accurate, well-communicated final answer using it — a genuinely separate skill from whether the right reference material was found in the first place.',
+        example:
+            'Given the correct "Returns Policy, Section 3.2" chunk, does Claude\'s generated answer accurately reflect the 5-7 business day timeline, correctly cite the source, and avoid adding any unsupported, fabricated detail?',
+        keyTakeaway:
+            'This lesson genuinely previews Level 8\'s dedicated evaluation lessons — RAG generation quality is a specific, important application of the broader evaluation discipline you will formalize significantly further in that later level.',
       ),
       ConceptLesson(
         title: 'End-to-End Evaluation: Combining Both Dimensions',
-        definition: 'Beyond evaluating retrieval and generation genuinely separately, a complete evaluation also measures the END-TO-END result — given a realistic user query, does the COMPLETE system (retrieval + generation combined) ultimately produce a genuinely correct, well-grounded, appropriately-cited final answer?',
-        analogy: 'This is like a genuinely complete quality review checking not just each individual step separately, but also the overall final result the patron actually receives — the complete experience matters, not merely each isolated piece in genuine isolation.',
-        example: 'An end-to-end test: "Given the query \'how long do refunds take,\' does the complete system\'s final response correctly state 5-7 business days, correctly cite the source, and avoid any fabricated detail?" — testing the full pipeline together.',
-        keyTakeaway: 'Complete RAG evaluation genuinely requires testing all three levels: retrieval alone, generation alone (given good retrieval), and the full end-to-end pipeline together — each level catches genuinely different kinds of potential problems.',
+        definition:
+            'Beyond evaluating retrieval and generation genuinely separately, a complete evaluation also measures the END-TO-END result — given a realistic user query, does the COMPLETE system (retrieval + generation combined) ultimately produce a genuinely correct, well-grounded, appropriately-cited final answer?',
+        analogy:
+            'This is like a genuinely complete quality review checking not just each individual step separately, but also the overall final result the patron actually receives — the complete experience matters, not merely each isolated piece in genuine isolation.',
+        example:
+            'An end-to-end test: "Given the query \'how long do refunds take,\' does the complete system\'s final response correctly state 5-7 business days, correctly cite the source, and avoid any fabricated detail?" — testing the full pipeline together.',
+        keyTakeaway:
+            'Complete RAG evaluation genuinely requires testing all three levels: retrieval alone, generation alone (given good retrieval), and the full end-to-end pipeline together — each level catches genuinely different kinds of potential problems.',
       ),
       ConceptLesson(
         title: 'Building an Ongoing RAG Evaluation Practice',
-        definition: 'Directly extending Level 2\'s "know when to stop iterating" lesson and Level 3\'s monitoring-adjacent principles, RAG quality should be evaluated not just once before initial launch, but genuinely ongoing, since document collections change over time and new, realistic query patterns genuinely emerge.',
-        analogy: 'This is like a library\'s cataloging quality needing genuinely ongoing review as new books are continuously added and patron needs genuinely evolve over time — a one-time quality check at launch is not sufficient forever.',
-        example: 'A team might periodically re-run their retrieval and generation test sets after significant document collection updates, and periodically sample real user queries to identify genuinely new test cases worth adding to their evaluation set.',
-        keyTakeaway: 'This ongoing evaluation discipline directly foreshadows Level 8\'s dedicated evaluation lessons and Level 9\'s production-monitoring lessons — RAG quality, like any production system, requires genuinely continuous attention, not a single, one-time check.',
+        definition:
+            'Directly extending Level 2\'s "know when to stop iterating" lesson and Level 3\'s monitoring-adjacent principles, RAG quality should be evaluated not just once before initial launch, but genuinely ongoing, since document collections change over time and new, realistic query patterns genuinely emerge.',
+        analogy:
+            'This is like a library\'s cataloging quality needing genuinely ongoing review as new books are continuously added and patron needs genuinely evolve over time — a one-time quality check at launch is not sufficient forever.',
+        example:
+            'A team might periodically re-run their retrieval and generation test sets after significant document collection updates, and periodically sample real user queries to identify genuinely new test cases worth adding to their evaluation set.',
+        keyTakeaway:
+            'This ongoing evaluation discipline directly foreshadows Level 8\'s dedicated evaluation lessons and Level 9\'s production-monitoring lessons — RAG quality, like any production system, requires genuinely continuous attention, not a single, one-time check.',
       ),
     ],
     quiz: [
       QuizQuestion(
-        question: 'What are the two genuinely distinct dimensions of RAG quality?',
-        options: ['Cost and latency, with no other genuine dimensions to consider', 'Retrieval quality (did the system find the right chunks?) and generation quality (did Claude produce a good answer from those chunks?)', 'Only generation quality genuinely matters, retrieval quality is never actually a genuine concern', 'RAG quality has only one single, undifferentiated dimension to evaluate'],
+        question:
+            'What are the two genuinely distinct dimensions of RAG quality?',
+        options: [
+          'Cost and latency, with no other genuine dimensions to consider',
+          'Retrieval quality (did the system find the right chunks?) and generation quality (did Claude produce a good answer from those chunks?)',
+          'Only generation quality genuinely matters, retrieval quality is never actually a genuine concern',
+          'RAG quality has only one single, undifferentiated dimension to evaluate'
+        ],
         correctIndex: 1,
-        explanation: 'RAG quality genuinely has two distinct dimensions — retrieval (finding the right chunks) and generation (producing a good answer from those chunks) — and a failure in either genuinely hurts the final result.',
+        explanation:
+            'RAG quality genuinely has two distinct dimensions — retrieval (finding the right chunks) and generation (producing a good answer from those chunks) — and a failure in either genuinely hurts the final result.',
         xpReward: 10,
       ),
       QuizQuestion(
         question: 'How can retrieval quality be genuinely measured?',
-        options: ['Retrieval quality can never actually be measured through any systematic means', 'By building a test set of realistic queries paired with known-correct expected chunks, then checking whether retrieval actually surfaces those chunks within the top-k results', 'Only by reading the entire document collection manually, with no other genuine method available', 'Retrieval quality is identical to generation quality with no meaningful distinction'],
+        options: [
+          'Retrieval quality can never actually be measured through any systematic means',
+          'By building a test set of realistic queries paired with known-correct expected chunks, then checking whether retrieval actually surfaces those chunks within the top-k results',
+          'Only by reading the entire document collection manually, with no other genuine method available',
+          'Retrieval quality is identical to generation quality with no meaningful distinction'
+        ],
         correctIndex: 1,
-        explanation: 'Retrieval quality is measured by testing against a set of realistic queries with known-correct expected chunks, checking whether the actual retrieval pipeline surfaces those correct results.',
+        explanation:
+            'Retrieval quality is measured by testing against a set of realistic queries with known-correct expected chunks, checking whether the actual retrieval pipeline surfaces those correct results.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'How does this lesson\'s generation-quality evaluation preview Level 8\'s content?',
-        options: ['This lesson has no genuine relationship to Level 8\'s content', 'RAG generation quality is a specific, important application of the broader evaluation discipline that Level 8 will formalize significantly further, including techniques like using Claude itself as an evaluator', 'Level 8 covers an entirely unrelated topic with no connection to RAG generation quality', 'Generation quality evaluation was fully and completely covered in this single lesson, with nothing further to learn in Level 8'],
+        question:
+            'How does this lesson\'s generation-quality evaluation preview Level 8\'s content?',
+        options: [
+          'This lesson has no genuine relationship to Level 8\'s content',
+          'RAG generation quality is a specific, important application of the broader evaluation discipline that Level 8 will formalize significantly further, including techniques like using Claude itself as an evaluator',
+          'Level 8 covers an entirely unrelated topic with no connection to RAG generation quality',
+          'Generation quality evaluation was fully and completely covered in this single lesson, with nothing further to learn in Level 8'
+        ],
         correctIndex: 1,
-        explanation: 'This lesson previews Level 8\'s dedicated evaluation lessons, since RAG generation quality is a specific, important application of the broader systematic evaluation discipline covered more deeply there.',
+        explanation:
+            'This lesson previews Level 8\'s dedicated evaluation lessons, since RAG generation quality is a specific, important application of the broader systematic evaluation discipline covered more deeply there.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why is end-to-end evaluation (testing the complete pipeline together) genuinely necessary, beyond evaluating retrieval and generation separately?',
-        options: ['End-to-end evaluation has no genuine additional value beyond testing each piece separately', 'Testing the complete, combined result confirms the overall final answer a user actually receives is genuinely correct, catching problems that isolated component testing alone might miss', 'Only end-to-end evaluation is ever genuinely necessary, retrieval and generation should never be tested separately', 'End-to-end evaluation and retrieval evaluation are the exact same, identical thing'],
+        question:
+            'Why is end-to-end evaluation (testing the complete pipeline together) genuinely necessary, beyond evaluating retrieval and generation separately?',
+        options: [
+          'End-to-end evaluation has no genuine additional value beyond testing each piece separately',
+          'Testing the complete, combined result confirms the overall final answer a user actually receives is genuinely correct, catching problems that isolated component testing alone might miss',
+          'Only end-to-end evaluation is ever genuinely necessary, retrieval and generation should never be tested separately',
+          'End-to-end evaluation and retrieval evaluation are the exact same, identical thing'
+        ],
         correctIndex: 1,
-        explanation: 'End-to-end evaluation confirms the complete system produces a genuinely correct final result for realistic queries, catching integration issues that testing retrieval or generation in complete isolation might miss.',
+        explanation:
+            'End-to-end evaluation confirms the complete system produces a genuinely correct final result for realistic queries, catching integration issues that testing retrieval or generation in complete isolation might miss.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why should RAG evaluation genuinely be an ongoing practice, rather than a single check performed once before launch?',
-        options: ['A single evaluation performed once before launch is always fully and permanently sufficient forever', 'Document collections change over time and new, realistic query patterns genuinely emerge, directly foreshadowing Level 8 and Level 9\'s continuous evaluation and monitoring principles', 'RAG systems never actually need any evaluation of any kind, at any point', 'Ongoing evaluation has no genuine relationship to a document collection changing over time'],
+        question:
+            'Why should RAG evaluation genuinely be an ongoing practice, rather than a single check performed once before launch?',
+        options: [
+          'A single evaluation performed once before launch is always fully and permanently sufficient forever',
+          'Document collections change over time and new, realistic query patterns genuinely emerge, directly foreshadowing Level 8 and Level 9\'s continuous evaluation and monitoring principles',
+          'RAG systems never actually need any evaluation of any kind, at any point',
+          'Ongoing evaluation has no genuine relationship to a document collection changing over time'
+        ],
         correctIndex: 1,
-        explanation: 'Since document collections evolve and new query patterns genuinely emerge over time, RAG evaluation should be an ongoing practice, directly foreshadowing Level 8\'s evaluation lessons and Level 9\'s production-monitoring principles.',
+        explanation:
+            'Since document collections evolve and new query patterns genuinely emerge over time, RAG evaluation should be an ongoing practice, directly foreshadowing Level 8\'s evaluation lessons and Level 9\'s production-monitoring principles.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A RAG system produces a genuinely poor final answer to a user\'s question. Investigation reveals the retrieval step actually found the exact correct, relevant chunk, but Claude\'s generated response failed to accurately reflect that chunk\'s content. Which quality dimension genuinely failed here?',
-        options: ['Retrieval quality failed, since generation quality is never actually a genuine, separate concern', 'Generation quality failed — the retrieval step genuinely succeeded in finding the correct chunk, but the generation step failed to produce an accurate answer from it', 'Both dimensions genuinely failed equally in this specific scenario', 'Neither dimension can genuinely be evaluated or diagnosed in this kind of scenario'],
+        prompt:
+            'A RAG system produces a genuinely poor final answer to a user\'s question. Investigation reveals the retrieval step actually found the exact correct, relevant chunk, but Claude\'s generated response failed to accurately reflect that chunk\'s content. Which quality dimension genuinely failed here?',
+        options: [
+          'Retrieval quality failed, since generation quality is never actually a genuine, separate concern',
+          'Generation quality failed — the retrieval step genuinely succeeded in finding the correct chunk, but the generation step failed to produce an accurate answer from it',
+          'Both dimensions genuinely failed equally in this specific scenario',
+          'Neither dimension can genuinely be evaluated or diagnosed in this kind of scenario'
+        ],
         correctIndex: 1,
-        explanation: 'Since the correct chunk was genuinely retrieved but the final answer was still poor, the failure lies specifically in generation quality — correctly diagnosing which dimension failed enables a genuinely targeted fix.',
+        explanation:
+            'Since the correct chunk was genuinely retrieved but the final answer was still poor, the failure lies specifically in generation quality — correctly diagnosing which dimension failed enables a genuinely targeted fix.',
         xpReward: 15,
       ),
       MiniChallenge(
-        prompt: 'A team builds a genuinely thorough RAG evaluation test set before launch, achieves excellent scores, and then never revisits or updates this evaluation again, even as their document collection grows significantly and user query patterns genuinely evolve over the following year. What does this lesson suggest about this approach?',
-        options: ['This is the ideal, complete approach and requires no further genuine action', 'RAG evaluation should genuinely be an ongoing practice — the team should periodically revisit and update their evaluation as the document collection and query patterns evolve over time', 'A single pre-launch evaluation is always sufficient forever, regardless of any subsequent changes', 'Evaluation only genuinely matters before launch, and can be safely ignored entirely afterward'],
+        prompt:
+            'A team builds a genuinely thorough RAG evaluation test set before launch, achieves excellent scores, and then never revisits or updates this evaluation again, even as their document collection grows significantly and user query patterns genuinely evolve over the following year. What does this lesson suggest about this approach?',
+        options: [
+          'This is the ideal, complete approach and requires no further genuine action',
+          'RAG evaluation should genuinely be an ongoing practice — the team should periodically revisit and update their evaluation as the document collection and query patterns evolve over time',
+          'A single pre-launch evaluation is always sufficient forever, regardless of any subsequent changes',
+          'Evaluation only genuinely matters before launch, and can be safely ignored entirely afterward'
+        ],
         correctIndex: 1,
-        explanation: 'This illustrates exactly the one-time-evaluation pitfall this lesson warns against — genuine RAG quality assurance requires ongoing evaluation as the document collection and query patterns evolve over time.',
+        explanation:
+            'This illustrates exactly the one-time-evaluation pitfall this lesson warns against — genuine RAG quality assurance requires ongoing evaluation as the document collection and query patterns evolve over time.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Design a Complete RAG Evaluation Plan',
-      goal: 'Practice designing a genuinely complete evaluation approach covering retrieval quality, generation quality, and end-to-end testing.',
+      goal:
+          'Practice designing a genuinely complete evaluation approach covering retrieval quality, generation quality, and end-to-end testing.',
       steps: [
         'Choose a RAG application from an earlier lesson in this level',
         'Write 3 test cases for RETRIEVAL quality: a realistic query paired with its known-correct expected chunk',
@@ -1033,7 +1670,8 @@ const List<TopicCourse> claudeEngineerLevel5 = [
         'Write 1 end-to-end test case: a realistic user query and a description of what the complete, correct final response should look like',
         'Describe your plan for ONGOING evaluation: how often would you re-evaluate, and what would trigger an off-cycle re-evaluation',
       ],
-      expectedOutput: '3 retrieval test cases, 1 generation test case, 1 end-to-end test case, and an ongoing evaluation cadence plan with triggers for off-cycle review.',
+      expectedOutput:
+          '3 retrieval test cases, 1 generation test case, 1 end-to-end test case, and an ongoing evaluation cadence plan with triggers for off-cycle review.',
       xpReward: 60,
     ),
   ),
@@ -1047,93 +1685,157 @@ const List<TopicCourse> claudeEngineerLevel5 = [
     estimatedMinutes: 40,
     totalXp: 180,
     emoji: '🏆',
-    intro: 'This is Level 5\'s capstone — you will design a complete, end-to-end RAG system from the ground up, combining chunking, embeddings, vector storage, retrieval, grounded prompting, citations, and evaluation into one cohesive, genuinely production-ready pipeline.',
+    intro:
+        'This is Level 5\'s capstone — you will design a complete, end-to-end RAG system from the ground up, combining chunking, embeddings, vector storage, retrieval, grounded prompting, citations, and evaluation into one cohesive, genuinely production-ready pipeline.',
     concepts: [
       ConceptLesson(
         title: 'Reviewing Level 5\'s Complete RAG Toolkit',
-        definition: 'This level taught: why and when RAG genuinely helps, embeddings and semantic similarity, vector databases, chunking strategies, the complete indexing and retrieval pipeline, grounded prompting for retrieved context, citations, hybrid search, and systematic evaluation.',
-        analogy: 'This is like reviewing every piece of a genuinely complete library system — cataloging, organization, search, and quality review — before opening it to real, genuine patrons who depend on finding accurate, well-sourced information.',
-        example: 'A genuinely complete RAG system touches every lesson from this level: well-chunked documents, quality embeddings, an efficient vector database, relevant retrieval, grounded and cited generation, and ongoing evaluation.',
-        keyTakeaway: 'Just like every previous level\'s capstone, this level\'s real lesson is the practical engineering skill of assembling these individually-learned pieces into one working, genuinely trustworthy, production-ready RAG system.',
+        definition:
+            'This level taught: why and when RAG genuinely helps, embeddings and semantic similarity, vector databases, chunking strategies, the complete indexing and retrieval pipeline, grounded prompting for retrieved context, citations, hybrid search, and systematic evaluation.',
+        analogy:
+            'This is like reviewing every piece of a genuinely complete library system — cataloging, organization, search, and quality review — before opening it to real, genuine patrons who depend on finding accurate, well-sourced information.',
+        example:
+            'A genuinely complete RAG system touches every lesson from this level: well-chunked documents, quality embeddings, an efficient vector database, relevant retrieval, grounded and cited generation, and ongoing evaluation.',
+        keyTakeaway:
+            'Just like every previous level\'s capstone, this level\'s real lesson is the practical engineering skill of assembling these individually-learned pieces into one working, genuinely trustworthy, production-ready RAG system.',
       ),
       ConceptLesson(
         title: 'Architecting the Complete RAG System',
-        definition: 'A well-architected RAG system typically has distinct components: a document-ingestion/chunking layer, an embedding-and-storage layer, a query-time retrieval layer, a grounded-generation layer (with citations), and an evaluation layer — mirroring Level 3\'s layered-architecture principle.',
-        analogy: 'This directly mirrors Level 3\'s layered-house-systems analogy — plumbing, electrical, structural — now applied specifically to a RAG system\'s distinct, individually-sound, but correctly-connected components.',
-        example: 'A clean architecture might have a chunkDocuments() function, an indexDocuments() function, a retrieveRelevantChunks() function, a generateGroundedResponse() function, and a separate evaluation test suite — each with one clear responsibility.',
-        keyTakeaway: 'This layered architecture, directly extending Level 3\'s principle, is what separates a genuinely maintainable, production-ready RAG system from a fragile, tangled prototype that happened to work in one narrow demo.',
+        definition:
+            'A well-architected RAG system typically has distinct components: a document-ingestion/chunking layer, an embedding-and-storage layer, a query-time retrieval layer, a grounded-generation layer (with citations), and an evaluation layer — mirroring Level 3\'s layered-architecture principle.',
+        analogy:
+            'This directly mirrors Level 3\'s layered-house-systems analogy — plumbing, electrical, structural — now applied specifically to a RAG system\'s distinct, individually-sound, but correctly-connected components.',
+        example:
+            'A clean architecture might have a chunkDocuments() function, an indexDocuments() function, a retrieveRelevantChunks() function, a generateGroundedResponse() function, and a separate evaluation test suite — each with one clear responsibility.',
+        keyTakeaway:
+            'This layered architecture, directly extending Level 3\'s principle, is what separates a genuinely maintainable, production-ready RAG system from a fragile, tangled prototype that happened to work in one narrow demo.',
       ),
       ConceptLesson(
         title: 'Combining RAG with Level 4\'s Tool Use',
-        definition: 'A genuinely sophisticated application often combines this level\'s RAG (for static, reference-style knowledge) with Level 4\'s tool use (for dynamic, real-time data or genuine actions) — recognizing when each technique is genuinely appropriate for a specific part of a request.',
-        analogy: 'This is like a genuinely well-equipped consultant who can both consult a reference library (RAG) AND make a live phone call for current information (tool use) — choosing the right approach for each specific, genuine need within a single, richer conversation.',
-        example: 'A customer-support assistant might use RAG to answer "what is your return policy" (static, reference-style knowledge) while using a Level 4 tool to answer "what is the status of MY specific order" (dynamic, private, real-time data).',
-        keyTakeaway: 'Recognizing this combination — RAG for static reference knowledge, tools for dynamic data and actions — is a genuinely mature, sophisticated architectural pattern that increasingly appears in real, production Claude applications.',
+        definition:
+            'A genuinely sophisticated application often combines this level\'s RAG (for static, reference-style knowledge) with Level 4\'s tool use (for dynamic, real-time data or genuine actions) — recognizing when each technique is genuinely appropriate for a specific part of a request.',
+        analogy:
+            'This is like a genuinely well-equipped consultant who can both consult a reference library (RAG) AND make a live phone call for current information (tool use) — choosing the right approach for each specific, genuine need within a single, richer conversation.',
+        example:
+            'A customer-support assistant might use RAG to answer "what is your return policy" (static, reference-style knowledge) while using a Level 4 tool to answer "what is the status of MY specific order" (dynamic, private, real-time data).',
+        keyTakeaway:
+            'Recognizing this combination — RAG for static reference knowledge, tools for dynamic data and actions — is a genuinely mature, sophisticated architectural pattern that increasingly appears in real, production Claude applications.',
       ),
       ConceptLesson(
         title: 'Testing the Complete RAG Pipeline End-to-End',
-        definition: 'Directly extending this level\'s evaluation lesson and every previous level\'s testing principles, a complete RAG system should be validated across retrieval quality, generation quality, citation accuracy, and genuine edge cases (no relevant results, contradictory sources) before being considered production-ready.',
-        analogy: 'This is like a genuinely comprehensive library-opening readiness check — confirming the catalog works, the reference desk gives accurate answers, sources are genuinely properly cited, and edge cases (missing books, conflicting editions) are handled gracefully.',
-        example: 'A thorough test plan includes: retrieval test cases, generation test cases, an end-to-end test case, a "no relevant results" test case, and a "contradictory sources" test case — covering this level\'s full range of realistic scenarios.',
-        keyTakeaway: 'This comprehensive testing directly extends the "test the realistic range, not just the happy path" principle from across this entire roadmap, now applied to this level\'s genuinely more complex, multi-stage RAG pipeline.',
+        definition:
+            'Directly extending this level\'s evaluation lesson and every previous level\'s testing principles, a complete RAG system should be validated across retrieval quality, generation quality, citation accuracy, and genuine edge cases (no relevant results, contradictory sources) before being considered production-ready.',
+        analogy:
+            'This is like a genuinely comprehensive library-opening readiness check — confirming the catalog works, the reference desk gives accurate answers, sources are genuinely properly cited, and edge cases (missing books, conflicting editions) are handled gracefully.',
+        example:
+            'A thorough test plan includes: retrieval test cases, generation test cases, an end-to-end test case, a "no relevant results" test case, and a "contradictory sources" test case — covering this level\'s full range of realistic scenarios.',
+        keyTakeaway:
+            'This comprehensive testing directly extends the "test the realistic range, not just the happy path" principle from across this entire roadmap, now applied to this level\'s genuinely more complex, multi-stage RAG pipeline.',
       ),
       ConceptLesson(
         title: 'Looking Ahead: Agents in Level 6',
-        definition: 'Levels 4 and 5 taught Claude to take actions (tools) and access large knowledge bases (RAG). Level 6 combines these capabilities into genuine AGENTS — systems that can plan, reason across multiple steps, and autonomously use both tools and RAG together to accomplish more complex, open-ended goals.',
-        analogy: 'This level and Level 4 taught your assistant individual, powerful skills — making calls and consulting references. Level 6 teaches that same assistant to genuinely plan and coordinate an entire, multi-step project using both skills together, with real autonomy.',
-        example: 'A genuine research agent might use RAG (Level 5) to consult internal documents AND tool use (Level 4) to fetch live external data, autonomously deciding which capability to use at each step of a genuinely open-ended research task.',
-        keyTakeaway: 'Levels 4 and 5\'s skills — tool use and RAG — are precisely the foundational building blocks Level 6\'s agents will combine and orchestrate — you now have both of these essential pieces genuinely ready.',
+        definition:
+            'Levels 4 and 5 taught Claude to take actions (tools) and access large knowledge bases (RAG). Level 6 combines these capabilities into genuine AGENTS — systems that can plan, reason across multiple steps, and autonomously use both tools and RAG together to accomplish more complex, open-ended goals.',
+        analogy:
+            'This level and Level 4 taught your assistant individual, powerful skills — making calls and consulting references. Level 6 teaches that same assistant to genuinely plan and coordinate an entire, multi-step project using both skills together, with real autonomy.',
+        example:
+            'A genuine research agent might use RAG (Level 5) to consult internal documents AND tool use (Level 4) to fetch live external data, autonomously deciding which capability to use at each step of a genuinely open-ended research task.',
+        keyTakeaway:
+            'Levels 4 and 5\'s skills — tool use and RAG — are precisely the foundational building blocks Level 6\'s agents will combine and orchestrate — you now have both of these essential pieces genuinely ready.',
       ),
     ],
     quiz: [
       QuizQuestion(
-        question: 'What is Level 5\'s real, overarching lesson, beyond any single individual technique covered?',
-        options: ['Only embeddings genuinely matter, all other lessons are optional extras', 'The practical engineering skill of assembling chunking, embeddings, vector storage, retrieval, grounded prompting, citations, and evaluation into one working, trustworthy RAG system', 'Every RAG application should always implement hybrid search regardless of genuine need', 'Vector databases are the single most important skill from this entire level, with no other genuine consideration'],
+        question:
+            'What is Level 5\'s real, overarching lesson, beyond any single individual technique covered?',
+        options: [
+          'Only embeddings genuinely matter, all other lessons are optional extras',
+          'The practical engineering skill of assembling chunking, embeddings, vector storage, retrieval, grounded prompting, citations, and evaluation into one working, trustworthy RAG system',
+          'Every RAG application should always implement hybrid search regardless of genuine need',
+          'Vector databases are the single most important skill from this entire level, with no other genuine consideration'
+        ],
         correctIndex: 1,
-        explanation: 'Just like every previous level\'s capstone, Level 5\'s core lesson is the practical skill of combining multiple individually-learned techniques into one cohesive, trustworthy, working RAG system.',
+        explanation:
+            'Just like every previous level\'s capstone, Level 5\'s core lesson is the practical skill of combining multiple individually-learned techniques into one cohesive, trustworthy, working RAG system.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'How does this level\'s RAG architecture directly connect to Level 3\'s layered-architecture principle?',
-        options: ['These two lessons have no genuine relationship to each other', 'A well-architected RAG system uses distinct, focused layers (ingestion, embedding, retrieval, generation, evaluation), directly mirroring Level 3\'s layered-house-systems principle', 'RAG systems should always be built as one single, giant, undifferentiated function', 'Level 3\'s architecture principles only apply to non-RAG applications'],
+        question:
+            'How does this level\'s RAG architecture directly connect to Level 3\'s layered-architecture principle?',
+        options: [
+          'These two lessons have no genuine relationship to each other',
+          'A well-architected RAG system uses distinct, focused layers (ingestion, embedding, retrieval, generation, evaluation), directly mirroring Level 3\'s layered-house-systems principle',
+          'RAG systems should always be built as one single, giant, undifferentiated function',
+          'Level 3\'s architecture principles only apply to non-RAG applications'
+        ],
         correctIndex: 1,
-        explanation: 'A well-architected RAG system uses distinct, focused layers, directly mirroring the layered architecture principle Level 3 established for general Claude integrations.',
+        explanation:
+            'A well-architected RAG system uses distinct, focused layers, directly mirroring the layered architecture principle Level 3 established for general Claude integrations.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why might a sophisticated application genuinely combine RAG (Level 5) with tool use (Level 4)?',
-        options: ['RAG and tool use can never genuinely be combined within the same application', 'RAG serves static, reference-style knowledge needs while tool use serves dynamic, real-time data or genuine actions — combining both covers a genuinely broader range of realistic needs', 'Only one of these two techniques should ever genuinely be used in any single, real application', 'RAG completely replaces the need for any tool use whatsoever in every case'],
+        question:
+            'Why might a sophisticated application genuinely combine RAG (Level 5) with tool use (Level 4)?',
+        options: [
+          'RAG and tool use can never genuinely be combined within the same application',
+          'RAG serves static, reference-style knowledge needs while tool use serves dynamic, real-time data or genuine actions — combining both covers a genuinely broader range of realistic needs',
+          'Only one of these two techniques should ever genuinely be used in any single, real application',
+          'RAG completely replaces the need for any tool use whatsoever in every case'
+        ],
         correctIndex: 1,
-        explanation: 'RAG and tool use serve genuinely complementary needs — static reference knowledge versus dynamic data and actions — and combining both is a mature, sophisticated pattern for genuinely comprehensive applications.',
+        explanation:
+            'RAG and tool use serve genuinely complementary needs — static reference knowledge versus dynamic data and actions — and combining both is a mature, sophisticated pattern for genuinely comprehensive applications.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'Why should a complete RAG system be tested against genuine edge cases (no relevant results, contradictory sources), not just typical successful queries?',
-        options: ['Testing only typical, successful queries is always fully sufficient for genuine production readiness', 'Directly extending the "test the realistic range" principle from across this roadmap, genuine edge cases must also be validated to confirm true production readiness', 'Edge cases can never actually occur in any real RAG system', 'Edge-case testing has no genuine relationship to overall RAG system quality'],
+        question:
+            'Why should a complete RAG system be tested against genuine edge cases (no relevant results, contradictory sources), not just typical successful queries?',
+        options: [
+          'Testing only typical, successful queries is always fully sufficient for genuine production readiness',
+          'Directly extending the "test the realistic range" principle from across this roadmap, genuine edge cases must also be validated to confirm true production readiness',
+          'Edge cases can never actually occur in any real RAG system',
+          'Edge-case testing has no genuine relationship to overall RAG system quality'
+        ],
         correctIndex: 1,
-        explanation: 'This directly extends the recurring "test the realistic range, not just the happy path" principle from across this entire roadmap, now applied specifically to this level\'s more complex RAG pipeline and its genuine edge cases.',
+        explanation:
+            'This directly extends the recurring "test the realistic range, not just the happy path" principle from across this entire roadmap, now applied specifically to this level\'s more complex RAG pipeline and its genuine edge cases.',
         xpReward: 10,
       ),
       QuizQuestion(
-        question: 'How do Levels 4 and 5 genuinely prepare you for Level 6\'s agents?',
-        options: ['Levels 4 and 5 have no genuine relationship to Level 6\'s content', 'Tool use (Level 4) and RAG (Level 5) are precisely the foundational building blocks that Level 6\'s agents will combine and orchestrate for more complex, open-ended, multi-step goals', 'Level 6 requires learning an entirely new, completely unrelated skill set with no connection to Levels 4-5', 'Agents do not actually depend on any skill covered in either Level 4 or Level 5'],
+        question:
+            'How do Levels 4 and 5 genuinely prepare you for Level 6\'s agents?',
+        options: [
+          'Levels 4 and 5 have no genuine relationship to Level 6\'s content',
+          'Tool use (Level 4) and RAG (Level 5) are precisely the foundational building blocks that Level 6\'s agents will combine and orchestrate for more complex, open-ended, multi-step goals',
+          'Level 6 requires learning an entirely new, completely unrelated skill set with no connection to Levels 4-5',
+          'Agents do not actually depend on any skill covered in either Level 4 or Level 5'
+        ],
         correctIndex: 1,
-        explanation: 'Tool use and RAG are the essential foundational capabilities that Level 6\'s agents will combine and orchestrate together, autonomously, to accomplish more complex, open-ended tasks.',
+        explanation:
+            'Tool use and RAG are the essential foundational capabilities that Level 6\'s agents will combine and orchestrate together, autonomously, to accomplish more complex, open-ended tasks.',
         xpReward: 10,
       ),
     ],
     challenges: [
       MiniChallenge(
-        prompt: 'A developer\'s RAG system performs excellently on every test query used during development, but has never once been tested against a query with genuinely no relevant matching content in the document collection, or a scenario with contradictory retrieved sources. What does this level\'s capstone lesson suggest about this system\'s genuine readiness?',
-        options: ['This system is fully production-ready, since every development-time test query succeeded', 'This system has not genuinely been validated end-to-end — realistic edge cases like "no relevant results" and "contradictory sources" must also be tested before it can be considered genuinely production-ready', 'Edge cases never actually need to be tested for any real RAG application', 'Successful performance on typical queries is always fully sufficient evidence of complete production readiness'],
+        prompt:
+            'A developer\'s RAG system performs excellently on every test query used during development, but has never once been tested against a query with genuinely no relevant matching content in the document collection, or a scenario with contradictory retrieved sources. What does this level\'s capstone lesson suggest about this system\'s genuine readiness?',
+        options: [
+          'This system is fully production-ready, since every development-time test query succeeded',
+          'This system has not genuinely been validated end-to-end — realistic edge cases like "no relevant results" and "contradictory sources" must also be tested before it can be considered genuinely production-ready',
+          'Edge cases never actually need to be tested for any real RAG application',
+          'Successful performance on typical queries is always fully sufficient evidence of complete production readiness'
+        ],
         correctIndex: 1,
-        explanation: 'Success on typical queries alone does not confirm genuine production readiness — this level\'s capstone emphasizes that realistic edge cases (no results, contradictions) must also be validated for true confidence.',
+        explanation:
+            'Success on typical queries alone does not confirm genuine production readiness — this level\'s capstone emphasizes that realistic edge cases (no results, contradictions) must also be validated for true confidence.',
         xpReward: 15,
       ),
     ],
     finalProject: FinalProject(
       title: 'Level 5 Capstone: Design a Complete, Production-Ready RAG System',
-      goal: 'Synthesize every technique from Level 5 into one complete, layered, tested, production-ready RAG pipeline design.',
+      goal:
+          'Synthesize every technique from Level 5 into one complete, layered, tested, production-ready RAG pipeline design.',
       steps: [
         'Choose a realistic RAG application (e.g., an internal company knowledge-base assistant)',
         'Design your layered architecture: describe your document-ingestion/chunking layer, embedding/storage layer, retrieval layer, and grounded-generation layer (with citations)',
@@ -1143,9 +1845,9 @@ const List<TopicCourse> claudeEngineerLevel5 = [
         'Design a complete evaluation plan: at least 2 retrieval test cases, 1 generation test case, 1 end-to-end test case, and 1 edge-case test (no relevant results or contradictory sources)',
         'Describe your ongoing evaluation cadence for this system once it is genuinely live in production',
       ],
-      expectedOutput: 'A complete, layered RAG system design covering architecture, chunking, search strategy, tool-use integration, a 5-test evaluation plan, and an ongoing evaluation cadence.\n\n=== LEVEL 5 COMPLETE — RETRIEVAL-AUGMENTED GENERATION MASTERED ===\nYou can now design complete, grounded, citation-enabled RAG systems that let Claude reliably reference large, evolving document collections. Level 6 builds on this foundation, combining tool use and RAG into genuine, autonomous AI agents.',
+      expectedOutput:
+          'A complete, layered RAG system design covering architecture, chunking, search strategy, tool-use integration, a 5-test evaluation plan, and an ongoing evaluation cadence.\n\n=== LEVEL 5 COMPLETE — RETRIEVAL-AUGMENTED GENERATION MASTERED ===\nYou can now design complete, grounded, citation-enabled RAG systems that let Claude reliably reference large, evolving document collections. Level 6 builds on this foundation, combining tool use and RAG into genuine, autonomous AI agents.',
       xpReward: 115,
     ),
   ),
-
 ];

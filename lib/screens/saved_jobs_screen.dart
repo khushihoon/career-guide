@@ -63,8 +63,8 @@ class SavedJobsScreen extends StatelessWidget {
             );
           }
 
-          final docs = snapshot.data?.docs ?? <QueryDocumentSnapshot<
-              Map<String, dynamic>>>[];
+          final docs = snapshot.data?.docs ??
+              <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
           if (docs.isEmpty) {
             return const _EmptyState();

@@ -107,8 +107,7 @@ class _MentorScreenState extends State<MentorScreen> {
     // Check API key
     if (!_apiKeyValid) {
       _addMessage(
-        text:
-            '⚠️ API key not configured. Please add ANTHROPIC_API_KEY to .env',
+        text: '⚠️ API key not configured. Please add ANTHROPIC_API_KEY to .env',
         isUser: false,
         isWarning: true,
       );
@@ -314,9 +313,8 @@ class _MentorScreenState extends State<MentorScreen> {
               children: [
                 CircleAvatar(
                   radius: 4,
-                  backgroundColor: _apiKeyValid
-                      ? const Color(0xFF4ADE80)
-                      : Colors.red[700],
+                  backgroundColor:
+                      _apiKeyValid ? const Color(0xFF4ADE80) : Colors.red[700],
                 ),
                 const SizedBox(width: 5),
                 Text(
@@ -453,8 +451,7 @@ class _MentorScreenState extends State<MentorScreen> {
                       maxLines: null,
                       minLines: 1,
                       enabled: !_isLoading && _apiKeyValid,
-                      onSubmitted: (value) =>
-                          _sendMessage(value),
+                      onSubmitted: (value) => _sendMessage(value),
                       decoration: const InputDecoration(
                         hintText: 'Ask about AI careers...',
                         hintStyle: TextStyle(
@@ -491,8 +488,7 @@ class _MentorScreenState extends State<MentorScreen> {
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation(Colors.white),
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
                             ),
                           )
                         : const Icon(
@@ -526,17 +522,13 @@ class _MentorScreenState extends State<MentorScreen> {
               : const Color(0xFF1A1A2E),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isWarning
-                ? Colors.red[700]!
-                : const Color(0xFF2A2A40),
+            color: isWarning ? Colors.red[700]! : const Color(0xFF2A2A40),
           ),
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: isWarning
-                ? Colors.red[300]
-                : const Color(0xFFDDDDEE),
+            color: isWarning ? Colors.red[300] : const Color(0xFFDDDDEE),
             fontSize: 13,
             height: 1.5,
           ),
@@ -556,9 +548,7 @@ class _MentorScreenState extends State<MentorScreen> {
           vertical: 10,
         ),
         decoration: BoxDecoration(
-          color: isUser
-              ? const Color(0xFF7C3AED)
-              : const Color(0xFF1A1A2E),
+          color: isUser ? const Color(0xFF7C3AED) : const Color(0xFF1A1A2E),
           borderRadius: BorderRadius.circular(16).copyWith(
             bottomRight: isUser ? const Radius.circular(4) : null,
             bottomLeft: !isUser ? const Radius.circular(4) : null,
@@ -566,24 +556,19 @@ class _MentorScreenState extends State<MentorScreen> {
           border: isUser
               ? null
               : Border.all(
-                color: const Color(0xFF2A2A40),
-              ),
+                  color: const Color(0xFF2A2A40),
+                ),
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: isUser
-                ? Colors.white
-                : const Color(0xFFDDDDEE),
+            color: isUser ? Colors.white : const Color(0xFFDDDDEE),
             fontSize: 14,
             height: 1.5,
           ),
         ),
       ),
-    )
-        .animate()
-        .fadeIn(duration: 300.ms)
-        .slideY(begin: 0.1);
+    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1);
   }
 
   Widget _buildTypingIndicator() {

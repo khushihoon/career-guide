@@ -24,15 +24,15 @@ class GeneratedCourseLevelsScreen extends StatefulWidget {
 
 class _GeneratedCourseLevelsScreenState
     extends State<GeneratedCourseLevelsScreen> {
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
-  static const _green    = Color(0xFF4ADE80);
-  static const _amber    = Color(0xFFF59E0B);
-  static const _red      = Color(0xFFEF4444);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
+  static const _green = Color(0xFF4ADE80);
+  static const _amber = Color(0xFFF59E0B);
+  static const _red = Color(0xFFEF4444);
 
   final Set<int> _loadingLevels = {};
   final Map<int, bool> _cachedLevels = {};
@@ -125,7 +125,8 @@ class _GeneratedCourseLevelsScreenState
                 ),
                 child: Row(children: [
                   Container(
-                    width: 46, height: 46,
+                    width: 46,
+                    height: 46,
                     decoration: BoxDecoration(
                       color: _primary.withOpacity(0.12),
                       shape: BoxShape.circle,
@@ -133,7 +134,8 @@ class _GeneratedCourseLevelsScreenState
                     child: Center(
                       child: Text('${lvl.level}',
                           style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold)),
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -149,31 +151,38 @@ class _GeneratedCourseLevelsScreenState
                         const SizedBox(height: 4),
                         Row(children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: _diffColor(lvl.difficulty).withOpacity(0.12),
+                              color:
+                                  _diffColor(lvl.difficulty).withOpacity(0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(lvl.difficulty,
                                 style: TextStyle(
-                                    color: _diffColor(lvl.difficulty), fontSize: 10)),
+                                    color: _diffColor(lvl.difficulty),
+                                    fontSize: 10)),
                           ),
                           const SizedBox(width: 6),
                           Text('${lvl.topics.length} topics',
-                              style: const TextStyle(color: _muted, fontSize: 11)),
+                              style:
+                                  const TextStyle(color: _muted, fontSize: 11)),
                         ]),
                       ],
                     ),
                   ),
                   if (loading)
                     const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: _secondary),
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: _secondary),
                     )
                   else if (cached)
                     const Icon(Icons.check_circle, color: _green, size: 20)
                   else
-                    const Icon(Icons.arrow_forward_ios_rounded, color: _muted, size: 16),
+                    const Icon(Icons.arrow_forward_ios_rounded,
+                        color: _muted, size: 16),
                 ]),
               ),
             );

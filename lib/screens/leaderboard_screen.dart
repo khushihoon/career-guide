@@ -36,18 +36,18 @@ import '../models/quest_models.dart';
 import '../services/leaderboard_service.dart';
 
 // ── Palette (shared, file-private constants) ────────────────────────
-const Color _kBgDeep    = Color(0xFF05050C);
-const Color _kBgNavy    = Color(0xFF0A0A1A);
-const Color _kSurface   = Color(0xFF141424);
+const Color _kBgDeep = Color(0xFF05050C);
+const Color _kBgNavy = Color(0xFF0A0A1A);
+const Color _kSurface = Color(0xFF141424);
 const Color _kSurfaceHi = Color(0xFF1A1A2E);
-const Color _kBorder    = Color(0xFF23233A);
-const Color _kPrimary   = Color(0xFF7C3AED);
+const Color _kBorder = Color(0xFF23233A);
+const Color _kPrimary = Color(0xFF7C3AED);
 const Color _kSecondary = Color(0xFFA78BFA);
-const Color _kMuted     = Color(0xFF888899);
-const Color _kGold      = Color(0xFFFFD24A);
-const Color _kSilver    = Color(0xFFD1D5DB);
-const Color _kBronze    = Color(0xFFCD7F32);
-const Color _kGreen     = Color(0xFF4ADE80);
+const Color _kMuted = Color(0xFF888899);
+const Color _kGold = Color(0xFFFFD24A);
+const Color _kSilver = Color(0xFFD1D5DB);
+const Color _kBronze = Color(0xFFCD7F32);
+const Color _kGreen = Color(0xFF4ADE80);
 
 // ── Entry point ───────────────────────────────────────────────────────
 
@@ -187,19 +187,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
       final prevXp = _prevGlobalXp;
 
       // Compute XP delta only when we have both endpoints and it grew.
-      final int? xpDelta = (prevXp != null &&
-              resolvedXp != null &&
-              resolvedXp > prevXp)
-          ? (resolvedXp - prevXp)
-          : null;
+      final int? xpDelta =
+          (prevXp != null && resolvedXp != null && resolvedXp > prevXp)
+              ? (resolvedXp - prevXp)
+              : null;
 
       // Compute rank improvement only when we have both endpoints and
       // the new rank is strictly better (numerically smaller).
-      final bool rankImproved = prevRank != null &&
-          resolvedRank != null &&
-          resolvedRank < prevRank;
-      final int? rankUpBy =
-          rankImproved ? (prevRank! - resolvedRank!) : null;
+      final bool rankImproved =
+          prevRank != null && resolvedRank != null && resolvedRank < prevRank;
+      final int? rankUpBy = rankImproved ? (prevRank! - resolvedRank!) : null;
 
       setState(() {
         _global = data;
@@ -281,12 +278,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
 
     // Top-1 must be a genuine transition INTO #1, not a first-load
     // snapshot and not a user who was already #1.
-    final bool reachedTop =
-        newRank == 1 && prevRank != null && prevRank > 1;
+    final bool reachedTop = newRank == 1 && prevRank != null && prevRank > 1;
 
-    final bool rankImproved = prevRank != null &&
-        newRank != null &&
-        newRank < prevRank;
+    final bool rankImproved =
+        prevRank != null && newRank != null && newRank < prevRank;
 
     final bool hasXp = xpDelta != null && xpDelta > 0;
 
@@ -317,8 +312,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
       transitionDuration: const Duration(milliseconds: 380),
       pageBuilder: (_, __, ___) => _CelebrationPopup(payload: payload),
       transitionBuilder: (_, anim, __, child) {
-        final curved =
-            CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
         return FadeTransition(
           opacity: anim,
           child: ScaleTransition(scale: curved, child: child),
@@ -498,8 +492,7 @@ class _PremiumHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back,
-                color: Colors.white, size: 22),
+            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
             onPressed: onBack,
           ),
           const SizedBox(width: 4),
@@ -563,13 +556,8 @@ class _GlowingTrophy extends StatelessWidget {
       child: const Center(
         child: Text('🏆', style: TextStyle(fontSize: 22)),
       ),
-    )
-        .animate(onPlay: (c) => c.repeat(reverse: true))
-        .scaleXY(
-            begin: 1.0,
-            end: 1.06,
-            duration: 1800.ms,
-            curve: Curves.easeInOut);
+    ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(
+        begin: 1.0, end: 1.06, duration: 1800.ms, curve: Curves.easeInOut);
   }
 }
 
@@ -632,14 +620,12 @@ class _PremiumTabBar extends StatelessWidget {
           curve: Curves.easeOut,
           margin: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: isSelected
-                ? _kPrimary.withOpacity(0.18)
-                : Colors.transparent,
+            color:
+                isSelected ? _kPrimary.withOpacity(0.18) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isSelected
-                  ? _kPrimary.withOpacity(0.55)
-                  : Colors.transparent,
+              color:
+                  isSelected ? _kPrimary.withOpacity(0.55) : Colors.transparent,
             ),
             boxShadow: isSelected
                 ? [
@@ -664,9 +650,7 @@ class _PremiumTabBar extends StatelessWidget {
                 style: TextStyle(
                   color: isSelected ? _kSecondary : _kMuted,
                   fontSize: 13,
-                  fontWeight: isSelected
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ],
@@ -745,9 +729,8 @@ class _BoardList extends StatelessWidget {
       }
     }
 
-    final showRankBanner = isGlobalBoard &&
-        meInList == null &&
-        currentUserGlobalRank != null;
+    final showRankBanner =
+        isGlobalBoard && meInList == null && currentUserGlobalRank != null;
 
     // Show podium when there are at least 3 entries.
     final showPodium = entries.length >= 3;
@@ -766,9 +749,7 @@ class _BoardList extends StatelessWidget {
                 .animate()
                 .fadeIn(duration: 500.ms)
                 .slideY(begin: 0.08),
-
           if (showPodium) const SizedBox(height: 18),
-
           if (showRankBanner)
             Padding(
               padding: const EdgeInsets.only(bottom: 14),
@@ -779,7 +760,6 @@ class _BoardList extends StatelessWidget {
                 rankUpDelta: rankUpDelta,
               ).animate().fadeIn(duration: 350.ms),
             ),
-
           ...entries
               .skip(listStart)
               .toList()
@@ -835,13 +815,11 @@ class _EmptyLeaderboardState extends StatelessWidget {
                       ],
                     ),
                   ),
-                )
-                    .animate(onPlay: (c) => c.repeat(reverse: true))
-                    .scaleXY(
-                        begin: 0.94,
-                        end: 1.06,
-                        duration: 2200.ms,
-                        curve: Curves.easeInOut),
+                ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(
+                    begin: 0.94,
+                    end: 1.06,
+                    duration: 2200.ms,
+                    curve: Curves.easeInOut),
                 const Positioned(
                     top: 22, left: 32, child: _Sparkle(size: 14, delay: 0)),
                 const Positioned(
@@ -880,13 +858,11 @@ class _EmptyLeaderboardState extends StatelessWidget {
                   child: const Center(
                     child: Text('🏆', style: TextStyle(fontSize: 56)),
                   ),
-                )
-                    .animate(onPlay: (c) => c.repeat(reverse: true))
-                    .moveY(
-                        begin: -4,
-                        end: 4,
-                        duration: 2200.ms,
-                        curve: Curves.easeInOut),
+                ).animate(onPlay: (c) => c.repeat(reverse: true)).moveY(
+                    begin: -4,
+                    end: 4,
+                    duration: 2200.ms,
+                    curve: Curves.easeInOut),
               ],
             ),
           ),
@@ -927,9 +903,7 @@ class _Sparkle extends StatelessWidget {
       Icons.auto_awesome,
       size: size,
       color: _kSecondary.withOpacity(0.85),
-    )
-        .animate(onPlay: (c) => c.repeat(reverse: true))
-        .fade(
+    ).animate(onPlay: (c) => c.repeat(reverse: true)).fade(
           begin: 0.25,
           end: 1.0,
           duration: 1200.ms,
@@ -1152,9 +1126,8 @@ class _PodiumColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = entry.displayName.isNotEmpty
-        ? entry.displayName[0].toUpperCase()
-        : '?';
+    final initial =
+        entry.displayName.isNotEmpty ? entry.displayName[0].toUpperCase() : '?';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1184,8 +1157,7 @@ class _PodiumColumn extends StatelessWidget {
             Positioned(
               bottom: -6,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: _kSurfaceHi,
                   borderRadius: BorderRadius.circular(8),
@@ -1204,13 +1176,10 @@ class _PodiumColumn extends StatelessWidget {
               ),
             ),
           ],
-        )
-            .animate()
-            .fadeIn(delay: delay.ms, duration: 400.ms)
-            .scale(
-                begin: const Offset(0.7, 0.7),
-                duration: 500.ms,
-                curve: Curves.easeOutBack),
+        ).animate().fadeIn(delay: delay.ms, duration: 400.ms).scale(
+            begin: const Offset(0.7, 0.7),
+            duration: 500.ms,
+            curve: Curves.easeOutBack),
         const SizedBox(height: 14),
         Text(
           entry.displayName.split(' ').first,
@@ -1276,9 +1245,8 @@ class _LeaderboardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMe = entry.isCurrentUser;
-    final initial = entry.displayName.isNotEmpty
-        ? entry.displayName[0].toUpperCase()
-        : '?';
+    final initial =
+        entry.displayName.isNotEmpty ? entry.displayName[0].toUpperCase() : '?';
 
     final levelTitle = LevelSystem.titleFor(entry.totalXp);
     final levelNumber = entry.level;
@@ -1286,8 +1254,7 @@ class _LeaderboardCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color:
-            isMe ? _kPrimary.withOpacity(0.10) : _kSurface.withOpacity(0.65),
+        color: isMe ? _kPrimary.withOpacity(0.10) : _kSurface.withOpacity(0.65),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isMe ? _kPrimary.withOpacity(0.75) : _kBorder,
@@ -1328,8 +1295,7 @@ class _LeaderboardCard extends StatelessWidget {
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 14,
-                          fontWeight:
-                              isMe ? FontWeight.w800 : FontWeight.w600,
+                          fontWeight: isMe ? FontWeight.w800 : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -1341,8 +1307,8 @@ class _LeaderboardCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: _kPrimary.withOpacity(0.35),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                              color: _kSecondary.withOpacity(0.7)),
+                          border:
+                              Border.all(color: _kSecondary.withOpacity(0.7)),
                         ),
                         child: const Text(
                           'You',
@@ -1618,8 +1584,7 @@ class _BottomCTA extends StatelessWidget {
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(18),
-            border:
-                Border.all(color: _kPrimary.withOpacity(0.55), width: 1.1),
+            border: Border.all(color: _kPrimary.withOpacity(0.55), width: 1.1),
             boxShadow: [
               BoxShadow(
                 color: _kPrimary.withOpacity(0.35),
@@ -1675,13 +1640,10 @@ class _BottomCTA extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right,
-                  color: Colors.white, size: 22),
+              const Icon(Icons.chevron_right, color: Colors.white, size: 22),
             ],
           ),
-        )
-            .animate(onPlay: (c) => c.repeat(reverse: true))
-            .boxShadow(
+        ).animate(onPlay: (c) => c.repeat(reverse: true)).boxShadow(
               begin: const BoxShadow(
                 color: Colors.transparent,
                 blurRadius: 0,
@@ -1710,9 +1672,8 @@ class _CelebrationPopup extends StatelessWidget {
   // Priority order: Top-1 dominates, then any combined rank+XP, then
   // rank-only, then XP-only.
   bool get _isTopOne => payload.isTopOne;
-  bool get _isCombined => !payload.isTopOne &&
-      payload.hasRankChange &&
-      payload.hasXpChange;
+  bool get _isCombined =>
+      !payload.isTopOne && payload.hasRankChange && payload.hasXpChange;
   bool get _isRankOnly =>
       !payload.isTopOne && payload.hasRankChange && !payload.hasXpChange;
   bool get _isXpOnly =>
@@ -1759,8 +1720,7 @@ class _CelebrationPopup extends StatelessWidget {
               end: Alignment.bottomCenter,
             ),
             borderRadius: BorderRadius.circular(24),
-            border:
-                Border.all(color: _kPrimary.withOpacity(0.6), width: 1.2),
+            border: Border.all(color: _kPrimary.withOpacity(0.6), width: 1.2),
             boxShadow: [
               BoxShadow(
                 color: _kPrimary.withOpacity(0.55),
@@ -1795,12 +1755,10 @@ class _CelebrationPopup extends StatelessWidget {
                 child: Center(
                   child: Text(_icon, style: const TextStyle(fontSize: 40)),
                 ),
-              )
-                  .animate()
-                  .scale(
-                      begin: const Offset(0.6, 0.6),
-                      duration: 600.ms,
-                      curve: Curves.easeOutBack),
+              ).animate().scale(
+                  begin: const Offset(0.6, 0.6),
+                  duration: 600.ms,
+                  curve: Curves.easeOutBack),
               const SizedBox(height: 18),
               Text(
                 _headline,
@@ -1826,13 +1784,12 @@ class _CelebrationPopup extends StatelessWidget {
               if (_isTopOne || _isCombined || _isRankOnly) ...[
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: _kPrimary.withOpacity(0.18),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: _kSecondary.withOpacity(0.55)),
+                    border: Border.all(color: _kSecondary.withOpacity(0.55)),
                   ),
                   child: Text(
                     _isTopOne
@@ -1849,11 +1806,13 @@ class _CelebrationPopup extends StatelessWidget {
               ],
 
               // XP chip
-              if (_isCombined || _isXpOnly || (_isTopOne && payload.hasXpChange)) ...[
+              if (_isCombined ||
+                  _isXpOnly ||
+                  (_isTopOne && payload.hasXpChange)) ...[
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: _kGreen.withOpacity(0.14),
                     borderRadius: BorderRadius.circular(12),

@@ -168,30 +168,30 @@ class CopilotHubScreen extends StatefulWidget {
 
 class _CopilotHubScreenState extends State<CopilotHubScreen> {
   // ── Design tokens ──────────────────────────────────────────────────
-  static const _bg        = Color(0xFF0A0C16);
-  static const _surface   = Color(0xFF151929);
-  static const _border    = Color(0xFF262B42);
-  static const _primary   = Color(0xFF8B5CF6);
+  static const _bg = Color(0xFF0A0C16);
+  static const _surface = Color(0xFF151929);
+  static const _border = Color(0xFF262B42);
+  static const _primary = Color(0xFF8B5CF6);
   static const _secondary = Color(0xFFC4B5FD);
-  static const _muted     = Color(0xFF9297AC);
+  static const _muted = Color(0xFF9297AC);
 
   // ── Services ───────────────────────────────────────────────────────
   final _achievementService = AchievementService();
-  final _memoryService      = AiMemoryService();
-  final _rewardService      = RewardService();
-  final _questService       = QuestService();
+  final _memoryService = AiMemoryService();
+  final _rewardService = RewardService();
+  final _questService = QuestService();
   final _leaderboardService = LeaderboardService();
 
   // ── State ──────────────────────────────────────────────────────────
   String? _uid;
   bool _initCalled = false;
 
-  String _greeting        = '';
-  String _advice          = '';
-  bool   _canClaimReward  = false;
-  int    _userRank        = 0;
-  List<Quest> _quests     = const [];
-  AiMemory _memory        = const AiMemory();
+  String _greeting = '';
+  String _advice = '';
+  bool _canClaimReward = false;
+  int _userRank = 0;
+  List<Quest> _quests = const [];
+  AiMemory _memory = const AiMemory();
 
   /// Guards the whole refresh flow against concurrent duplicate requests
   /// (pull-to-refresh + action-triggered refresh).
@@ -298,13 +298,13 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
         memory = await _memoryService.fetchMemory(_uid!);
       } catch (_) {}
 
-      final level      = LevelSystem.levelFor(state?.totalXp ?? 0);
+      final level = LevelSystem.levelFor(state?.totalXp ?? 0);
       final levelTitle = LevelSystem.titleFor(state?.totalXp ?? 0);
       final displayName =
           FirebaseAuth.instance.currentUser?.displayName ?? 'there';
 
       String greeting = '';
-      String advice   = '';
+      String advice = '';
       try {
         greeting = await _memoryService.getDailyGreeting(
           displayName: displayName,
@@ -323,29 +323,25 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
       } catch (_) {}
 
       final results = await Future.wait([
-        _rewardService
-            .canClaimDailyBox(_uid!)
-            .catchError((_) => false),
-        _questService
-            .fetchQuests(_uid!)
-            .catchError((_) => <Quest>[]),
+        _rewardService.canClaimDailyBox(_uid!).catchError((_) => false),
+        _questService.fetchQuests(_uid!).catchError((_) => <Quest>[]),
         _leaderboardService
             .getCurrentUserRank(_uid!, state?.totalXp ?? 0)
             .catchError((_) => 0),
       ]);
 
       final canClaim = results[0] as bool;
-      final quests   = results[1] as List<Quest>;
-      final rank     = results[2] as int;
+      final quests = results[1] as List<Quest>;
+      final rank = results[2] as int;
 
       if (!mounted || epoch != _refreshEpoch) return;
       setState(() {
-        _memory         = memory;
-        _greeting       = greeting;
-        _advice         = advice;
+        _memory = memory;
+        _greeting = greeting;
+        _advice = advice;
         _canClaimReward = canClaim;
-        _quests         = quests;
-        _userRank       = rank;
+        _quests = quests;
+        _userRank = rank;
       });
 
       final user = FirebaseAuth.instance.currentUser;
@@ -442,7 +438,7 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
       if (!mounted) return;
 
       try {
-        final ctrl  = CopilotProvider.maybeOf(context);
+        final ctrl = CopilotProvider.maybeOf(context);
         final state = ctrl?.state;
 
         int lifetimeCompleted = 0;
@@ -483,8 +479,7 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
         ]),
         backgroundColor: _primary,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 3),
       ),
     );
@@ -558,10 +553,9 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.auto_awesome,
-                  size: 42, color: Colors.white),
+              child:
+                  const Icon(Icons.auto_awesome, size: 42, color: Colors.white),
             ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
-
             const SizedBox(height: 24),
             const Text('AI Career Copilot',
                 textAlign: TextAlign.center,
@@ -576,15 +570,15 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
               style: TextStyle(color: _muted, fontSize: 14, height: 1.5),
             ).animate().fadeIn(delay: 150.ms),
             const SizedBox(height: 28),
-            _featureRow(Icons.radar,        'Skill Gap Analysis'),
+            _featureRow(Icons.radar, 'Skill Gap Analysis'),
             const SizedBox(height: 10),
-            _featureRow(Icons.route,        'Personalised Roadmap'),
+            _featureRow(Icons.route, 'Personalised Roadmap'),
             const SizedBox(height: 10),
-            _featureRow(Icons.bolt,         'Daily Goals & XP'),
+            _featureRow(Icons.bolt, 'Daily Goals & XP'),
             const SizedBox(height: 10),
             _featureRow(Icons.emoji_events, 'Achievements & Badges'),
             const SizedBox(height: 10),
-            _featureRow(Icons.leaderboard,  'Global Leaderboard'),
+            _featureRow(Icons.leaderboard, 'Global Leaderboard'),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -630,20 +624,18 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(text,
-                style:
-                    const TextStyle(color: Colors.white70, fontSize: 14)),
+                style: const TextStyle(color: Colors.white70, fontSize: 14)),
           ),
         ],
       );
 
   // ── Full Dashboard ─────────────────────────────────────────────────
   Widget _buildDashboard(CopilotState state, CopilotController ctrl) {
-    final name = FirebaseAuth.instance.currentUser?.displayName
-            ?.split(' ')
-            .first ??
-        'there';
+    final name =
+        FirebaseAuth.instance.currentUser?.displayName?.split(' ').first ??
+            'there';
     final totalXp = ctrl.authoritativeTotalXp;
-    final level   = LevelSystem.levelFor(totalXp);
+    final level = LevelSystem.levelFor(totalXp);
 
     final copilotContext = ctrl.copilotContext;
 
@@ -679,8 +671,8 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
                         const SizedBox(height: 2),
                         Text(
                           LevelSystem.titleFor(totalXp),
-                          style: const TextStyle(
-                              color: _secondary, fontSize: 12),
+                          style:
+                              const TextStyle(color: _secondary, fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -709,7 +701,10 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _StatsStrip(state: state, rank: _userRank, authoritativeXp: ctrl.authoritativeTotalXp),
+              child: _StatsStrip(
+                  state: state,
+                  rank: _userRank,
+                  authoritativeXp: ctrl.authoritativeTotalXp),
             ).animate().fadeIn(delay: 80.ms),
           ),
 
@@ -900,12 +895,12 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _QuickActions(
-                onProgress:     () => _go(const ProgressScreen()),
-                onEdit:         () => _go(const SkillProfileScreen()),
-                onRerun:        () => _refreshAll(rerunAnalysis: true),
+                onProgress: () => _go(const ProgressScreen()),
+                onEdit: () => _go(const SkillProfileScreen()),
+                onRerun: () => _refreshAll(rerunAnalysis: true),
                 onAchievements: () => _go(const AchievementScreen()),
-                onAnalytics:    () => _go(const AnalyticsScreen()),
-                onLeaderboard:  () => _go(const LeaderboardScreen()),
+                onAnalytics: () => _go(const AnalyticsScreen()),
+                onLeaderboard: () => _go(const LeaderboardScreen()),
               ),
             ).animate().fadeIn(delay: 360.ms),
           ),
@@ -969,8 +964,7 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
 
   // ── Shared helpers ────────────────────────────────────────────────
 
-  Widget _sectionHeader(
-      String title, IconData icon, VoidCallback? onSeeAll) {
+  Widget _sectionHeader(String title, IconData icon, VoidCallback? onSeeAll) {
     return Row(
       children: [
         Icon(icon, size: 17, color: _secondary),
@@ -1002,8 +996,7 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
   Widget _xpBadge(int xp, int level) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          gradient:
-              const LinearGradient(colors: [_primary, _secondary]),
+          gradient: const LinearGradient(colors: [_primary, _secondary]),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
@@ -1048,8 +1041,8 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
             SizedBox(
               width: 16,
               height: 16,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: _secondary),
+              child:
+                  CircularProgressIndicator(strokeWidth: 2, color: _secondary),
             ),
             SizedBox(width: 12),
             Expanded(
@@ -1071,13 +1064,12 @@ class _CopilotHubScreenState extends State<CopilotHubScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.warning_amber,
-                size: 16, color: Colors.redAccent),
+            const Icon(Icons.warning_amber, size: 16, color: Colors.redAccent),
             const SizedBox(width: 10),
             Expanded(
               child: Text(error,
-                  style: const TextStyle(
-                      color: Colors.redAccent, fontSize: 12)),
+                  style:
+                      const TextStyle(color: Colors.redAccent, fontSize: 12)),
             ),
           ],
         ),
@@ -1109,7 +1101,7 @@ class _StatsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final done  = state.todayGoals.where((g) => g.isCompleted).length;
+    final done = state.todayGoals.where((g) => g.isCompleted).length;
     final total = state.todayGoals.length;
 
     return Container(
@@ -1146,16 +1138,15 @@ class _StatsStrip extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
             Text(label,
-                style:
-                    const TextStyle(color: Color(0xFF9297AC), fontSize: 10),
+                style: const TextStyle(color: Color(0xFF9297AC), fontSize: 10),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
           ],
         ),
       );
 
-  Widget _div() => Container(
-      width: 1, height: 30, color: const Color(0xFF262B42));
+  Widget _div() =>
+      Container(width: 1, height: 30, color: const Color(0xFF262B42));
 }
 
 // ── YOUR NEXT MOVE ────────────────────────────────────────────────────
@@ -1174,9 +1165,7 @@ class _NextMoveCard extends StatelessWidget {
     final ctx = copilotContext;
     if (ctx == null) return null;
 
-    final incomplete = ctx.nextActions
-        .where((a) => !a.isCompleted)
-        .toList()
+    final incomplete = ctx.nextActions.where((a) => !a.isCompleted).toList()
       ..sort((a, b) => a.priority.compareTo(b.priority));
 
     // If this career still has an open skill gap, a skill-review action
@@ -1204,12 +1193,18 @@ class _NextMoveCard extends StatelessWidget {
 
   String _typeLabel(NextActionType t) {
     switch (t) {
-      case NextActionType.lesson:      return 'Lesson';
-      case NextActionType.skillReview: return 'Skill Focus';
-      case NextActionType.project:     return 'Project';
-      case NextActionType.interview:   return 'Interview Practice';
-      case NextActionType.application: return 'Application';
-      default:                         return 'Next Step';
+      case NextActionType.lesson:
+        return 'Lesson';
+      case NextActionType.skillReview:
+        return 'Skill Focus';
+      case NextActionType.project:
+        return 'Project';
+      case NextActionType.interview:
+        return 'Interview Practice';
+      case NextActionType.application:
+        return 'Application';
+      default:
+        return 'Next Step';
     }
   }
 
@@ -1220,8 +1215,10 @@ class _NextMoveCard extends StatelessWidget {
   /// top skill gap. All other action types keep the neutral "Open".
   String _actionLabel(NextActionType t) {
     switch (t) {
-      case NextActionType.skillReview: return 'Start Fixing Now';
-      default:                          return 'Open';
+      case NextActionType.skillReview:
+        return 'Start Fixing Now';
+      default:
+        return 'Open';
     }
   }
 
@@ -1229,18 +1226,20 @@ class _NextMoveCard extends StatelessWidget {
   /// existing design language is preserved.
   IconData _actionIcon(NextActionType t) {
     switch (t) {
-      case NextActionType.skillReview: return Icons.rocket_launch;
-      default:                          return Icons.open_in_new;
+      case NextActionType.skillReview:
+        return Icons.rocket_launch;
+      default:
+        return Icons.open_in_new;
     }
   }
 
   String? _youAreHere() {
-    final role  = state.skillProfile?.targetRole.label;
+    final role = state.skillProfile?.targetRole.label;
     final phase = state.roadmap?.currentPhase;
     if (role != null && phase != null) {
       return '$role · Phase ${phase.phaseNumber + 1}: ${phase.title}';
     }
-    if (role != null)  return role;
+    if (role != null) return role;
     if (phase != null) return 'Phase ${phase.phaseNumber + 1}: ${phase.title}';
     return null;
   }
@@ -1248,7 +1247,7 @@ class _NextMoveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final action = _bestAction;
-    final here   = _youAreHere();
+    final here = _youAreHere();
 
     if (action == null) {
       return GlassCard(
@@ -1278,8 +1277,8 @@ class _NextMoveCard extends StatelessWidget {
             const SizedBox(height: 10),
             if (here != null) ...[
               Text('📍 $here',
-                  style: const TextStyle(
-                      color: Color(0xFFC4B5FD), fontSize: 12),
+                  style:
+                      const TextStyle(color: Color(0xFFC4B5FD), fontSize: 12),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis),
               const SizedBox(height: 8),
@@ -1287,8 +1286,8 @@ class _NextMoveCard extends StatelessWidget {
             const Text(
               'Your Copilot is preparing your next step. '
               'Continue with today\'s goals or re-analyse to refresh your plan.',
-              style: TextStyle(
-                  color: Colors.white70, fontSize: 13, height: 1.5),
+              style:
+                  TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 14),
             SizedBox(
@@ -1339,8 +1338,7 @@ class _NextMoveCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: const Color(0xFF8B5CF6).withOpacity(0.20),
                   borderRadius: BorderRadius.circular(8),
@@ -1353,18 +1351,14 @@ class _NextMoveCard extends StatelessWidget {
               ),
             ],
           ),
-
           if (here != null) ...[
             const SizedBox(height: 10),
             Text('📍 $here',
-                style: const TextStyle(
-                    color: Color(0xFFC4B5FD), fontSize: 12),
+                style: const TextStyle(color: Color(0xFFC4B5FD), fontSize: 12),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
           ],
-
           const SizedBox(height: 10),
-
           Text(
             action.title,
             style: const TextStyle(
@@ -1373,7 +1367,6 @@ class _NextMoveCard extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 height: 1.3),
           ),
-
           if (action.description.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
             Row(
@@ -1384,17 +1377,13 @@ class _NextMoveCard extends StatelessWidget {
                   child: Text(
                     action.description,
                     style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        height: 1.4),
+                        color: Colors.white70, fontSize: 13, height: 1.4),
                   ),
                 ),
               ],
             ),
           ],
-
           const SizedBox(height: 16),
-
           SizedBox(
             width: double.infinity,
             height: 46,
@@ -1436,33 +1425,45 @@ class _RecommendationsPreview extends StatelessWidget {
 
   Color _colorFor(RecommendationCategory c) {
     switch (c) {
-      case RecommendationCategory.skillGap:       return const Color(0xFFF87171);
-      case RecommendationCategory.learningPath:   return const Color(0xFF60A5FA);
-      case RecommendationCategory.project:        return const Color(0xFFFBBF24);
-      case RecommendationCategory.interviewPrep:  return const Color(0xFFC4B5FD);
-      case RecommendationCategory.jobMatch:       return const Color(0xFF34D399);
-      case RecommendationCategory.streakNudge:    return const Color(0xFFFB923C);
-      default:                                     return const Color(0xFFC4B5FD);
+      case RecommendationCategory.skillGap:
+        return const Color(0xFFF87171);
+      case RecommendationCategory.learningPath:
+        return const Color(0xFF60A5FA);
+      case RecommendationCategory.project:
+        return const Color(0xFFFBBF24);
+      case RecommendationCategory.interviewPrep:
+        return const Color(0xFFC4B5FD);
+      case RecommendationCategory.jobMatch:
+        return const Color(0xFF34D399);
+      case RecommendationCategory.streakNudge:
+        return const Color(0xFFFB923C);
+      default:
+        return const Color(0xFFC4B5FD);
     }
   }
 
   String _labelFor(RecommendationCategory c) {
     switch (c) {
-      case RecommendationCategory.skillGap:       return 'Skill Gap';
-      case RecommendationCategory.learningPath:   return 'Learning';
-      case RecommendationCategory.project:        return 'Project';
-      case RecommendationCategory.interviewPrep:  return 'Interview';
-      case RecommendationCategory.jobMatch:       return 'Job Match';
-      case RecommendationCategory.streakNudge:    return 'Streak';
-      default:                                     return 'Insight';
+      case RecommendationCategory.skillGap:
+        return 'Skill Gap';
+      case RecommendationCategory.learningPath:
+        return 'Learning';
+      case RecommendationCategory.project:
+        return 'Project';
+      case RecommendationCategory.interviewPrep:
+        return 'Interview';
+      case RecommendationCategory.jobMatch:
+        return 'Job Match';
+      case RecommendationCategory.streakNudge:
+        return 'Streak';
+      default:
+        return 'Insight';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final active = recommendations
-        .where((r) => !r.isDismissed)
-        .toList()
+    final active = recommendations.where((r) => !r.isDismissed).toList()
       ..sort((a, b) => a.priority.compareTo(b.priority));
 
     if (active.isEmpty) return const SizedBox.shrink();
@@ -1485,8 +1486,8 @@ class _RecommendationsPreview extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -1529,8 +1530,8 @@ class _RecommendationsPreview extends StatelessWidget {
                     onTap: () => onDismiss(r.id),
                     child: const Padding(
                       padding: EdgeInsets.only(left: 6, top: 2),
-                      child: Icon(Icons.close,
-                          size: 14, color: Color(0xFF9297AC)),
+                      child:
+                          Icon(Icons.close, size: 14, color: Color(0xFF9297AC)),
                     ),
                   ),
                 ),
@@ -1585,7 +1586,7 @@ class _DailyGoalsCard extends StatelessWidget {
     }
 
     final completed = state.todayGoals.where((g) => g.isCompleted).length;
-    final total     = state.todayGoals.length;
+    final total = state.todayGoals.length;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1599,8 +1600,8 @@ class _DailyGoalsCard extends StatelessWidget {
           Row(
             children: [
               Text('$completed/$total done',
-                  style: const TextStyle(
-                      color: Color(0xFF9297AC), fontSize: 12)),
+                  style:
+                      const TextStyle(color: Color(0xFF9297AC), fontSize: 12)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1610,8 +1611,7 @@ class _DailyGoalsCard extends StatelessWidget {
               value: total == 0 ? 0 : completed / total,
               minHeight: 5,
               backgroundColor: const Color(0xFF262B42),
-              valueColor:
-                  const AlwaysStoppedAnimation(Color(0xFF8B5CF6)),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFF8B5CF6)),
             ),
           ),
           const SizedBox(height: 12),
@@ -1660,35 +1660,31 @@ class _GoalTile extends StatelessWidget {
                   : null,
             ),
             const SizedBox(width: 10),
-            Text(goal.category.icon,
-                style: const TextStyle(fontSize: 15)),
+            Text(goal.category.icon, style: const TextStyle(fontSize: 15)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 goal.title,
                 style: TextStyle(
-                  color: goal.isCompleted
-                      ? const Color(0xFF9297AC)
-                      : Colors.white,
+                  color:
+                      goal.isCompleted ? const Color(0xFF9297AC) : Colors.white,
                   fontSize: 13,
-                  decoration: goal.isCompleted
-                      ? TextDecoration.lineThrough
-                      : null,
+                  decoration:
+                      goal.isCompleted ? TextDecoration.lineThrough : null,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                 color: const Color(0xFF8B5CF6).withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text('+${goal.xpReward}',
-                  style: const TextStyle(
-                      color: Color(0xFFC4B5FD), fontSize: 10)),
+                  style:
+                      const TextStyle(color: Color(0xFFC4B5FD), fontSize: 10)),
             ),
           ],
         ),
@@ -1757,7 +1753,7 @@ class _RoadmapPreview extends StatelessWidget {
     }
 
     final phase = roadmap.currentPhase;
-    final pct   = roadmap.overallProgress.clamp(0.0, 1.0);
+    final pct = roadmap.overallProgress.clamp(0.0, 1.0);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1771,8 +1767,7 @@ class _RoadmapPreview extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border:
-            Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1790,8 +1785,7 @@ class _RoadmapPreview extends StatelessWidget {
               ),
               Text('${(pct * 100).toInt()}%',
                   style: const TextStyle(
-                      color: Color(0xFFC4B5FD),
-                      fontWeight: FontWeight.bold)),
+                      color: Color(0xFFC4B5FD), fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1801,8 +1795,7 @@ class _RoadmapPreview extends StatelessWidget {
               value: pct,
               minHeight: 6,
               backgroundColor: const Color(0xFF262B42),
-              valueColor:
-                  const AlwaysStoppedAnimation(Color(0xFF8B5CF6)),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFF8B5CF6)),
             ),
           ),
           if (phase != null) ...[
@@ -1810,16 +1803,15 @@ class _RoadmapPreview extends StatelessWidget {
             Row(
               children: [
                 Container(
-                    width: 7, height: 7,
+                    width: 7,
+                    height: 7,
                     decoration: const BoxDecoration(
-                        color: Color(0xFF8B5CF6),
-                        shape: BoxShape.circle)),
+                        color: Color(0xFF8B5CF6), shape: BoxShape.circle)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Phase ${phase.phaseNumber + 1}: ${phase.title}',
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 12),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1829,9 +1821,7 @@ class _RoadmapPreview extends StatelessWidget {
             const SizedBox(height: 4),
             Text(phase.description,
                 style: const TextStyle(
-                    color: Color(0xFF9297AC),
-                    fontSize: 11,
-                    height: 1.4),
+                    color: Color(0xFF9297AC), fontSize: 11, height: 1.4),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
           ],
@@ -1883,16 +1873,15 @@ class _LeaderboardTeaser extends StatelessWidget {
                   rank > 0
                       ? 'Keep earning XP to climb the ranks'
                       : 'Complete goals to start ranking',
-                  style: const TextStyle(
-                      color: Color(0xFF9297AC), fontSize: 11),
+                  style:
+                      const TextStyle(color: Color(0xFF9297AC), fontSize: 11),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right,
-              color: Color(0xFFC4B5FD), size: 20),
+          const Icon(Icons.chevron_right, color: Color(0xFFC4B5FD), size: 20),
         ],
       ),
     );
@@ -1930,29 +1919,28 @@ class _QuickActions extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            _action(Icons.bar_chart,   'Progress',     onProgress),
+            _action(Icons.bar_chart, 'Progress', onProgress),
             const SizedBox(width: 10),
-            _action(Icons.emoji_events,'Achievements', onAchievements),
+            _action(Icons.emoji_events, 'Achievements', onAchievements),
             const SizedBox(width: 10),
-            _action(Icons.analytics,   'Analytics',    onAnalytics),
+            _action(Icons.analytics, 'Analytics', onAnalytics),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            _action(Icons.leaderboard, 'Leaderboard',  onLeaderboard),
+            _action(Icons.leaderboard, 'Leaderboard', onLeaderboard),
             const SizedBox(width: 10),
-            _action(Icons.edit_note,   'Edit Profile', onEdit),
+            _action(Icons.edit_note, 'Edit Profile', onEdit),
             const SizedBox(width: 10),
-            _action(Icons.refresh,     'Re-analyse',   onRerun),
+            _action(Icons.refresh, 'Re-analyse', onRerun),
           ],
         ),
       ],
     );
   }
 
-  Widget _action(IconData icon, String label, VoidCallback onTap) =>
-      Expanded(
+  Widget _action(IconData icon, String label, VoidCallback onTap) => Expanded(
         child: GestureDetector(
           onTap: onTap,
           child: Container(
@@ -1967,8 +1955,7 @@ class _QuickActions extends StatelessWidget {
                 Icon(icon, color: const Color(0xFFC4B5FD), size: 20),
                 const SizedBox(height: 6),
                 Text(label,
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 10),
+                    style: const TextStyle(color: Colors.white70, fontSize: 10),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),

@@ -315,9 +315,7 @@ class HomeSalaryInfo {
   String get salaryLabel {
     final value = label?.trim();
 
-    return value == null || value.isEmpty
-        ? 'Salary not disclosed'
-        : value;
+    return value == null || value.isEmpty ? 'Salary not disclosed' : value;
   }
 }
 

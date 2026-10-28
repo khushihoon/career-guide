@@ -214,17 +214,14 @@ class _RewardScreenState extends State<RewardScreen>
     if (!mounted) return;
 
     setState(() {
-      _timeUntilTomorrow =
-          remaining.isNegative ? Duration.zero : remaining;
+      _timeUntilTomorrow = remaining.isNegative ? Duration.zero : remaining;
     });
   }
 
   String _formatCountdown(Duration duration) {
     final hours = duration.inHours.toString().padLeft(2, '0');
-    final minutes =
-        duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds =
-        duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
 
     return '$hours:$minutes:$seconds';
   }
@@ -334,8 +331,7 @@ class _RewardScreenState extends State<RewardScreen>
               AnimatedBuilder(
                 animation: _pulseController,
                 builder: (_, child) {
-                  final scale =
-                      1 + (_pulseController.value * 0.035);
+                  final scale = 1 + (_pulseController.value * 0.035);
 
                   return Transform.scale(
                     scale: scale,
@@ -361,9 +357,7 @@ class _RewardScreenState extends State<RewardScreen>
                   ),
                   child: Center(
                     child: Text(
-                      summary.claimedToday
-                          ? '🔥'
-                          : (today?.emoji ?? '🎁'),
+                      summary.claimedToday ? '🔥' : (today?.emoji ?? '🎁'),
                       style: const TextStyle(fontSize: 44),
                     ),
                   ),
@@ -371,9 +365,7 @@ class _RewardScreenState extends State<RewardScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                summary.claimedToday
-                    ? 'REWARD CLAIMED'
-                    : 'TODAY’S REWARD',
+                summary.claimedToday ? 'REWARD CLAIMED' : 'TODAY’S REWARD',
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 12,
@@ -434,8 +426,7 @@ class _RewardScreenState extends State<RewardScreen>
                             ),
                           )
                         : Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
                                 'CLAIM +${today.xpAmount} XP',
@@ -508,8 +499,7 @@ class _RewardScreenState extends State<RewardScreen>
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: chain.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(width: 10),
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (_, index) {
                 final slot = chain[index];
 
@@ -546,8 +536,7 @@ class _RewardScreenState extends State<RewardScreen>
 
     final progress = milestone.days == 0
         ? 0.0
-        : (summary.currentStreak / milestone.days)
-            .clamp(0.0, 1.0);
+        : (summary.currentStreak / milestone.days).clamp(0.0, 1.0);
 
     return _SectionCard(
       title: 'NEXT MILESTONE',
@@ -639,9 +628,7 @@ class _RewardScreenState extends State<RewardScreen>
           child: _SmallGlassCard(
             icon: '⚡',
             title: 'Multiplier',
-            value: multiplier.isActive
-                ? '${multiplier.multiplier}x'
-                : '1x',
+            value: multiplier.isActive ? '${multiplier.multiplier}x' : '1x',
             subtitle: multiplier.isActive
                 ? _formatDuration(multiplier.remaining)
                 : 'inactive',
@@ -722,8 +709,7 @@ class _RewardScreenState extends State<RewardScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           next.title,
@@ -801,8 +787,7 @@ class _RewardScreenState extends State<RewardScreen>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         entry.message.isEmpty
@@ -1235,18 +1220,14 @@ class _RewardDayCard extends StatelessWidget {
           Text(
             'DAY ${slot.day}',
             style: TextStyle(
-              color: slot.locked
-                  ? Colors.white30
-                  : Colors.white70,
+              color: slot.locked ? Colors.white30 : Colors.white70,
               fontSize: 10,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            slot.xpAmount > 0
-                ? '+${slot.xpAmount}'
-                : 'Reward',
+            slot.xpAmount > 0 ? '+${slot.xpAmount}' : 'Reward',
             style: TextStyle(
               color: slot.locked
                   ? Colors.white.withValues(alpha: 0.25)

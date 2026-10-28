@@ -8,18 +8,18 @@ import '../services/copilot_provider.dart';
 class PersonalizedRoadmapScreen extends StatelessWidget {
   const PersonalizedRoadmapScreen({super.key});
 
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
 
   @override
   Widget build(BuildContext context) {
     // ✅ FIX: maybeOf use karo
     final ctrl = CopilotProvider.maybeOf(context);
-    
+
     // ✅ Agar provider nahi mila to loading dikhao
     if (ctrl == null) {
       return Scaffold(
@@ -29,7 +29,7 @@ class PersonalizedRoadmapScreen extends StatelessWidget {
         ),
       );
     }
-    
+
     final roadmap = ctrl.state.roadmap;
 
     return Scaffold(
@@ -62,13 +62,15 @@ class PersonalizedRoadmapScreen extends StatelessWidget {
                     delegate: SliverChildBuilderDelegate(
                       (ctx, i) {
                         final phase = roadmap.phases[i];
-                        final isCurrent = roadmap.currentPhaseIndex == phase.phaseNumber;
+                        final isCurrent =
+                            roadmap.currentPhaseIndex == phase.phaseNumber;
                         return _PhaseCard(
                           phase: phase,
                           isCurrent: isCurrent,
                           onComplete: phase.isUnlocked && !phase.isCompleted
                               ? () {
-                                  final uid = FirebaseAuth.instance.currentUser?.uid;
+                                  final uid =
+                                      FirebaseAuth.instance.currentUser?.uid;
                                   if (uid != null && ctrl != null) {
                                     ctrl.completePhase(uid, phase.phaseNumber);
                                   }
@@ -126,8 +128,7 @@ class _ProgressHeader extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-            color: const Color(0xFF7C3AED).withOpacity(0.35)),
+        border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,15 +159,13 @@ class _ProgressHeader extends StatelessWidget {
               value: roadmap.overallProgress,
               minHeight: 7,
               backgroundColor: const Color(0xFF2A2A40),
-              valueColor:
-                  const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '${roadmap.phases.where((p) => p.isCompleted).length} / ${roadmap.phases.length} phases completed',
-            style: const TextStyle(
-                color: Color(0xFF888899), fontSize: 12),
+            style: const TextStyle(color: Color(0xFF888899), fontSize: 12),
           ),
         ],
       ),
@@ -192,14 +191,14 @@ class _PhaseCard extends StatefulWidget {
 class _PhaseCardState extends State<_PhaseCard> {
   bool _expanded = false;
 
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
 
   Color get _stateColor {
     if (widget.phase.isCompleted) return const Color(0xFF4ADE80);
-    if (widget.isCurrent)         return _primary;
+    if (widget.isCurrent) return _primary;
     if (!widget.phase.isUnlocked) return const Color(0xFF444455);
     return const Color(0xFFF59E0B);
   }
@@ -214,9 +213,7 @@ class _PhaseCardState extends State<_PhaseCard> {
         color: _surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: widget.isCurrent
-              ? _primary.withOpacity(0.5)
-              : _border,
+          color: widget.isCurrent ? _primary.withOpacity(0.5) : _border,
           width: widget.isCurrent ? 1.5 : 1,
         ),
       ),
@@ -292,9 +289,7 @@ class _PhaseCardState extends State<_PhaseCard> {
                 children: [
                   Text(widget.phase.description,
                       style: const TextStyle(
-                          color: Color(0xFF888899),
-                          fontSize: 13,
-                          height: 1.5)),
+                          color: Color(0xFF888899), fontSize: 13, height: 1.5)),
                   const SizedBox(height: 14),
                   const Text('Skills you\'ll learn',
                       style: TextStyle(
@@ -317,8 +312,7 @@ class _PhaseCardState extends State<_PhaseCard> {
                               ),
                               child: Text(s,
                                   style: const TextStyle(
-                                      color: Color(0xFFA78BFA),
-                                      fontSize: 11)),
+                                      color: Color(0xFFA78BFA), fontSize: 11)),
                             ))
                         .toList(),
                   ),
@@ -338,8 +332,7 @@ class _PhaseCardState extends State<_PhaseCard> {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: widget.onComplete,
-                        icon: const Icon(Icons.check_circle_outline,
-                            size: 18),
+                        icon: const Icon(Icons.check_circle_outline, size: 18),
                         label: const Text('Mark Phase Complete'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF4ADE80),
@@ -347,8 +340,7 @@ class _PhaseCardState extends State<_PhaseCard> {
                               color: Color(0xFF4ADE80), width: 1.5),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
@@ -405,8 +397,7 @@ class _ResourceTile extends StatelessWidget {
               ),
             ),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: resource.isFree
                     ? const Color(0xFF4ADE80).withOpacity(0.15)
@@ -423,8 +414,7 @@ class _ResourceTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.open_in_new,
-                size: 14, color: Color(0xFF666677)),
+            const Icon(Icons.open_in_new, size: 14, color: Color(0xFF666677)),
           ],
         ),
       ),

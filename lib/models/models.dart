@@ -105,8 +105,7 @@ class Job {
       return 'ml_engineer';
     }
 
-    if (value.contains('data scientist') ||
-        value.contains('data science')) {
+    if (value.contains('data scientist') || value.contains('data science')) {
       return 'data_scientist';
     }
 
@@ -127,8 +126,7 @@ class Job {
       return 'ai_researcher';
     }
 
-    if (value.contains('ai product manager') ||
-        value.contains('ai product')) {
+    if (value.contains('ai product manager') || value.contains('ai product')) {
       return 'ai_product_manager';
     }
 
@@ -239,7 +237,7 @@ class AiCompany {
 // ────────────────────────────
 
 final List<Job> kJobs = [
-const Job(
+  const Job(
     title: 'AI Engineer',
     company: 'OpenAI',
     location: 'Remote / USA',
@@ -1251,7 +1249,8 @@ final List<Course> kCourses = [
     platform: 'Coursera — Andrew Ng',
     price: 'Free to audit',
     isFree: true,
-    url: 'https://www.coursera.org/specializations/machine-learning-introduction',
+    url:
+        'https://www.coursera.org/specializations/machine-learning-introduction',
     icon: '🧠',
   ),
   const Course(
@@ -1275,7 +1274,8 @@ final List<Course> kCourses = [
     platform: 'Udemy — Jose Portilla',
     price: '₹499',
     isFree: false,
-    url: 'https://www.udemy.com/course/python-for-data-science-and-machine-learning-bootcamp/',
+    url:
+        'https://www.udemy.com/course/python-for-data-science-and-machine-learning-bootcamp/',
     icon: '📈',
   ),
   const Course(
@@ -1352,7 +1352,11 @@ List<RoadmapStep> buildRoadmap() => [
         number: 1,
         title: 'Learn Python Basics',
         subtitle: 'The foundation of all AI work',
-        topics: ['Variables & loops', 'Functions & OOP', 'Libraries: NumPy, Pandas'],
+        topics: [
+          'Variables & loops',
+          'Functions & OOP',
+          'Libraries: NumPy, Pandas'
+        ],
       ),
       RoadmapStep(
         number: 2,
@@ -1364,7 +1368,11 @@ List<RoadmapStep> buildRoadmap() => [
         number: 3,
         title: 'Machine Learning',
         subtitle: 'Core ML algorithms',
-        topics: ['Supervised Learning', 'Unsupervised Learning', 'scikit-learn'],
+        topics: [
+          'Supervised Learning',
+          'Unsupervised Learning',
+          'scikit-learn'
+        ],
       ),
       RoadmapStep(
         number: 4,
@@ -1415,7 +1423,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2015',
     focus: 'LLM / AGI',
-    description: 'Creator of ChatGPT and GPT-4; leading AI safety and capabilities research lab.',
+    description:
+        'Creator of ChatGPT and GPT-4; leading AI safety and capabilities research lab.',
     website: 'https://openai.com',
     icon: '🤖',
     stage: 'Unicorn',
@@ -1426,7 +1435,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2021',
     focus: 'LLM / Safety',
-    description: 'AI safety company behind the Claude family of models. Focus on interpretability.',
+    description:
+        'AI safety company behind the Claude family of models. Focus on interpretability.',
     website: 'https://anthropic.com',
     icon: '🛡️',
     stage: 'Unicorn',
@@ -1437,7 +1447,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA/UK',
     founded: '2010',
     focus: 'Research / LLM',
-    description: 'Google\'s flagship AI research division. Created Gemini, AlphaFold, and AlphaGo.',
+    description:
+        'Google\'s flagship AI research division. Created Gemini, AlphaFold, and AlphaGo.',
     website: 'https://deepmind.google',
     icon: '🔬',
     stage: 'Public',
@@ -1448,7 +1459,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2013',
     focus: 'LLM / Research',
-    description: 'Meta\'s AI research arm. Open-sources Llama models and advances multimodal AI.',
+    description:
+        'Meta\'s AI research arm. Open-sources Llama models and advances multimodal AI.',
     website: 'https://ai.meta.com',
     icon: '🦙',
     stage: 'Public',
@@ -1459,7 +1471,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '1975',
     focus: 'LLM / Enterprise',
-    description: 'Major OpenAI investor. Integrates AI across Azure, Office 365, and Copilot suite.',
+    description:
+        'Major OpenAI investor. Integrates AI across Azure, Office 365, and Copilot suite.',
     website: 'https://microsoft.com/ai',
     icon: '🪟',
     stage: 'Public',
@@ -1470,7 +1483,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'France',
     founded: '2023',
     focus: 'Open LLM',
-    description: 'European AI startup releasing powerful open-weight models like Mistral and Mixtral.',
+    description:
+        'European AI startup releasing powerful open-weight models like Mistral and Mixtral.',
     website: 'https://mistral.ai',
     icon: '🌬️',
     stage: 'Startup',
@@ -1481,7 +1495,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'Canada',
     founded: '2019',
     focus: 'Enterprise LLM',
-    description: 'Enterprise-focused NLP platform for search, summarization, and text generation.',
+    description:
+        'Enterprise-focused NLP platform for search, summarization, and text generation.',
     website: 'https://cohere.com',
     icon: '🔤',
     stage: 'Unicorn',
@@ -1492,7 +1507,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'Israel',
     founded: '2017',
     focus: 'LLM / NLP',
-    description: 'Israeli AI lab building Jurassic and Jamba language models for enterprise use.',
+    description:
+        'Israeli AI lab building Jurassic and Jamba language models for enterprise use.',
     website: 'https://ai21.com',
     icon: '🧬',
     stage: 'Unicorn',
@@ -1503,7 +1519,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'Germany',
     founded: '2019',
     focus: 'Sovereign AI / LLM',
-    description: 'European sovereign AI provider focused on explainability and GDPR compliance.',
+    description:
+        'European sovereign AI provider focused on explainability and GDPR compliance.',
     website: 'https://aleph-alpha.com',
     icon: '🇩🇪',
     stage: 'Startup',
@@ -1514,7 +1531,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2023',
     focus: 'LLM / AGI',
-    description: 'Elon Musk\'s AI venture building Grok, integrated with X (formerly Twitter).',
+    description:
+        'Elon Musk\'s AI venture building Grok, integrated with X (formerly Twitter).',
     website: 'https://x.ai',
     icon: '⚡',
     stage: 'Startup',
@@ -1527,7 +1545,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'UK',
     founded: '2019',
     focus: 'Generative Image',
-    description: 'Creator of Stable Diffusion; pioneered open-source image generation models.',
+    description:
+        'Creator of Stable Diffusion; pioneered open-source image generation models.',
     website: 'https://stability.ai',
     icon: '🎨',
     stage: 'Startup',
@@ -1538,7 +1557,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2021',
     focus: 'AI Image Generation',
-    description: 'Independent lab known for high-quality artistic image generation via Discord.',
+    description:
+        'Independent lab known for high-quality artistic image generation via Discord.',
     website: 'https://midjourney.com',
     icon: '🖼️',
     stage: 'Startup',
@@ -1549,7 +1569,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2018',
     focus: 'AI Video',
-    description: 'Generative AI video platform used by filmmakers and creative studios.',
+    description:
+        'Generative AI video platform used by filmmakers and creative studios.',
     website: 'https://runwayml.com',
     icon: '🎬',
     stage: 'Unicorn',
@@ -1560,7 +1581,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2023',
     focus: 'AI Video',
-    description: 'AI video generation startup enabling text-to-video and image-to-video creation.',
+    description:
+        'AI video generation startup enabling text-to-video and image-to-video creation.',
     website: 'https://pika.art',
     icon: '📹',
     stage: 'Startup',
@@ -1571,7 +1593,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'AI Voice / Audio',
-    description: 'Leading voice AI platform for realistic speech synthesis and voice cloning.',
+    description:
+        'Leading voice AI platform for realistic speech synthesis and voice cloning.',
     website: 'https://elevenlabs.io',
     icon: '🎙️',
     stage: 'Unicorn',
@@ -1582,7 +1605,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'AI Music',
-    description: 'AI music generation platform that creates full songs from text prompts.',
+    description:
+        'AI music generation platform that creates full songs from text prompts.',
     website: 'https://suno.com',
     icon: '🎵',
     stage: 'Startup',
@@ -1593,7 +1617,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2023',
     focus: 'AI Music',
-    description: 'Text-to-music AI generating high-quality songs across genres.',
+    description:
+        'Text-to-music AI generating high-quality songs across genres.',
     website: 'https://udio.com',
     icon: '🎶',
     stage: 'Startup',
@@ -1604,7 +1629,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '1982',
     focus: 'Creative AI',
-    description: 'Adobe\'s generative AI suite for images, vectors, and video editing.',
+    description:
+        'Adobe\'s generative AI suite for images, vectors, and video editing.',
     website: 'https://firefly.adobe.com',
     icon: '✨',
     stage: 'Public',
@@ -1615,7 +1641,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'Australia',
     founded: '2013',
     focus: 'Creative AI / Design',
-    description: 'Design platform with Magic Studio AI tools for image, presentation, and video.',
+    description:
+        'Design platform with Magic Studio AI tools for image, presentation, and video.',
     website: 'https://canva.com',
     icon: '🎭',
     stage: 'Unicorn',
@@ -1626,7 +1653,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2021',
     focus: '3D / Video AI',
-    description: 'NeRF and 3D capture technology plus Dream Machine video generation.',
+    description:
+        'NeRF and 3D capture technology plus Dream Machine video generation.',
     website: 'https://lumalabs.ai',
     icon: '🌐',
     stage: 'Startup',
@@ -1639,7 +1667,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2008',
     focus: 'AI Coding',
-    description: 'GitHub Copilot is the world\'s most widely adopted AI pair programmer.',
+    description:
+        'GitHub Copilot is the world\'s most widely adopted AI pair programmer.',
     website: 'https://github.com/features/copilot',
     icon: '👨‍💻',
     stage: 'Public',
@@ -1650,7 +1679,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'AI Code Editor',
-    description: 'AI-first code editor built on VS Code with deep codebase understanding.',
+    description:
+        'AI-first code editor built on VS Code with deep codebase understanding.',
     website: 'https://cursor.sh',
     icon: '⌨️',
     stage: 'Startup',
@@ -1661,7 +1691,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2016',
     focus: 'AI Dev / IDE',
-    description: 'Browser-based coding platform with Replit AI for code generation and debugging.',
+    description:
+        'Browser-based coding platform with Replit AI for code generation and debugging.',
     website: 'https://replit.com',
     icon: '🔁',
     stage: 'Unicorn',
@@ -1672,7 +1703,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'Israel',
     founded: '2018',
     focus: 'AI Code Completion',
-    description: 'AI code completion tool supporting 30+ languages and all major IDEs.',
+    description:
+        'AI code completion tool supporting 30+ languages and all major IDEs.',
     website: 'https://tabnine.com',
     icon: '📝',
     stage: 'Startup',
@@ -1683,7 +1715,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2021',
     focus: 'AI Coding',
-    description: 'Free AI coding assistant with autocomplete, search, and chat capabilities.',
+    description:
+        'Free AI coding assistant with autocomplete, search, and chat capabilities.',
     website: 'https://codeium.com',
     icon: '💻',
     stage: 'Startup',
@@ -1694,7 +1727,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2023',
     focus: 'AI Software Engineer',
-    description: 'Creator of Devin, the first fully autonomous AI software engineer.',
+    description:
+        'Creator of Devin, the first fully autonomous AI software engineer.',
     website: 'https://cognition.ai',
     icon: '🧑‍🔧',
     stage: 'Startup',
@@ -1707,7 +1741,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'AI Search',
-    description: 'Conversational AI search engine combining LLMs with real-time web retrieval.',
+    description:
+        'Conversational AI search engine combining LLMs with real-time web retrieval.',
     website: 'https://perplexity.ai',
     icon: '🔍',
     stage: 'Unicorn',
@@ -1718,7 +1753,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2020',
     focus: 'AI Search',
-    description: 'AI-powered search engine with customizable results and built-in AI apps.',
+    description:
+        'AI-powered search engine with customizable results and built-in AI apps.',
     website: 'https://you.com',
     icon: '🧭',
     stage: 'Startup',
@@ -1731,7 +1767,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2016',
     focus: 'AI Hub / Models',
-    description: 'The GitHub of AI — hosting 500k+ models, datasets, and Spaces demos.',
+    description:
+        'The GitHub of AI — hosting 500k+ models, datasets, and Spaces demos.',
     website: 'https://huggingface.co',
     icon: '🤗',
     stage: 'Unicorn',
@@ -1742,7 +1779,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2017',
     focus: 'MLOps',
-    description: 'ML experiment tracking, model versioning, and dataset management platform.',
+    description:
+        'ML experiment tracking, model versioning, and dataset management platform.',
     website: 'https://wandb.ai',
     icon: '📉',
     stage: 'Unicorn',
@@ -1753,7 +1791,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2012',
     focus: 'AutoML / MLOps',
-    description: 'Enterprise AI platform for automated machine learning and model deployment.',
+    description:
+        'Enterprise AI platform for automated machine learning and model deployment.',
     website: 'https://datarobot.com',
     icon: '🏭',
     stage: 'Unicorn',
@@ -1764,7 +1803,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2016',
     focus: 'Data Labeling / RLHF',
-    description: 'Data infrastructure for AI — powers labeling, RLHF, and evaluation pipelines.',
+    description:
+        'Data infrastructure for AI — powers labeling, RLHF, and evaluation pipelines.',
     website: 'https://scale.com',
     icon: '⚖️',
     stage: 'Unicorn',
@@ -1775,7 +1815,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2019',
     focus: 'Vector Database',
-    description: 'Managed vector database for building production-ready semantic search and RAG.',
+    description:
+        'Managed vector database for building production-ready semantic search and RAG.',
     website: 'https://pinecone.io',
     icon: '🌲',
     stage: 'Unicorn',
@@ -1786,7 +1827,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'Netherlands',
     founded: '2019',
     focus: 'Vector Database',
-    description: 'Open-source AI-native vector database with built-in ML model integrations.',
+    description:
+        'Open-source AI-native vector database with built-in ML model integrations.',
     website: 'https://weaviate.io',
     icon: '🕸️',
     stage: 'Startup',
@@ -1797,7 +1839,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'Vector Database',
-    description: 'Open-source embedding database for AI apps, popular in LangChain workflows.',
+    description:
+        'Open-source embedding database for AI apps, popular in LangChain workflows.',
     website: 'https://trychroma.com',
     icon: '🎨',
     stage: 'Startup',
@@ -1808,7 +1851,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'LLM Framework',
-    description: 'Open-source framework for building LLM-powered applications with chains and agents.',
+    description:
+        'Open-source framework for building LLM-powered applications with chains and agents.',
     website: 'https://langchain.com',
     icon: '⛓️',
     stage: 'Startup',
@@ -1819,7 +1863,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'RAG Framework',
-    description: 'Data framework for connecting LLMs with custom data sources for RAG pipelines.',
+    description:
+        'Data framework for connecting LLMs with custom data sources for RAG pipelines.',
     website: 'https://llamaindex.ai',
     icon: '📚',
     stage: 'Startup',
@@ -1830,7 +1875,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'AI Inference Cloud',
-    description: 'Cloud platform for running and fine-tuning open-source AI models at scale.',
+    description:
+        'Cloud platform for running and fine-tuning open-source AI models at scale.',
     website: 'https://together.ai',
     icon: '☁️',
     stage: 'Startup',
@@ -1841,7 +1887,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2016',
     focus: 'AI Hardware / Inference',
-    description: 'LPU chip company delivering ultra-fast LLM inference at record speeds.',
+    description:
+        'LPU chip company delivering ultra-fast LLM inference at record speeds.',
     website: 'https://groq.com',
     icon: '⚡',
     stage: 'Unicorn',
@@ -1852,7 +1899,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2016',
     focus: 'AI Hardware',
-    description: 'Wafer-scale AI chip company building the world\'s largest processors for AI.',
+    description:
+        'Wafer-scale AI chip company building the world\'s largest processors for AI.',
     website: 'https://cerebras.net',
     icon: '🧠',
     stage: 'Unicorn',
@@ -1863,7 +1911,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2017',
     focus: 'AI Hardware / Cloud',
-    description: 'Enterprise AI training and inference hardware with the SN40L chip.',
+    description:
+        'Enterprise AI training and inference hardware with the SN40L chip.',
     website: 'https://sambanova.ai',
     icon: '🔴',
     stage: 'Unicorn',
@@ -1874,7 +1923,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2021',
     focus: 'AI Cloud / Serverless',
-    description: 'Serverless cloud for running Python AI workloads with GPU access in seconds.',
+    description:
+        'Serverless cloud for running Python AI workloads with GPU access in seconds.',
     website: 'https://modal.com',
     icon: '🚀',
     stage: 'Startup',
@@ -1885,7 +1935,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2019',
     focus: 'Model Hosting',
-    description: 'Run AI models in the cloud with a single API call — no infra needed.',
+    description:
+        'Run AI models in the cloud with a single API call — no infra needed.',
     website: 'https://replicate.com',
     icon: '♻️',
     stage: 'Startup',
@@ -1898,7 +1949,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '1999',
     focus: 'CRM AI',
-    description: 'AI layer across Salesforce CRM — predictions, automation, and Copilot agents.',
+    description:
+        'AI layer across Salesforce CRM — predictions, automation, and Copilot agents.',
     website: 'https://salesforce.com/ai',
     icon: '☁️',
     stage: 'Public',
@@ -1909,7 +1961,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2004',
     focus: 'Enterprise Automation',
-    description: 'AI-powered enterprise workflow automation and IT service management.',
+    description:
+        'AI-powered enterprise workflow automation and IT service management.',
     website: 'https://servicenow.com/ai',
     icon: '🏢',
     stage: 'Public',
@@ -1920,7 +1973,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2019',
     focus: 'Enterprise Search AI',
-    description: 'AI-powered work search and knowledge assistant connecting all company data.',
+    description:
+        'AI-powered work search and knowledge assistant connecting all company data.',
     website: 'https://glean.com',
     icon: '🔎',
     stage: 'Unicorn',
@@ -1931,7 +1985,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2020',
     focus: 'Enterprise LLM',
-    description: 'Full-stack enterprise generative AI platform with its own Palmyra LLMs.',
+    description:
+        'Full-stack enterprise generative AI platform with its own Palmyra LLMs.',
     website: 'https://writer.com',
     icon: '✒️',
     stage: 'Unicorn',
@@ -1942,7 +1997,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2021',
     focus: 'AI Content / Marketing',
-    description: 'AI writing platform for marketing teams — copy, campaigns, and brand voice.',
+    description:
+        'AI writing platform for marketing teams — copy, campaigns, and brand voice.',
     website: 'https://jasper.ai',
     icon: '📣',
     stage: 'Unicorn',
@@ -1953,7 +2009,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2016',
     focus: 'Productivity AI',
-    description: 'AI features built into Notion for writing, summarizing, and Q&A over docs.',
+    description:
+        'AI features built into Notion for writing, summarizing, and Q&A over docs.',
     website: 'https://notion.so/product/ai',
     icon: '📓',
     stage: 'Unicorn',
@@ -1964,7 +2021,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2009',
     focus: 'AI Writing',
-    description: 'AI writing assistant for grammar, tone, clarity, and generative writing.',
+    description:
+        'AI writing assistant for grammar, tone, clarity, and generative writing.',
     website: 'https://grammarly.com',
     icon: '📖',
     stage: 'Unicorn',
@@ -1975,7 +2033,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2016',
     focus: 'AI Transcription',
-    description: 'AI meeting transcription and note-taking for Zoom, Meet, and Teams.',
+    description:
+        'AI meeting transcription and note-taking for Zoom, Meet, and Teams.',
     website: 'https://otter.ai',
     icon: '🦦',
     stage: 'Startup',
@@ -1986,7 +2045,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2016',
     focus: 'Meeting AI',
-    description: 'AI meeting assistant that records, transcribes, and analyzes conversations.',
+    description:
+        'AI meeting assistant that records, transcribes, and analyzes conversations.',
     website: 'https://fireflies.ai',
     icon: '🔥',
     stage: 'Startup',
@@ -1999,7 +2059,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2015',
     focus: 'Healthcare AI',
-    description: 'AI and data platform for precision medicine and oncology research.',
+    description:
+        'AI and data platform for precision medicine and oncology research.',
     website: 'https://tempus.com',
     icon: '🏥',
     stage: 'Public',
@@ -2010,7 +2071,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2013',
     focus: 'Drug Discovery AI',
-    description: 'Uses AI and biology to decode disease and accelerate drug discovery.',
+    description:
+        'Uses AI and biology to decode disease and accelerate drug discovery.',
     website: 'https://recursion.com',
     icon: '💊',
     stage: 'Public',
@@ -2021,7 +2083,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'Hong Kong',
     founded: '2014',
     focus: 'Drug Discovery AI',
-    description: 'AI-driven drug discovery with generative chemistry and clinical candidates.',
+    description:
+        'AI-driven drug discovery with generative chemistry and clinical candidates.',
     website: 'https://insilico.com',
     icon: '🧪',
     stage: 'Startup',
@@ -2032,7 +2095,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2018',
     focus: 'Medical AI',
-    description: 'AI that converts patient-doctor conversations into structured clinical notes.',
+    description:
+        'AI that converts patient-doctor conversations into structured clinical notes.',
     website: 'https://abridge.com',
     icon: '🩺',
     stage: 'Startup',
@@ -2045,7 +2109,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2009',
     focus: 'Autonomous Vehicles',
-    description: 'Alphabet subsidiary operating the world\'s leading commercial robotaxi service.',
+    description:
+        'Alphabet subsidiary operating the world\'s leading commercial robotaxi service.',
     website: 'https://waymo.com',
     icon: '🚗',
     stage: 'Startup',
@@ -2056,7 +2121,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2003',
     focus: 'Autonomous Vehicles / Robotics',
-    description: 'FSD (Full Self-Driving) and Optimus humanoid robot powered by Dojo supercomputer.',
+    description:
+        'FSD (Full Self-Driving) and Optimus humanoid robot powered by Dojo supercomputer.',
     website: 'https://tesla.com/ai',
     icon: '🚘',
     stage: 'Public',
@@ -2067,7 +2133,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'Humanoid Robotics',
-    description: 'Humanoid robot company integrating OpenAI models for natural language control.',
+    description:
+        'Humanoid robot company integrating OpenAI models for natural language control.',
     website: 'https://figure.ai',
     icon: '🤖',
     stage: 'Startup',
@@ -2078,7 +2145,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'Norway',
     founded: '2014',
     focus: 'Humanoid Robotics',
-    description: 'Backed by OpenAI, builds androids for real-world labor tasks.',
+    description:
+        'Backed by OpenAI, builds androids for real-world labor tasks.',
     website: 'https://1x.tech',
     icon: '🦾',
     stage: 'Startup',
@@ -2089,7 +2157,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '1992',
     focus: 'Robotics / AI',
-    description: 'World-renowned robotics company known for Spot, Atlas, and Stretch robots.',
+    description:
+        'World-renowned robotics company known for Spot, Atlas, and Stretch robots.',
     website: 'https://bostondynamics.com',
     icon: '🐕',
     stage: 'Startup',
@@ -2113,7 +2182,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2011',
     focus: 'Financial Intelligence AI',
-    description: 'AI search and analysis platform for financial research and market intelligence.',
+    description:
+        'AI search and analysis platform for financial research and market intelligence.',
     website: 'https://alpha-sense.com',
     icon: '💹',
     stage: 'Unicorn',
@@ -2124,7 +2194,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2008',
     focus: 'Finance / Risk AI',
-    description: 'AI platform for regulatory compliance, fraud, and risk in financial services.',
+    description:
+        'AI platform for regulatory compliance, fraud, and risk in financial services.',
     website: 'https://ayasdi.com',
     icon: '🏦',
     stage: 'Startup',
@@ -2137,7 +2208,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'India',
     founded: '2023',
     focus: 'Indian LLM',
-    description: 'Indian AI startup building LLMs for Indic languages and voice-first AI.',
+    description:
+        'Indian AI startup building LLMs for Indic languages and voice-first AI.',
     website: 'https://sarvam.ai',
     icon: '🇮🇳',
     stage: 'Startup',
@@ -2148,7 +2220,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'India',
     founded: '2023',
     focus: 'Indian LLM / Cloud',
-    description: 'Ola\'s AI venture — first Indian unicorn AI company with Krutrim LLM.',
+    description:
+        'Ola\'s AI venture — first Indian unicorn AI company with Krutrim LLM.',
     website: 'https://krutrim.com',
     icon: '🪔',
     stage: 'Unicorn',
@@ -2159,7 +2232,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'India',
     founded: '2022',
     focus: 'AI Voice',
-    description: 'Indian voice AI platform for multilingual text-to-speech in Indian languages.',
+    description:
+        'Indian voice AI platform for multilingual text-to-speech in Indian languages.',
     website: 'https://neets.ai',
     icon: '🗣️',
     stage: 'Startup',
@@ -2170,7 +2244,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'India',
     founded: '2013',
     focus: 'Conversational AI',
-    description: 'Conversational AI platform for customer support chatbots, backed by Jio.',
+    description:
+        'Conversational AI platform for customer support chatbots, backed by Jio.',
     website: 'https://haptik.ai',
     icon: '💬',
     stage: 'Startup',
@@ -2181,7 +2256,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'India',
     founded: '2016',
     focus: 'Voice AI / NLP',
-    description: 'Indian startup building multilingual AI voice bots for enterprises.',
+    description:
+        'Indian startup building multilingual AI voice bots for enterprises.',
     website: 'https://vernacular.ai',
     icon: '🎤',
     stage: 'Startup',
@@ -2192,7 +2268,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'India',
     founded: '2016',
     focus: 'Customer Service AI',
-    description: 'Enterprise conversational AI platform for customer and employee experience.',
+    description:
+        'Enterprise conversational AI platform for customer and employee experience.',
     website: 'https://yellow.ai',
     icon: '🟡',
     stage: 'Unicorn',
@@ -2203,7 +2280,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'India/USA',
     founded: '2017',
     focus: 'Contact Center AI',
-    description: 'AI platform for contact center automation and agent performance insights.',
+    description:
+        'AI platform for contact center automation and agent performance insights.',
     website: 'https://observe.ai',
     icon: '👂',
     stage: 'Unicorn',
@@ -2214,7 +2292,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA/India',
     founded: '2009',
     focus: 'Customer Experience AI',
-    description: 'Unified customer experience management with AI for social, support, and marketing.',
+    description:
+        'Unified customer experience management with AI for social, support, and marketing.',
     website: 'https://sprinklr.com',
     icon: '💧',
     stage: 'Public',
@@ -2227,7 +2306,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'AI Agents',
-    description: 'Building general AI agents that take actions in software using natural language.',
+    description:
+        'Building general AI agents that take actions in software using natural language.',
     website: 'https://adept.ai',
     icon: '🕹️',
     stage: 'Startup',
@@ -2238,7 +2318,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'Personal AI',
-    description: 'Creator of Pi, a personal AI assistant focused on empathetic conversation.',
+    description:
+        'Creator of Pi, a personal AI assistant focused on empathetic conversation.',
     website: 'https://inflection.ai',
     icon: '♾️',
     stage: 'Startup',
@@ -2249,7 +2330,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2021',
     focus: 'AI Agents / Reasoning',
-    description: 'Research lab training AI agents that can reason and code to accomplish goals.',
+    description:
+        'Research lab training AI agents that can reason and code to accomplish goals.',
     website: 'https://imbue.com',
     icon: '🧩',
     stage: 'Startup',
@@ -2260,7 +2342,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2023',
     focus: 'Stateful AI Agents',
-    description: 'Open-source framework for building stateful LLM agents with long-term memory.',
+    description:
+        'Open-source framework for building stateful LLM agents with long-term memory.',
     website: 'https://letta.ai',
     icon: '🗂️',
     stage: 'Startup',
@@ -2271,7 +2354,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'France',
     founded: '2022',
     focus: 'AI Agents / Workspace',
-    description: 'Build and deploy AI agents connected to your company\'s knowledge and tools.',
+    description:
+        'Build and deploy AI agents connected to your company\'s knowledge and tools.',
     website: 'https://dust.tt',
     icon: '🌫️',
     stage: 'Startup',
@@ -2282,7 +2366,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2023',
     focus: 'Multi-Agent Framework',
-    description: 'Open-source framework for orchestrating role-playing, autonomous AI agents.',
+    description:
+        'Open-source framework for orchestrating role-playing, autonomous AI agents.',
     website: 'https://crewai.com',
     icon: '👥',
     stage: 'Startup',
@@ -2295,7 +2380,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'UK',
     founded: '2013',
     focus: 'AI Cybersecurity',
-    description: 'AI cybersecurity platform detecting and responding to threats autonomously.',
+    description:
+        'AI cybersecurity platform detecting and responding to threats autonomously.',
     website: 'https://darktrace.com',
     icon: '🛡️',
     stage: 'Public',
@@ -2306,7 +2392,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2011',
     focus: 'AI Cybersecurity',
-    description: 'AI-native cybersecurity platform protecting endpoints, cloud, and identity.',
+    description:
+        'AI-native cybersecurity platform protecting endpoints, cloud, and identity.',
     website: 'https://crowdstrike.com',
     icon: '🦅',
     stage: 'Public',
@@ -2317,7 +2404,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2013',
     focus: 'AI Cybersecurity',
-    description: 'AI-powered endpoint and cloud security with Purple AI analyst assistant.',
+    description:
+        'AI-powered endpoint and cloud security with Purple AI analyst assistant.',
     website: 'https://sentinelone.com',
     icon: '🔵',
     stage: 'Public',
@@ -2330,7 +2418,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2006',
     focus: 'Education AI',
-    description: 'AI tutor by Khan Academy powered by GPT-4 for personalized Socratic learning.',
+    description:
+        'AI tutor by Khan Academy powered by GPT-4 for personalized Socratic learning.',
     website: 'https://khanacademy.org/khan-labs',
     icon: '🎓',
     stage: 'Public',
@@ -2341,7 +2430,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2011',
     focus: 'Language Learning AI',
-    description: 'GPT-4-powered features in Duolingo for AI conversation practice and explanation.',
+    description:
+        'GPT-4-powered features in Duolingo for AI conversation practice and explanation.',
     website: 'https://duolingo.com',
     icon: '🦜',
     stage: 'Public',
@@ -2354,7 +2444,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'Legal AI',
-    description: 'AI platform for law firms — contract review, research, and legal drafting.',
+    description:
+        'AI platform for law firms — contract review, research, and legal drafting.',
     website: 'https://harvey.ai',
     icon: '⚖️',
     stage: 'Unicorn',
@@ -2365,7 +2456,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2013',
     focus: 'Legal AI',
-    description: 'AI legal research assistant acquired by Thomson Reuters. Powered by GPT-4.',
+    description:
+        'AI legal research assistant acquired by Thomson Reuters. Powered by GPT-4.',
     website: 'https://casetext.com',
     icon: '📜',
     stage: 'Public',
@@ -2378,7 +2470,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'China',
     founded: '2000',
     focus: 'LLM / Search AI',
-    description: 'China\'s leading AI company with ERNIE Bot LLM and autonomous driving.',
+    description:
+        'China\'s leading AI company with ERNIE Bot LLM and autonomous driving.',
     website: 'https://ai.baidu.com',
     icon: '🐼',
     stage: 'Public',
@@ -2389,7 +2482,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'China',
     founded: '2017',
     focus: 'LLM / Cloud AI',
-    description: 'Alibaba\'s AI research arm with Qwen LLM and Tongyi AI products.',
+    description:
+        'Alibaba\'s AI research arm with Qwen LLM and Tongyi AI products.',
     website: 'https://damo.alibaba.com',
     icon: '🛒',
     stage: 'Public',
@@ -2400,7 +2494,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'China',
     founded: '2019',
     focus: 'LLM',
-    description: 'Chinese AI startup behind GLM-4 and ChatGLM open-source language models.',
+    description:
+        'Chinese AI startup behind GLM-4 and ChatGLM open-source language models.',
     website: 'https://zhipuai.cn',
     icon: '🌏',
     stage: 'Unicorn',
@@ -2411,7 +2506,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'China',
     founded: '2023',
     focus: 'Long-context LLM',
-    description: 'Chinese AI startup known for Kimi, an LLM with a 1M token context window.',
+    description:
+        'Chinese AI startup known for Kimi, an LLM with a 1M token context window.',
     website: 'https://moonshot.cn',
     icon: '🌙',
     stage: 'Unicorn',
@@ -2422,7 +2518,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'China',
     founded: '2023',
     focus: 'Open LLM',
-    description: 'Chinese AI lab releasing top-tier open-source models including DeepSeek-V3.',
+    description:
+        'Chinese AI lab releasing top-tier open-source models including DeepSeek-V3.',
     website: 'https://deepseek.com',
     icon: '🔭',
     stage: 'Startup',
@@ -2435,7 +2532,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'Japan',
     founded: '2023',
     focus: 'Nature-Inspired AI',
-    description: 'Japanese AI lab co-founded by ex-Google researchers exploring evolutionary AI.',
+    description:
+        'Japanese AI lab co-founded by ex-Google researchers exploring evolutionary AI.',
     website: 'https://sakana.ai',
     icon: '🐟',
     stage: 'Startup',
@@ -2446,7 +2544,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2022',
     focus: 'Brand AI / Content',
-    description: 'Enterprise generative AI platform for on-brand content at scale.',
+    description:
+        'Enterprise generative AI platform for on-brand content at scale.',
     website: 'https://typeface.ai',
     icon: '🖋️',
     stage: 'Unicorn',
@@ -2457,7 +2556,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'UK',
     founded: '2017',
     focus: 'AI Video Avatar',
-    description: 'AI video generation platform with talking avatars from text — no camera needed.',
+    description:
+        'AI video generation platform with talking avatars from text — no camera needed.',
     website: 'https://synthesia.io',
     icon: '🎥',
     stage: 'Unicorn',
@@ -2468,7 +2568,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2016',
     focus: 'IT Automation AI',
-    description: 'AI copilot automating IT and HR support tickets using natural language.',
+    description:
+        'AI copilot automating IT and HR support tickets using natural language.',
     website: 'https://moveworks.com',
     icon: '🔧',
     stage: 'Unicorn',
@@ -2479,7 +2580,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2021',
     focus: 'Data Quality AI',
-    description: 'AI platform to detect and fix label errors in training datasets automatically.',
+    description:
+        'AI platform to detect and fix label errors in training datasets automatically.',
     website: 'https://cleanlab.ai',
     icon: '🧹',
     stage: 'Startup',
@@ -2490,7 +2592,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2017',
     focus: 'AI Cloud Infrastructure',
-    description: 'Specialized cloud provider with massive GPU clusters for AI training workloads.',
+    description:
+        'Specialized cloud provider with massive GPU clusters for AI training workloads.',
     website: 'https://coreweave.com',
     icon: '🏗️',
     stage: 'Unicorn',
@@ -2501,7 +2604,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2021',
     focus: 'Video Understanding AI',
-    description: 'Multimodal AI APIs for deep video search, summarization, and classification.',
+    description:
+        'Multimodal AI APIs for deep video search, summarization, and classification.',
     website: 'https://twelvelabs.io',
     icon: '🎞️',
     stage: 'Startup',
@@ -2512,7 +2616,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2015',
     focus: 'Revenue Intelligence AI',
-    description: 'AI revenue intelligence platform analyzing sales calls and pipeline data.',
+    description:
+        'AI revenue intelligence platform analyzing sales calls and pipeline data.',
     website: 'https://gong.io',
     icon: '🔔',
     stage: 'Unicorn',
@@ -2523,7 +2628,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2017',
     focus: 'AI Audio/Video Editing',
-    description: 'AI-powered podcast and video editing using text-based editing workflows.',
+    description:
+        'AI-powered podcast and video editing using text-based editing workflows.',
     website: 'https://descript.com',
     icon: '🎚️',
     stage: 'Startup',
@@ -2534,7 +2640,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2020',
     focus: 'AI Presentations',
-    description: 'AI-powered storytelling and presentation tool for instant slide generation.',
+    description:
+        'AI-powered storytelling and presentation tool for instant slide generation.',
     website: 'https://tome.app',
     icon: '📖',
     stage: 'Startup',
@@ -2545,7 +2652,8 @@ final List<AiCompany> kAiCompanies = [
     country: 'USA',
     founded: '2020',
     focus: 'AI Presentations',
-    description: 'AI presentation tool that turns text or docs into beautiful slides instantly.',
+    description:
+        'AI presentation tool that turns text or docs into beautiful slides instantly.',
     website: 'https://gamma.app',
     icon: '⚡',
     stage: 'Startup',

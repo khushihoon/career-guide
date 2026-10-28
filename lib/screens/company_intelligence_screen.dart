@@ -146,22 +146,15 @@ class CompanyIntelligenceScreen extends StatelessWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _HeroCard(company: company),
-
                   const SizedBox(height: 14),
-
                   const _TruthBadge(),
-
                   if (verified != null) ...[
                     const SizedBox(height: 12),
                     _VerifiedSourceCard(profile: verified),
                   ],
-
                   const SizedBox(height: 14),
-
                   _careerLayer(),
-
                   const SizedBox(height: 12),
-
                   _SectionCard(
                     icon: Icons.auto_awesome_rounded,
                     iconColor: _cyan,
@@ -181,9 +174,7 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                           ),
                   ),
                   const SizedBox(height: 12),
-
-                  if (company.country != null ||
-                      _hasText(headquarters)) ...[
+                  if (company.country != null || _hasText(headquarters)) ...[
                     _SectionCard(
                       icon: Icons.public_rounded,
                       iconColor: _violetBright,
@@ -216,7 +207,6 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
-
                   _SectionCard(
                     icon: Icons.track_changes_rounded,
                     iconColor: _mint,
@@ -253,14 +243,11 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                           ),
                   ),
                   const SizedBox(height: 12),
-
                   CompanyIntelligenceDynamicPanel(
                     company: company,
                     verifiedFallback: verifiedSkills,
                   ),
-
                   const SizedBox(height: 14),
-
                   const _ReferenceFooter(),
                 ]),
               ),
@@ -302,8 +289,7 @@ class CompanyIntelligenceScreen extends StatelessWidget {
                 const SizedBox(height: 10),
                 for (final career in careers) ...[
                   _CareerRelationshipTile(career: career),
-                  if (career != careers.last)
-                    const SizedBox(height: 8),
+                  if (career != careers.last) const SizedBox(height: 8),
                 ],
               ],
             ),
@@ -823,8 +809,7 @@ class _VerifiedSourceList extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-            if (index != sourceUrls.length - 1)
-              const SizedBox(height: 5),
+            if (index != sourceUrls.length - 1) const SizedBox(height: 5),
           ],
         ],
       ),

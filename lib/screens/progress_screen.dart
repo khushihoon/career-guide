@@ -70,9 +70,8 @@ class ProgressScreen extends StatelessWidget {
     final history = [...state.progressHistory]
       ..sort((a, b) => a.date.compareTo(b.date));
 
-    final chartData = history.length > 7
-        ? history.sublist(history.length - 7)
-        : history;
+    final chartData =
+        history.length > 7 ? history.sublist(history.length - 7) : history;
 
     final maxXp = chartData.fold<int>(
       0,
@@ -119,39 +118,28 @@ class ProgressScreen extends StatelessWidget {
             if (!hasCanonicalData)
               const _ContextLoadingBanner()
             else ...[
-              _CareerHeader(contextData: copilotContext!)
-                  .animate()
-                  .fadeIn(),
-
+              _CareerHeader(contextData: copilotContext!).animate().fadeIn(),
               const SizedBox(height: 16),
-
-              _StatsStrip(state: state, authoritativeXp: ctrl.authoritativeTotalXp)
+              _StatsStrip(
+                      state: state, authoritativeXp: ctrl.authoritativeTotalXp)
                   .animate()
                   .fadeIn(delay: 50.ms),
-
               const SizedBox(height: 20),
-
               _OverallProgressCard(
                 snapshot: snapshot,
                 currentStage: currentStage,
               ).animate().fadeIn(delay: 90.ms),
-
               const SizedBox(height: 16),
-
               _CareerJourneyCard(snapshot: snapshot)
                   .animate()
                   .fadeIn(delay: 130.ms),
-
               const SizedBox(height: 16),
-
               _ReadinessCard(
                 snapshot: snapshot,
                 available: true,
               ).animate().fadeIn(delay: 170.ms),
             ],
-
             const SizedBox(height: 24),
-
             const Text(
               '7-Day XP',
               style: TextStyle(
@@ -160,16 +148,12 @@ class ProgressScreen extends StatelessWidget {
                 fontSize: 15,
               ),
             ),
-
             const SizedBox(height: 12),
-
             _XpChart(
               chartData: chartData,
               maxXp: maxXp,
             ).animate().fadeIn(delay: 220.ms),
-
             const SizedBox(height: 24),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -190,9 +174,7 @@ class ProgressScreen extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
             if (history.isEmpty)
               Container(
                 padding: const EdgeInsets.all(20),
@@ -214,9 +196,7 @@ class ProgressScreen extends StatelessWidget {
               )
             else
               ...history.reversed.take(14).toList().asMap().entries.map(
-                    (entry) => _HistoryRow(entry: entry.value)
-                        .animate()
-                        .fadeIn(
+                    (entry) => _HistoryRow(entry: entry.value).animate().fadeIn(
                           delay: Duration(
                             milliseconds: 280 + entry.key * 35,
                           ),
@@ -461,8 +441,7 @@ class _OverallProgressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final overall = snapshot.overallProgress.clamp(0.0, 100.0);
     final milestone = snapshot.nextMilestone ?? 'Keep moving forward.';
-    final stageLabel =
-        currentStage?.label ?? 'Career progress';
+    final stageLabel = currentStage?.label ?? 'Career progress';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -518,8 +497,7 @@ class _OverallProgressCard extends StatelessWidget {
               value: (overall / 100).clamp(0.0, 1.0),
               minHeight: 10,
               backgroundColor: const Color(0xFF0F0F20),
-              valueColor:
-                  const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
             ),
           ),
           const SizedBox(height: 14),
@@ -624,8 +602,7 @@ class _CareerJourneyCard extends StatelessWidget {
           const SizedBox(height: 14),
           ...ProgressTrackingService.canonicalStageOrder.map(
             (stage) {
-              final value =
-                  snapshot.progressFor(stage).clamp(0.0, 100.0);
+              final value = snapshot.progressFor(stage).clamp(0.0, 100.0);
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -666,8 +643,7 @@ class _CareerJourneyCard extends StatelessWidget {
           child: Text(
             stage.label,
             style: TextStyle(
-              color:
-                  pct > 0 ? Colors.white : const Color(0xFF888899),
+              color: pct > 0 ? Colors.white : const Color(0xFF888899),
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
@@ -692,9 +668,8 @@ class _CareerJourneyCard extends StatelessWidget {
             '${pct.round()}%',
             textAlign: TextAlign.right,
             style: TextStyle(
-              color: pct > 0
-                  ? const Color(0xFFA78BFA)
-                  : const Color(0xFF888899),
+              color:
+                  pct > 0 ? const Color(0xFFA78BFA) : const Color(0xFF888899),
               fontSize: 10,
               fontWeight: FontWeight.w600,
             ),
@@ -876,9 +851,8 @@ class _XpChart extends StatelessWidget {
           final i = entry.key;
           final item = entry.value;
 
-          final pct = maxXp <= 0
-              ? 0.0
-              : (item.xpEarned / maxXp).clamp(0.0, 1.0);
+          final pct =
+              maxXp <= 0 ? 0.0 : (item.xpEarned / maxXp).clamp(0.0, 1.0);
 
           final day = dayLabels[item.date.weekday - 1];
 
@@ -944,8 +918,7 @@ class _HistoryRow extends StatelessWidget {
     final pct = entry.completionRate.clamp(0.0, 1.0);
     final d = entry.date;
 
-    final label =
-        '${d.day.toString().padLeft(2, '0')}/'
+    final label = '${d.day.toString().padLeft(2, '0')}/'
         '${d.month.toString().padLeft(2, '0')}/'
         '${d.year}';
 

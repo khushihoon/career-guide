@@ -70,70 +70,69 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   // ── Design tokens ──────────────────────────────────────────────────
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
-  static const _green    = Color(0xFF4ADE80);
-  static const _amber    = Color(0xFFF59E0B);
-  static const _red      = Color(0xFFEF4444);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
+  static const _green = Color(0xFF4ADE80);
+  static const _amber = Color(0xFFF59E0B);
+  static const _red = Color(0xFFEF4444);
 
   // ── State ───────────────────────────────────────────────────────────
-  String  _userName        = '';
-  String  _userEmail       = '';
-  String  _userPhotoUrl    = '';
-  String  _city            = 'India 🇮🇳';
-  String  _bio             = '';
-  String  _phone           = '';
-  String  _targetRole      = 'AI Engineer';
-  String  _experience      = '0–1 years';
+  String _userName = '';
+  String _userEmail = '';
+  String _userPhotoUrl = '';
+  String _city = 'India 🇮🇳';
+  String _bio = '';
+  String _phone = '';
+  String _targetRole = 'AI Engineer';
+  String _experience = '0–1 years';
   List<String> _userSkills = [];
 
-  int _appliedJobs    = 0;
+  int _appliedJobs = 0;
   int _savedJobsCount = 0;
 
   /// Authoritative lifetime XP — sourced from users/{uid}.totalXp.
   /// This is the ONLY lifetime XP value this screen trusts. It is never
   /// summed with legacy XP and never derived from progress history.
-  int _lifetimeXp     = 0;
+  int _lifetimeXp = 0;
 
   /// Legacy XP (users/{uid}.xpPoints). Kept ONLY as a display fallback
   /// for pre-Copilot users whose authoritative totalXp is genuinely
   /// absent. Never added to _lifetimeXp.
-  int _legacyXp       = 0;
+  int _legacyXp = 0;
 
   /// Whether the authoritative users/{uid}.totalXp field has been
   /// observed. When true, _lifetimeXp is authoritative and _legacyXp is
   /// not consulted for the lifetime XP display.
   bool _hasAuthoritativeXp = false;
 
-  int _doneSteps      = 0;
-  int _streakDays     = 0;
+  int _doneSteps = 0;
+  int _streakDays = 0;
 
   bool _loading = true;
   late TabController _tabCtrl;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _xpSubscription;
 
-  final _auth      = FirebaseAuth.instance;
+  final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
 
   // XP level thresholds
   static const _levels = [
-    _Level('🌱 Beginner',      0,    150,  Color(0xFF6EE7B7)),
-    _Level('📚 Learner',       150,  400,  Color(0xFF60A5FA)),
-    _Level('⚡ Practitioner',  400,  800,  Color(0xFFA78BFA)),
-    _Level('🔥 Builder',       800,  1500, Color(0xFFF59E0B)),
-    _Level('🚀 Expert',        1500, 3000, Color(0xFFEF4444)),
-    _Level('🏆 Master',        3000, 9999, Color(0xFFFFD700)),
+    _Level('🌱 Beginner', 0, 150, Color(0xFF6EE7B7)),
+    _Level('📚 Learner', 150, 400, Color(0xFF60A5FA)),
+    _Level('⚡ Practitioner', 400, 800, Color(0xFFA78BFA)),
+    _Level('🔥 Builder', 800, 1500, Color(0xFFF59E0B)),
+    _Level('🚀 Expert', 1500, 3000, Color(0xFFEF4444)),
+    _Level('🏆 Master', 3000, 9999, Color(0xFFFFD700)),
   ];
 
   /// The authoritative lifetime XP value shown across the screen.
   /// Prefers authoritative Copilot XP and only falls back to the legacy
   /// field when the authoritative value has never been observed.
-  int get _xpPoints =>
-      _hasAuthoritativeXp ? _lifetimeXp : _legacyXp;
+  int get _xpPoints => _hasAuthoritativeXp ? _lifetimeXp : _legacyXp;
 
   _Level get _currentLevel => _levels.lastWhere(
         (l) => _xpPoints >= l.minXp,
@@ -153,10 +152,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // Copilot-derived display values
-  int _copilotXpLast30 = 0;   // activity metric ONLY — never lifetime XP
-  int _copilotStreak   = 0;
-  int _roadmapPct      = 0;
-  String _copilotRole  = '';
+  int _copilotXpLast30 = 0; // activity metric ONLY — never lifetime XP
+  int _copilotStreak = 0;
+  int _roadmapPct = 0;
+  String _copilotRole = '';
 
   @override
   void initState() {
@@ -177,11 +176,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     final user = _auth.currentUser;
     if (user == null) return;
 
-    _xpSubscription = _firestore
-        .collection('users')
-        .doc(user.uid)
-        .snapshots()
-        .listen((doc) {
+    _xpSubscription =
+        _firestore.collection('users').doc(user.uid).snapshots().listen((doc) {
       final raw = doc.data()?['totalXp'];
       final xp = raw is num ? raw.toInt() : null;
       if (xp == null || xp < 0 || !mounted) return;
@@ -208,17 +204,17 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (user == null) {
       if (mounted) {
         setState(() {
-          _userName   = 'Guest User';
-          _userEmail  = '';
-          _loading    = false;
+          _userName = 'Guest User';
+          _userEmail = '';
+          _loading = false;
         });
       }
       return;
     }
     if (mounted) {
       setState(() {
-        _userName     = user.displayName ?? user.email?.split('@').first ?? 'User';
-        _userEmail    = user.email ?? '';
+        _userName = user.displayName ?? user.email?.split('@').first ?? 'User';
+        _userEmail = user.email ?? '';
         _userPhotoUrl = user.photoURL ?? '';
       });
     }
@@ -233,27 +229,27 @@ class _ProfileScreenState extends State<ProfileScreen>
         // with anything else, and it is never derived from
         // copilot_progress.xpEarned.
         final num? totalXpRaw = d['totalXp'] as num?;
-        final int? totalXp    = totalXpRaw?.toInt();
+        final int? totalXp = totalXpRaw?.toInt();
 
         // Legacy XP — users/{uid}.xpPoints. Kept ONLY for display
         // fallback when the authoritative value is genuinely absent.
         final num? legacyXpRaw = d['xpPoints'] as num?;
-        final int? legacyXp    = legacyXpRaw?.toInt();
+        final int? legacyXp = legacyXpRaw?.toInt();
 
         if (!mounted) return;
         setState(() {
-          _city        = d['city'] ?? d['location'] ?? 'India 🇮🇳';
-          _bio         = d['bio'] ?? '';
-          _phone       = d['phone'] ?? '';
+          _city = d['city'] ?? d['location'] ?? 'India 🇮🇳';
+          _bio = d['bio'] ?? '';
+          _phone = d['phone'] ?? '';
           _appliedJobs = (d['appliedJobs'] as num?)?.toInt() ?? 0;
-          _doneSteps   = (d['completedSteps'] as num?)?.toInt() ?? 0;
-          _userSkills  = List<String>.from(d['skills'] ?? []);
-          _targetRole  = d['targetRole'] ?? 'AI Engineer';
-          _experience  = d['experience'] ?? '0–1 years';
+          _doneSteps = (d['completedSteps'] as num?)?.toInt() ?? 0;
+          _userSkills = List<String>.from(d['skills'] ?? []);
+          _targetRole = d['targetRole'] ?? 'AI Engineer';
+          _experience = d['experience'] ?? '0–1 years';
 
           if (totalXp != null && totalXp >= 0) {
-            _lifetimeXp          = totalXp;
-            _hasAuthoritativeXp  = true;
+            _lifetimeXp = totalXp;
+            _hasAuthoritativeXp = true;
           } else if (legacyXp != null && legacyXp >= 0) {
             _legacyXp = legacyXp;
           }
@@ -319,8 +315,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         final phases = (roadmapDoc.data()!['phases'] as List?) ?? [];
         final completed = phases.where((p) => p['isCompleted'] == true).length;
         if (phases.isNotEmpty && mounted) {
-          setState(() =>
-              _roadmapPct = ((completed / phases.length) * 100).round());
+          setState(
+              () => _roadmapPct = ((completed / phases.length) * 100).round());
         }
       }
 
@@ -335,12 +331,12 @@ class _ProfileScreenState extends State<ProfileScreen>
           .limit(30)
           .get();
 
-      int last30Xp   = 0;
-      int streak     = 0;
+      int last30Xp = 0;
+      int streak = 0;
       DateTime? lastDate;
       for (final doc in progressSnap.docs) {
-        final d    = doc.data();
-        final xp   = (d['xpEarned'] as num?)?.toInt() ?? 0;
+        final d = doc.data();
+        final xp = (d['xpEarned'] as num?)?.toInt() ?? 0;
         final date = DateTime.tryParse(d['date'] as String? ?? '');
         last30Xp += xp;
         if (date != null) {
@@ -360,7 +356,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (!mounted) return;
       setState(() {
         _copilotXpLast30 = last30Xp;
-        _copilotStreak   = streak;
+        _copilotStreak = streak;
         if (streak > _streakDays) _streakDays = streak;
       });
     } catch (_) {}
@@ -380,34 +376,27 @@ class _ProfileScreenState extends State<ProfileScreen>
               child: CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(child: _buildHero()),
-
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                       child: _buildLevelCard(),
                     ).animate().fadeIn(delay: 100.ms),
                   ),
-
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _buildStatsRow(),
                     ).animate().fadeIn(delay: 150.ms),
                   ),
-
                   const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _buildTabBar(),
                     ),
                   ),
-
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
                   SliverToBoxAdapter(child: _buildTabContent()),
-
                   const SliverToBoxAdapter(child: SizedBox(height: 32)),
                 ],
               ),
@@ -450,7 +439,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 child: _userPhotoUrl.isNotEmpty
                     ? ClipOval(
-                        child: Image.network(_userPhotoUrl, fit: BoxFit.cover,
+                        child: Image.network(_userPhotoUrl,
+                            fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _avatarIcon()),
                       )
                     : _avatarIcon(),
@@ -469,23 +459,24 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ],
           ).animate().scale(duration: 500.ms, curve: Curves.elasticOut),
-
           const SizedBox(height: 14),
-
           Text(_userName,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))
-              .animate().fadeIn(delay: 100.ms),
-
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold))
+              .animate()
+              .fadeIn(delay: 100.ms),
           const SizedBox(height: 4),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [_primary, _secondary]),
+                  gradient:
+                      const LinearGradient(colors: [_primary, _secondary]),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -502,7 +493,6 @@ class _ProfileScreenState extends State<ProfileScreen>
               Text(_city, style: const TextStyle(color: _muted, fontSize: 12)),
             ],
           ).animate().fadeIn(delay: 150.ms),
-
           if (_bio.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(_bio,
@@ -510,9 +500,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 style: const TextStyle(
                     color: Colors.white70, fontSize: 13, height: 1.4)),
           ],
-
           const SizedBox(height: 16),
-
           if (_userEmail.isNotEmpty)
             GestureDetector(
               onTap: () {
@@ -520,7 +508,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 _snack('Email copied!');
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
                   color: _surface,
                   borderRadius: BorderRadius.circular(20),
@@ -529,7 +518,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.email_outlined, size: 14, color: _secondary),
+                    const Icon(Icons.email_outlined,
+                        size: 14, color: _secondary),
                     const SizedBox(width: 6),
                     Text(_userEmail,
                         style: const TextStyle(color: _muted, fontSize: 12)),
@@ -581,7 +571,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                       fontSize: 15)),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: level.color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
@@ -654,8 +645,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold)),
-              Text(label,
-                  style: const TextStyle(color: _muted, fontSize: 10)),
+              Text(label, style: const TextStyle(color: _muted, fontSize: 10)),
             ],
           ),
         ),
@@ -700,9 +690,12 @@ class _ProfileScreenState extends State<ProfileScreen>
       animation: _tabCtrl,
       builder: (_, __) {
         switch (_tabCtrl.index) {
-          case 0:  return _careerTab();
-          case 1:  return _skillsTab();
-          default: return _settingsTab();
+          case 0:
+            return _careerTab();
+          case 1:
+            return _skillsTab();
+          default:
+            return _settingsTab();
         }
       },
     );
@@ -734,17 +727,14 @@ class _ProfileScreenState extends State<ProfileScreen>
               color: const Color(0xFF60A5FA),
             ),
           ],
-
           const SizedBox(height: 20),
           _sectionTitle('🎯 Career Goal'),
           const SizedBox(height: 10),
           _careerGoalCard(),
-
           const SizedBox(height: 20),
           _sectionTitle('📋 Activity'),
           const SizedBox(height: 10),
           _activityGrid(),
-
           const SizedBox(height: 20),
           _sectionTitle('💼 Jobs'),
           const SizedBox(height: 10),
@@ -817,7 +807,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Widget _careerGoalCard() {
     final role = _copilotRole.isNotEmpty ? _copilotRole : _targetRole;
-    final exp  = _experience;
+    final exp = _experience;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -882,8 +872,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     // the level card. It is not added to the lifetime XP value.
     return Row(
       children: [
-        _activityTile('⚡', '$_copilotXpLast30', 'XP (30 days)',
-            const Color(0xFF60A5FA)),
+        _activityTile(
+            '⚡', '$_copilotXpLast30', 'XP (30 days)', const Color(0xFF60A5FA)),
         const SizedBox(width: 10),
         _activityTile('🔥', '$_copilotStreak', 'Day Streak', _amber),
         const SizedBox(width: 10),
@@ -908,9 +898,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               const SizedBox(height: 4),
               Text(val,
                   style: TextStyle(
-                      color: color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold),
+                      color: color, fontSize: 14, fontWeight: FontWeight.bold),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
@@ -973,8 +961,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   // TAB 1 — SKILLS
   // ──────────────────────────────────────────────────────────────────
   Widget _skillsTab() {
-    final recommended =
-        _recommendedSkills(_copilotRole.isNotEmpty ? _copilotRole : _targetRole);
+    final recommended = _recommendedSkills(
+        _copilotRole.isNotEmpty ? _copilotRole : _targetRole);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -988,7 +976,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               GestureDetector(
                 onTap: _addSkills,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: _primary.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(10),
@@ -1007,7 +996,6 @@ class _ProfileScreenState extends State<ProfileScreen>
             ],
           ),
           const SizedBox(height: 10),
-
           if (_userSkills.isEmpty)
             Container(
               width: double.infinity,
@@ -1047,7 +1035,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                     _userSkills.map((s) => _skillChip(s, _primary)).toList(),
               ),
             ),
-
           const SizedBox(height: 20),
           _sectionTitle('💡 Recommended for $_targetRole'),
           const SizedBox(height: 10),
@@ -1078,7 +1065,6 @@ class _ProfileScreenState extends State<ProfileScreen>
               ],
             ),
           ),
-
           const SizedBox(height: 20),
           _sectionTitle('📈 Skill Gap'),
           const SizedBox(height: 10),
@@ -1112,8 +1098,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _skillGapBar() {
-    final recommended =
-        _recommendedSkills(_copilotRole.isNotEmpty ? _copilotRole : _targetRole);
+    final recommended = _recommendedSkills(
+        _copilotRole.isNotEmpty ? _copilotRole : _targetRole);
     final have = _userSkills.map((s) => s.toLowerCase()).toSet();
     final matching =
         recommended.where((s) => have.contains(s.toLowerCase())).length;
@@ -1156,7 +1142,11 @@ class _ProfileScreenState extends State<ProfileScreen>
               minHeight: 7,
               backgroundColor: _border,
               valueColor: AlwaysStoppedAnimation(
-                pct > 0.7 ? _green : pct > 0.4 ? _amber : _red,
+                pct > 0.7
+                    ? _green
+                    : pct > 0.4
+                        ? _amber
+                        : _red,
               ),
             ),
           ),
@@ -1166,7 +1156,11 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _circularPct(double pct) {
-    final color = pct > 0.7 ? _green : pct > 0.4 ? _amber : _red;
+    final color = pct > 0.7
+        ? _green
+        : pct > 0.4
+            ? _amber
+            : _red;
     return SizedBox(
       width: 52,
       height: 52,
@@ -1200,32 +1194,32 @@ class _ProfileScreenState extends State<ProfileScreen>
         children: [
           _sectionTitle('👤 Account'),
           const SizedBox(height: 10),
-          _settingItem(Icons.edit_outlined,        'Edit Profile',       _editProfile),
-          _settingItem(Icons.lock_outline,          'Change Password',    _changePassword),
-          _settingItem(Icons.verified_user_outlined,'Email Verification', _checkEmailVerified),
-
+          _settingItem(Icons.edit_outlined, 'Edit Profile', _editProfile),
+          _settingItem(Icons.lock_outline, 'Change Password', _changePassword),
+          _settingItem(Icons.verified_user_outlined, 'Email Verification',
+              _checkEmailVerified),
           const SizedBox(height: 20),
           _sectionTitle('📊 Career Tools'),
           const SizedBox(height: 10),
-          _settingItem(Icons.bookmark_outline,   'Saved Jobs',          _goSavedJobs),
-          _settingItem(Icons.send_outlined,       'My Applications',    _showAppliedJobs),
-          _settingItem(Icons.description_outlined,'My Resume',          _showResume),
-          _settingItem(Icons.notifications_outlined,'Job Alerts',       _sendJobAlert),
-
+          _settingItem(Icons.bookmark_outline, 'Saved Jobs', _goSavedJobs),
+          _settingItem(
+              Icons.send_outlined, 'My Applications', _showAppliedJobs),
+          _settingItem(Icons.description_outlined, 'My Resume', _showResume),
+          _settingItem(
+              Icons.notifications_outlined, 'Job Alerts', _sendJobAlert),
           const SizedBox(height: 20),
           _sectionTitle('🤝 Community'),
           const SizedBox(height: 10),
-          _settingItem(Icons.star_outline,       'Rate the App',        _rateApp),
-          _settingItem(Icons.share_outlined,     'Share with Friends',  _shareApp),
-          _settingItem(Icons.people_outline,     'Join Community',      _joinCommunity),
-
+          _settingItem(Icons.star_outline, 'Rate the App', _rateApp),
+          _settingItem(Icons.share_outlined, 'Share with Friends', _shareApp),
+          _settingItem(Icons.people_outline, 'Join Community', _joinCommunity),
           const SizedBox(height: 20),
           _sectionTitle('ℹ️ Info'),
           const SizedBox(height: 10),
-          _settingItem(Icons.help_outline,       'Help & Support',      _showHelp),
-          _settingItem(Icons.privacy_tip_outlined,'Privacy Policy',     _openPrivacy),
-          _settingItem(Icons.info_outline,       'About the App',       _showAbout),
-
+          _settingItem(Icons.help_outline, 'Help & Support', _showHelp),
+          _settingItem(
+              Icons.privacy_tip_outlined, 'Privacy Policy', _openPrivacy),
+          _settingItem(Icons.info_outline, 'About the App', _showAbout),
           const SizedBox(height: 20),
           GestureDetector(
             onTap: _logout,
@@ -1244,12 +1238,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                   SizedBox(width: 8),
                   Text('Log Out',
                       style: TextStyle(
-                          color: _red, fontSize: 14, fontWeight: FontWeight.w600)),
+                          color: _red,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
           ),
-
           const SizedBox(height: 12),
           GestureDetector(
             onTap: _deleteAccount,
@@ -1298,11 +1293,11 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   void _editProfile() {
     final nameCtrl = TextEditingController(text: _userName);
-    final bioCtrl  = TextEditingController(text: _bio);
+    final bioCtrl = TextEditingController(text: _bio);
     final cityCtrl = TextEditingController(text: _city);
-    final phoneCtrl= TextEditingController(text: _phone);
+    final phoneCtrl = TextEditingController(text: _phone);
     String role = _targetRole;
-    String exp  = _experience;
+    String exp = _experience;
 
     // UI selection list for this legacy editor ONLY. Software Engineer is
     // included so the canonical `CareerGoal.softwareEngineer` label is
@@ -1319,7 +1314,13 @@ class _ProfileScreenState extends State<ProfileScreen>
       'AI Product Manager',
       'Software Engineer',
     ];
-    const exps  = ['0–1 years','1–2 years','2–3 years','3–5 years','5+ years'];
+    const exps = [
+      '0–1 years',
+      '1–2 years',
+      '2–3 years',
+      '3–5 years',
+      '5+ years'
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -1330,7 +1331,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       builder: (_) => StatefulBuilder(
         builder: (ctx, setBS) => Padding(
           padding: EdgeInsets.only(
-            left: 24, right: 24, top: 24,
+            left: 24,
+            right: 24,
+            top: 24,
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
           ),
           child: SingleChildScrollView(
@@ -1347,15 +1350,20 @@ class _ProfileScreenState extends State<ProfileScreen>
                 const SizedBox(height: 20),
                 _inputField('Full Name', nameCtrl),
                 const SizedBox(height: 12),
-                _inputField('City / Country', cityCtrl, hint: 'e.g. Bengaluru, India'),
+                _inputField('City / Country', cityCtrl,
+                    hint: 'e.g. Bengaluru, India'),
                 const SizedBox(height: 12),
-                _inputField('Phone', phoneCtrl, hint: '+91 9876543210', keyboard: TextInputType.phone),
+                _inputField('Phone', phoneCtrl,
+                    hint: '+91 9876543210', keyboard: TextInputType.phone),
                 const SizedBox(height: 12),
-                _inputField('Bio', bioCtrl, hint: 'Brief intro about yourself', maxLines: 2),
+                _inputField('Bio', bioCtrl,
+                    hint: 'Brief intro about yourself', maxLines: 2),
                 const SizedBox(height: 12),
-                _dropdownField('Target Role', role, roles, (v) => setBS(() => role = v!)),
+                _dropdownField(
+                    'Target Role', role, roles, (v) => setBS(() => role = v!)),
                 const SizedBox(height: 12),
-                _dropdownField('Experience', exp, exps, (v) => setBS(() => exp = v!)),
+                _dropdownField(
+                    'Experience', exp, exps, (v) => setBS(() => exp = v!)),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -1366,7 +1374,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                       if (user != null) {
                         final name = nameCtrl.text.trim();
                         if (name.isNotEmpty) await user.updateDisplayName(name);
-                        await _firestore.collection('users').doc(user.uid).update({
+                        await _firestore
+                            .collection('users')
+                            .doc(user.uid)
+                            .update({
                           'name': name,
                           'city': cityCtrl.text.trim(),
                           'phone': phoneCtrl.text.trim(),
@@ -1377,12 +1388,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                         });
                         if (!mounted) return;
                         setState(() {
-                          _userName    = name.isNotEmpty ? name : _userName;
-                          _city        = cityCtrl.text.trim();
-                          _phone       = phoneCtrl.text.trim();
-                          _bio         = bioCtrl.text.trim();
-                          _targetRole  = role;
-                          _experience  = exp;
+                          _userName = name.isNotEmpty ? name : _userName;
+                          _city = cityCtrl.text.trim();
+                          _phone = phoneCtrl.text.trim();
+                          _bio = bioCtrl.text.trim();
+                          _targetRole = role;
+                          _experience = exp;
                         });
                       }
                       if (mounted) Navigator.pop(context);
@@ -1410,12 +1421,42 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   void _addSkills() {
     final allSkills = [
-      'Python','PyTorch','TensorFlow','Scikit-learn','NumPy','Pandas',
-      'Machine Learning','Deep Learning','NLP','Computer Vision',
-      'LLMs','LangChain','HuggingFace','RAG','Prompt Engineering',
-      'MLOps','Docker','Kubernetes','FastAPI','AWS','GCP','Azure',
-      'SQL','Spark','Airflow','Git','Linux','Statistics','R',
-      'YOLO','OpenCV','Transformers','BERT','GPT','LoRA','RLHF',
+      'Python',
+      'PyTorch',
+      'TensorFlow',
+      'Scikit-learn',
+      'NumPy',
+      'Pandas',
+      'Machine Learning',
+      'Deep Learning',
+      'NLP',
+      'Computer Vision',
+      'LLMs',
+      'LangChain',
+      'HuggingFace',
+      'RAG',
+      'Prompt Engineering',
+      'MLOps',
+      'Docker',
+      'Kubernetes',
+      'FastAPI',
+      'AWS',
+      'GCP',
+      'Azure',
+      'SQL',
+      'Spark',
+      'Airflow',
+      'Git',
+      'Linux',
+      'Statistics',
+      'R',
+      'YOLO',
+      'OpenCV',
+      'Transformers',
+      'BERT',
+      'GPT',
+      'LoRA',
+      'RLHF',
     ];
     final selected = Set<String>.from(_userSkills);
 
@@ -1448,7 +1489,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                         final user = _auth.currentUser;
                         if (user != null) {
                           final list = selected.toList();
-                          await _firestore.collection('users').doc(user.uid)
+                          await _firestore
+                              .collection('users')
+                              .doc(user.uid)
                               .update({'skills': list});
                           if (!mounted) return;
                           setState(() => _userSkills = list);
@@ -1457,7 +1500,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                         _snack('Skills updated ✓');
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary, foregroundColor: Colors.white,
+                        backgroundColor: _primary,
+                        foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -1555,7 +1599,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: _surface,
-          title: const Text('Verify Email', style: TextStyle(color: Colors.white)),
+          title:
+              const Text('Verify Email', style: TextStyle(color: Colors.white)),
           content: const Text(
               'Your email is not verified. Send a verification email?',
               style: TextStyle(color: _muted)),
@@ -1579,8 +1624,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  void _goSavedJobs() => Navigator.push(context,
-      MaterialPageRoute(builder: (_) => const SavedJobsScreen()));
+  void _goSavedJobs() => Navigator.push(
+      context, MaterialPageRoute(builder: (_) => const SavedJobsScreen()));
 
   void _showAppliedJobs() async {
     final user = _auth.currentUser;
@@ -1667,8 +1712,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text('Applied',
-                                  style: TextStyle(
-                                      color: _green, fontSize: 10)),
+                                  style:
+                                      TextStyle(color: _green, fontSize: 10)),
                             ),
                           ],
                         ),
@@ -1707,15 +1752,16 @@ class _ProfileScreenState extends State<ProfileScreen>
               ],
             ),
             const SizedBox(height: 16),
-            _resumeRow('👤 Name',        _userName),
-            _resumeRow('🎯 Role',        _copilotRole.isNotEmpty ? _copilotRole : _targetRole),
-            _resumeRow('📍 Location',    _city),
-            _resumeRow('⏱️ Experience',  _experience),
+            _resumeRow('👤 Name', _userName),
+            _resumeRow('🎯 Role',
+                _copilotRole.isNotEmpty ? _copilotRole : _targetRole),
+            _resumeRow('📍 Location', _city),
+            _resumeRow('⏱️ Experience', _experience),
             if (_userSkills.isNotEmpty)
               _resumeRow('🛠️ Skills', _userSkills.take(5).join(', ')),
-            _resumeRow('💼 Applied',     '$_appliedJobs jobs'),
-            _resumeRow('⚡ XP',          '$_xpPoints points'),
-            _resumeRow('✅ Phases',      '$_doneSteps / 15 completed'),
+            _resumeRow('💼 Applied', '$_appliedJobs jobs'),
+            _resumeRow('⚡ XP', '$_xpPoints points'),
+            _resumeRow('✅ Phases', '$_doneSteps / 15 completed'),
             const SizedBox(height: 16),
             const Text(
                 '💡 Tip: Upload your full resume to LinkedIn and attach it when applying',
@@ -1888,7 +1934,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               'with a personalised roadmap, 100+ real job listings, '
               'an AI mentor, curated courses, and an AI Copilot that '
               'analyses your skills and generates a learning plan.',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+              style:
+                  TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
             ),
           ],
         ),
@@ -1946,8 +1993,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       builder: (_) => AlertDialog(
         backgroundColor: _surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title:
-            const Text('Delete Account', style: TextStyle(color: _red)),
+        title: const Text('Delete Account', style: TextStyle(color: _red)),
         content: const Text(
           'This will permanently delete your account and all data. This cannot be undone.',
           style: TextStyle(color: _muted),
@@ -1977,7 +2023,9 @@ class _ProfileScreenState extends State<ProfileScreen>
               }
             },
             style: ElevatedButton.styleFrom(
-                backgroundColor: _red, foregroundColor: Colors.white, elevation: 0),
+                backgroundColor: _red,
+                foregroundColor: Colors.white,
+                elevation: 0),
             child: const Text('Delete'),
           ),
         ],
@@ -2080,15 +2128,83 @@ class _ProfileScreenState extends State<ProfileScreen>
   // ── Recommended skills per role ─────────────────────────────────────
   List<String> _recommendedSkills(String role) {
     final map = <String, List<String>>{
-      'AI Engineer':        ['Python','PyTorch','LLMs','LangChain','FastAPI','Docker','AWS'],
-      'ML Engineer':        ['Python','Scikit-learn','XGBoost','PyTorch','MLflow','Docker','SQL'],
-      'Data Scientist':     ['Python','SQL','Pandas','NumPy','Matplotlib','Scikit-learn','Statistics'],
-      'NLP Engineer':       ['Python','HuggingFace','Transformers','BERT','spaCy','LLMs','RAG'],
-      'CV Engineer':        ['Python','PyTorch','OpenCV','YOLO','CNN','TensorRT','Albumentations'],
-      'Prompt Engineer':    ['Python','Prompt Engineering','LangChain','OpenAI API','RAG','Evaluation'],
-      'AI Researcher':      ['Python','PyTorch','JAX','Statistics','LaTeX','Papers','Mathematics'],
-      'AI Product Manager': ['SQL','Python basics','ML concepts','A/B Testing','Product Strategy'],
-      'Software Engineer':  ['Data Structures & Algorithms','System Design','Git','Testing','APIs','Databases'],
+      'AI Engineer': [
+        'Python',
+        'PyTorch',
+        'LLMs',
+        'LangChain',
+        'FastAPI',
+        'Docker',
+        'AWS'
+      ],
+      'ML Engineer': [
+        'Python',
+        'Scikit-learn',
+        'XGBoost',
+        'PyTorch',
+        'MLflow',
+        'Docker',
+        'SQL'
+      ],
+      'Data Scientist': [
+        'Python',
+        'SQL',
+        'Pandas',
+        'NumPy',
+        'Matplotlib',
+        'Scikit-learn',
+        'Statistics'
+      ],
+      'NLP Engineer': [
+        'Python',
+        'HuggingFace',
+        'Transformers',
+        'BERT',
+        'spaCy',
+        'LLMs',
+        'RAG'
+      ],
+      'CV Engineer': [
+        'Python',
+        'PyTorch',
+        'OpenCV',
+        'YOLO',
+        'CNN',
+        'TensorRT',
+        'Albumentations'
+      ],
+      'Prompt Engineer': [
+        'Python',
+        'Prompt Engineering',
+        'LangChain',
+        'OpenAI API',
+        'RAG',
+        'Evaluation'
+      ],
+      'AI Researcher': [
+        'Python',
+        'PyTorch',
+        'JAX',
+        'Statistics',
+        'LaTeX',
+        'Papers',
+        'Mathematics'
+      ],
+      'AI Product Manager': [
+        'SQL',
+        'Python basics',
+        'ML concepts',
+        'A/B Testing',
+        'Product Strategy'
+      ],
+      'Software Engineer': [
+        'Data Structures & Algorithms',
+        'System Design',
+        'Git',
+        'Testing',
+        'APIs',
+        'Databases'
+      ],
     };
     return map[role] ?? map['AI Engineer']!;
   }
@@ -2099,8 +2215,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 // ══════════════════════════════════════════════════════════════════════
 class _Level {
   final String name;
-  final int    minXp;
-  final int    maxXp;
-  final Color  color;
+  final int minXp;
+  final int maxXp;
+  final Color color;
   const _Level(this.name, this.minXp, this.maxXp, this.color);
 }

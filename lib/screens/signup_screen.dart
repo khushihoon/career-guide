@@ -191,10 +191,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
-                    )
-                        .animate()
-                        .fadeIn(duration: 400.ms)
-                        .slideX(begin: -0.2),
+                    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.2),
                     const SizedBox(height: 8),
                     const Text(
                       'Create your account to get started with your AI career journey',
@@ -281,9 +278,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   controller: _confirmPasswordController,
                   hint: 'Confirm your password',
                   obscure: _obscureConfirmPassword,
-                  onObscureToggle: () =>
-                      setState(() =>
-                          _obscureConfirmPassword = !_obscureConfirmPassword),
+                  onObscureToggle: () => setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword),
                   validator: _validateConfirmPassword,
                   delay: 700,
                 ),
@@ -360,8 +356,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             height: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              valueColor:
-                                  AlwaysStoppedAnimation(Colors.white),
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
                             ),
                           )
                         : const Text(
@@ -383,7 +378,8 @@ class _SignupScreenState extends State<SignupScreen> {
                 // Toggle to Login
                 Center(
                   child: GestureDetector(
-                    onTap: () => Navigator.of(context).pushReplacementNamed('/login'),
+                    onTap: () =>
+                        Navigator.of(context).pushReplacementNamed('/login'),
                     child: RichText(
                       text: TextSpan(
                         children: [
@@ -406,9 +402,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     ),
                   ),
-                )
-                    .animate()
-                    .fadeIn(delay: Duration(milliseconds: 1000)),
+                ).animate().fadeIn(delay: Duration(milliseconds: 1000)),
 
                 const SizedBox(height: 20),
               ],
@@ -474,10 +468,7 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         ),
       ],
-    )
-        .animate()
-        .fadeIn(delay: Duration(milliseconds: delay))
-        .slideY(begin: 0.2);
+    ).animate().fadeIn(delay: Duration(milliseconds: delay)).slideY(begin: 0.2);
   }
 
   Widget _buildPasswordField({
@@ -513,7 +504,9 @@ class _SignupScreenState extends State<SignupScreen> {
             suffixIcon: GestureDetector(
               onTap: onObscureToggle,
               child: Icon(
-                obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                obscure
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
                 color: const Color(0xFFA78BFA),
               ),
             ),
@@ -543,9 +536,6 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         ),
       ],
-    )
-        .animate()
-        .fadeIn(delay: Duration(milliseconds: delay))
-        .slideY(begin: 0.2);
+    ).animate().fadeIn(delay: Duration(milliseconds: delay)).slideY(begin: 0.2);
   }
 }

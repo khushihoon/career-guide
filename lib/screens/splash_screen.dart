@@ -19,7 +19,14 @@ import 'login_screen.dart';
 import 'main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({
+    super.key,
+    required this.startupFuture,
+  });
+
+  /// Firebase and environment setup started by main.dart.
+  /// The splash animation can render while this future completes.
+  final Future<void> startupFuture;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -28,13 +35,13 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
   // ── Palette ────────────────────────────────────────────────────────
-  static const _bgTop     = Color(0xFF190C3B);
-  static const _bgMid     = Color(0xFF0E0A24);
-  static const _bgBottom  = Color(0xFF06050F);
-  static const _primary   = Color(0xFF7C3AED);
+  static const _bgTop = Color(0xFF190C3B);
+  static const _bgMid = Color(0xFF0E0A24);
+  static const _bgBottom = Color(0xFF06050F);
+  static const _primary = Color(0xFF7C3AED);
   static const _secondary = Color(0xFFA78BFA);
-  static const _accent    = Color(0xFF22D3EE);
-  static const _horizon   = Color(0xFFFDE68A);
+  static const _accent = Color(0xFF22D3EE);
+  static const _horizon = Color(0xFFFDE68A);
 
   // ── Controllers ──────────────────────────────────────────────────────
   late final AnimationController _bgCtrl;
@@ -50,8 +57,8 @@ class _SplashScreenState extends State<SplashScreen>
   static const int _splashMs = 4800;
 
   final List<String> _stages = const ['Learn', 'Practice', 'Build', 'Grow'];
-  int  _stageIndex = 0;
-  bool _exiting    = false;
+  int _stageIndex = 0;
+  bool _exiting = false;
 
   @override
   void initState() {
@@ -114,20 +121,28 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigate() async {
+    // Keep the splash visible while Firebase/.env finish initializing.
+    // The 4.8-second animation still runs immediately from initState.
+    try {
+      await widget.startupFuture;
+    } catch (e, stackTrace) {
+      debugPrint('App startup initialization failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      // Do not query FirebaseAuth before Firebase is ready.
+      if (!mounted) return;
+      return;
+    }
+
     if (!mounted) return;
+    final user = FirebaseAuth.instance.currentUser;
 
     setState(() => _exiting = true);
-
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
     );
 
-    // Keep the existing 4.8-second splash timer unchanged. Once it finishes,
-    // route immediately to the correct screen without an extra 300 ms wait.
-    final user = FirebaseAuth.instance.currentUser;
     if (!mounted) return;
-
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
@@ -205,9 +220,11 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
         Positioned(
-          top: -size.height * 0.15, left: -size.width * 0.2,
+          top: -size.height * 0.15,
+          left: -size.width * 0.2,
           child: Container(
-            width: size.width * 1.2, height: size.width * 1.2,
+            width: size.width * 1.2,
+            height: size.width * 1.2,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
@@ -217,9 +234,11 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
         Positioned(
-          top: -size.height * 0.05, right: -size.width * 0.25,
+          top: -size.height * 0.05,
+          right: -size.width * 0.25,
           child: Container(
-            width: size.width, height: size.width,
+            width: size.width,
+            height: size.width,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
@@ -248,11 +267,41 @@ class _SplashScreenState extends State<SplashScreen>
   // ── Floating career icons along the path ────────────────────────────
   List<Widget> _buildFloatingIcons(Size size) {
     final icons = <_CareerIcon>[
-      _CareerIcon(icon: Icons.school_rounded,      leftFrac: 0.20, topFrac: 0.72, size: 44, seed: 0.0, color: _accent),
-      _CareerIcon(icon: Icons.code_rounded,         leftFrac: 0.78, topFrac: 0.63, size: 40, seed: 0.6, color: _secondary),
-      _CareerIcon(icon: Icons.construction_rounded, leftFrac: 0.24, topFrac: 0.52, size: 34, seed: 1.2, color: _accent),
-      _CareerIcon(icon: Icons.work_rounded,         leftFrac: 0.74, topFrac: 0.43, size: 30, seed: 1.8, color: _secondary),
-      _CareerIcon(icon: Icons.emoji_events_rounded, leftFrac: 0.50, topFrac: 0.34, size: 26, seed: 2.4, color: _horizon),
+      _CareerIcon(
+          icon: Icons.school_rounded,
+          leftFrac: 0.20,
+          topFrac: 0.72,
+          size: 44,
+          seed: 0.0,
+          color: _accent),
+      _CareerIcon(
+          icon: Icons.code_rounded,
+          leftFrac: 0.78,
+          topFrac: 0.63,
+          size: 40,
+          seed: 0.6,
+          color: _secondary),
+      _CareerIcon(
+          icon: Icons.construction_rounded,
+          leftFrac: 0.24,
+          topFrac: 0.52,
+          size: 34,
+          seed: 1.2,
+          color: _accent),
+      _CareerIcon(
+          icon: Icons.work_rounded,
+          leftFrac: 0.74,
+          topFrac: 0.43,
+          size: 30,
+          seed: 1.8,
+          color: _secondary),
+      _CareerIcon(
+          icon: Icons.emoji_events_rounded,
+          leftFrac: 0.50,
+          topFrac: 0.34,
+          size: 26,
+          seed: 2.4,
+          color: _horizon),
     ];
 
     return icons.map((c) {
@@ -266,13 +315,18 @@ class _SplashScreenState extends State<SplashScreen>
             return Transform.translate(
               offset: Offset(0, bob),
               child: Container(
-                width: c.size, height: c.size,
+                width: c.size,
+                height: c.size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: const Color(0xFF15102E).withOpacity(0.75),
-                  border: Border.all(color: c.color.withOpacity(0.45), width: 1.2),
+                  border:
+                      Border.all(color: c.color.withOpacity(0.45), width: 1.2),
                   boxShadow: [
-                    BoxShadow(color: c.color.withOpacity(0.35), blurRadius: 16, spreadRadius: 1),
+                    BoxShadow(
+                        color: c.color.withOpacity(0.35),
+                        blurRadius: 16,
+                        spreadRadius: 1),
                   ],
                 ),
                 child: Icon(c.icon, size: c.size * 0.5, color: c.color),
@@ -316,7 +370,8 @@ class _SplashScreenState extends State<SplashScreen>
         if (i.isOdd) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.white.withOpacity(0.25)),
+            child: Icon(Icons.arrow_forward_rounded,
+                size: 12, color: Colors.white.withOpacity(0.25)),
           );
         }
         final idx = i ~/ 2;
@@ -352,10 +407,8 @@ class _SplashScreenState extends State<SplashScreen>
               fontWeight: FontWeight.w800,
               letterSpacing: 3.5,
             ),
-          )
-              .animate()
-              .fadeIn(delay: 500.ms, duration: 650.ms)
-              .slideY(begin: 0.25, end: 0, duration: 650.ms, curve: Curves.easeOut),
+          ).animate().fadeIn(delay: 500.ms, duration: 650.ms).slideY(
+              begin: 0.25, end: 0, duration: 650.ms, curve: Curves.easeOut),
           const SizedBox(height: 8),
           Text(
             'PLAN  •  LEARN  •  BUILD  •  GROW',
@@ -391,7 +444,8 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
           Container(
-            width: badgeSize * 1.05, height: badgeSize * 1.05,
+            width: badgeSize * 1.05,
+            height: badgeSize * 1.05,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
@@ -465,9 +519,12 @@ class _SplashScreenState extends State<SplashScreen>
                             child: Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(6),
-                                gradient: const LinearGradient(colors: [_accent, _primary]),
+                                gradient: const LinearGradient(
+                                    colors: [_accent, _primary]),
                                 boxShadow: [
-                                  BoxShadow(color: _accent.withOpacity(0.5), blurRadius: 8),
+                                  BoxShadow(
+                                      color: _accent.withOpacity(0.5),
+                                      blurRadius: 8),
                                 ],
                               ),
                             ),
@@ -519,7 +576,11 @@ class _CareerIcon {
 
 class _Bar {
   final double x, w, h, opacity;
-  const _Bar({required this.x, required this.w, required this.h, required this.opacity});
+  const _Bar(
+      {required this.x,
+      required this.w,
+      required this.h,
+      required this.opacity});
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -570,7 +631,8 @@ class _StarFieldPainter extends CustomPainter {
         ).createShader(rect)
         ..strokeWidth = 1.4
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(startX, y), Offset(startX + size.width * 0.32, y + 10), paint);
+      canvas.drawLine(
+          Offset(startX, y), Offset(startX + size.width * 0.32, y + 10), paint);
     }
   }
 
@@ -596,8 +658,12 @@ class _PathPainter extends CustomPainter {
       w * 0.5,
       Paint()
         ..shader = RadialGradient(
-          colors: [const Color(0xFFFDE68A).withOpacity(0.14), Colors.transparent],
-        ).createShader(Rect.fromCircle(center: Offset(vanishX, horizonY), radius: w * 0.5)),
+          colors: [
+            const Color(0xFFFDE68A).withOpacity(0.14),
+            Colors.transparent
+          ],
+        ).createShader(Rect.fromCircle(
+            center: Offset(vanishX, horizonY), radius: w * 0.5)),
     );
 
     // City silhouette
@@ -610,7 +676,8 @@ class _PathPainter extends CustomPainter {
       final rect = Rect.fromLTWH(x, horizonY - bh, bw, bh);
       canvas.drawRect(rect, buildingPaint);
       final winPaint = Paint()
-        ..color = const Color(0xFF67E8F9).withOpacity(0.18 + rnd.nextDouble() * 0.15);
+        ..color =
+            const Color(0xFF67E8F9).withOpacity(0.18 + rnd.nextDouble() * 0.15);
       for (double wy = rect.top + 6; wy < rect.bottom - 4; wy += 10) {
         for (double wx = rect.left + 4; wx < rect.right - 4; wx += 8) {
           if (rnd.nextDouble() > 0.6) {
@@ -681,7 +748,8 @@ class _PathPainter extends CustomPainter {
       final opacity = 0.25 + (1 - tt) * 0.5;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(vanishX, yy), width: dashW, height: dashH),
+          Rect.fromCenter(
+              center: Offset(vanishX, yy), width: dashW, height: dashH),
           const Radius.circular(3),
         ),
         Paint()..color = const Color(0xFF67E8F9).withOpacity(opacity),
@@ -726,7 +794,11 @@ class _AscentBadgePainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: const [Color(0xFF241454), Color(0xFF150E33), Color(0xFF0B0B16)],
+          colors: const [
+            Color(0xFF241454),
+            Color(0xFF150E33),
+            Color(0xFF0B0B16)
+          ],
           stops: const [0.0, 0.55, 1.0],
         ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r)),
     );
@@ -740,14 +812,16 @@ class _AscentBadgePainter extends CustomPainter {
 
     // Bevel highlights on the top two edges
     canvas.drawLine(
-      hexPoint(-90), hexPoint(-30),
+      hexPoint(-90),
+      hexPoint(-30),
       Paint()
         ..strokeWidth = 2.4
         ..color = const Color(0xFFC4B5FD).withOpacity(0.45)
         ..strokeCap = StrokeCap.round,
     );
     canvas.drawLine(
-      hexPoint(210), hexPoint(-90),
+      hexPoint(210),
+      hexPoint(-90),
       Paint()
         ..strokeWidth = 2.4
         ..color = const Color(0xFFC4B5FD).withOpacity(0.3)
@@ -788,19 +862,26 @@ class _AscentBadgePainter extends CustomPainter {
 
     // Spark node above the tallest bar
     final lastBar = barData.last;
-    final sparkCenter = Offset(lastBar.x + lastBar.w / 2, barBaseY - lastBar.h - r * 0.06);
+    final sparkCenter =
+        Offset(lastBar.x + lastBar.w / 2, barBaseY - lastBar.h - r * 0.06);
     final sparkR = r * 0.1 * glow;
     canvas.drawCircle(
       sparkCenter,
       sparkR * 2.6,
       Paint()
         ..shader = RadialGradient(
-          colors: [const Color(0xFF67E8F9).withOpacity(0.55 * glow), Colors.transparent],
-        ).createShader(Rect.fromCircle(center: sparkCenter, radius: sparkR * 2.6)),
+          colors: [
+            const Color(0xFF67E8F9).withOpacity(0.55 * glow),
+            Colors.transparent
+          ],
+        ).createShader(
+            Rect.fromCircle(center: sparkCenter, radius: sparkR * 2.6)),
     );
-    canvas.drawCircle(sparkCenter, sparkR, Paint()..color = const Color(0xFFA5F3FC));
     canvas.drawCircle(
-      sparkCenter, sparkR,
+        sparkCenter, sparkR, Paint()..color = const Color(0xFFA5F3FC));
+    canvas.drawCircle(
+      sparkCenter,
+      sparkR,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
@@ -822,7 +903,8 @@ class _OrbitRingPainter extends CustomPainter {
   final double angle;
   final Color primary;
   final Color accent;
-  _OrbitRingPainter({required this.angle, required this.primary, required this.accent});
+  _OrbitRingPainter(
+      {required this.angle, required this.primary, required this.accent});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -842,30 +924,37 @@ class _OrbitRingPainter extends CustomPainter {
       final e = s + dashAngle * 0.5;
       canvas.drawArc(
         Rect.fromCircle(center: Offset(cx, cy), radius: r),
-        s, e - s, false, dashPaint,
+        s,
+        e - s,
+        false,
+        dashPaint,
       );
     }
 
     final dx = cx + r * math.cos(angle);
     final dy = cy + r * math.sin(angle);
     canvas.drawCircle(
-      Offset(dx, dy), 8,
+      Offset(dx, dy),
+      8,
       Paint()
         ..color = accent.withOpacity(0.2)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
     canvas.drawCircle(Offset(dx, dy), 3.6, Paint()..color = accent);
-    canvas.drawCircle(Offset(dx - 1, dy - 1), 1.3, Paint()..color = Colors.white.withOpacity(0.85));
+    canvas.drawCircle(Offset(dx - 1, dy - 1), 1.3,
+        Paint()..color = Colors.white.withOpacity(0.85));
 
     final dx2 = cx + r * math.cos(angle + math.pi);
     final dy2 = cy + r * math.sin(angle + math.pi);
     canvas.drawCircle(
-      Offset(dx2, dy2), 7,
+      Offset(dx2, dy2),
+      7,
       Paint()
         ..color = primary.withOpacity(0.16)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
     );
-    canvas.drawCircle(Offset(dx2, dy2), 2.8, Paint()..color = primary.withOpacity(0.7));
+    canvas.drawCircle(
+        Offset(dx2, dy2), 2.8, Paint()..color = primary.withOpacity(0.7));
   }
 
   @override

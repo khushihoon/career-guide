@@ -172,7 +172,7 @@ class AshbySourceAdapter implements CompanySourceAdapter {
     if (rawJobs is! List) {
       return const <NormalizedJobPosting>[];
     }
-final result = <NormalizedJobPosting>[];
+    final result = <NormalizedJobPosting>[];
     for (final raw in rawJobs) {
       if (raw is! Map) continue;
       final map = Map<String, dynamic>.from(raw);
@@ -196,8 +196,7 @@ final result = <NormalizedJobPosting>[];
       // Prefer this posting's human-facing URL over the shared board API URL.
       // If the provider has no valid per-job URL, keep the source empty rather
       // than presenting the same feed endpoint as if it were this job's page.
-      final postingUrl =
-          _JsonJobParser._safeHttpsUrl(
+      final postingUrl = _JsonJobParser._safeHttpsUrl(
             _JsonJobParser._stringAt(map, const ['jobUrl']),
           ) ??
           _JsonJobParser._safeHttpsUrl(
@@ -278,6 +277,7 @@ final result = <NormalizedJobPosting>[];
     }
     return result;
   }
+
   CompanyCompensation? _ashbyCompensation(
     Map<String, dynamic>? compensation, {
     required String sourceUrl,
@@ -290,10 +290,7 @@ final result = <NormalizedJobPosting>[];
       for (final item in components) {
         if (item is! Map) continue;
         final map = Map<String, dynamic>.from(item);
-        if (map['compensationType']
-                ?.toString()
-                .toLowerCase() !=
-            'salary') {
+        if (map['compensationType']?.toString().toLowerCase() != 'salary') {
           continue;
         }
         final rawMin = map['minValue'];
@@ -477,6 +474,7 @@ class _JsonJobParser {
     }
     return result;
   }
+
   static CompanyCompensation? _compensationAt(
     Map<String, dynamic> map,
     List<String> keys, {
@@ -545,6 +543,7 @@ class _JsonJobParser {
     }
     return null;
   }
+
   /// Normalizes provider period text ("1 YEAR", "per-hour", "Monthly") to one
   /// of year / month / week / day / hour. Unknown text is returned empty
   /// rather than guessed.
@@ -558,6 +557,7 @@ class _JsonJobParser {
     if (value.contains('hour')) return 'hour';
     return '';
   }
+
   /// Keeps only small scalar fields (ids, flags, short labels, URLs) so the
   /// cache does not store whole descriptions twice.
   static Map<String, dynamic> _slimMetadata(Map<String, dynamic> map) {
@@ -572,6 +572,7 @@ class _JsonJobParser {
     }
     return result;
   }
+
   static dynamic _decode(String payload) {
     try {
       return jsonDecode(payload);
@@ -579,6 +580,7 @@ class _JsonJobParser {
       return null;
     }
   }
+
   static String _stringAt(
     Map<String, dynamic> map,
     List<String> keys,
@@ -599,9 +601,7 @@ class _JsonJobParser {
         continue;
       }
       if (value is Map) {
-        final text = value.values
-            .whereType<String>()
-            .join(', ');
+        final text = value.values.whereType<String>().join(', ');
         if (text.trim().isNotEmpty) {
           return text.trim();
         }
@@ -609,6 +609,7 @@ class _JsonJobParser {
     }
     return '';
   }
+
   static DateTime? _dateAt(
     Map<String, dynamic> map,
     List<String> keys,
@@ -623,9 +624,7 @@ class _JsonJobParser {
       }
       if (value is num) {
         final number = value.toInt();
-        final millis = number > 100000000000
-            ? number
-            : number * 1000;
+        final millis = number > 100000000000 ? number : number * 1000;
         return DateTime.fromMillisecondsSinceEpoch(
           millis,
           isUtc: true,
@@ -634,6 +633,7 @@ class _JsonJobParser {
     }
     return null;
   }
+
   /// Reads a dotted path. A numeric segment indexes into a list
   /// (for example `departments.0.name`).
   static dynamic _valueAt(
@@ -656,6 +656,7 @@ class _JsonJobParser {
     }
     return current;
   }
+
   /// Apply links are opened by the client, so accept only absolute HTTPS URLs.
   /// Reject javascript:, data:, malformed URLs, user-info tricks, and plain HTTP.
   static String? _safeHttpsUrl(String value) {
@@ -670,10 +671,9 @@ class _JsonJobParser {
     }
     return uri.toString();
   }
+
   static String? _nullable(String value) {
-    return value.trim().isEmpty
-        ? null
-        : value.trim();
+    return value.trim().isEmpty ? null : value.trim();
   }
 }
 

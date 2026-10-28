@@ -66,10 +66,10 @@ import '../models/copilot_models.dart'; // existing models
 // real data becomes available through the existing parameters.
 class _Signals {
   final bool hasProfile;
-  final int  currentStreak;
+  final int currentStreak;
   final bool hasRoadmap;
-  final int  totalGoalsCompleted;
-  final int  currentLevel;
+  final int totalGoalsCompleted;
+  final int currentLevel;
 
   const _Signals({
     required this.hasProfile,
@@ -258,8 +258,8 @@ class AchievementService {
   ) {
     return AchievementCatalog.all.map((a) {
       final unlockedAt = unlockedMap[a.id];
-      final current    = progressMap[a.id] ?? 0;
-      final target     = a.progressTarget;
+      final current = progressMap[a.id] ?? 0;
+      final target = a.progressTarget;
       return Achievement(
         id: a.id,
         title: a.title,
@@ -334,7 +334,7 @@ class AchievementService {
     required _Signals signals,
     required List<Achievement> candidates,
   }) async {
-    final docRef  = _db.collection('achievements').doc(uid);
+    final docRef = _db.collection('achievements').doc(uid);
     final userRef = _db.collection('users').doc(uid);
 
     final confirmedNew = <Achievement>[];
@@ -364,7 +364,7 @@ class AchievementService {
       for (final achievement in AchievementCatalog.all) {
         final id = achievement.id;
         if (alreadyUnlocked.contains(id)) continue; // already unlocked
-        if (toPersistIds.contains(id)) continue;    // unlocking right now
+        if (toPersistIds.contains(id)) continue; // unlocking right now
 
         final rule = _rules[id];
         final current = rule?.progress(signals) ?? 0;

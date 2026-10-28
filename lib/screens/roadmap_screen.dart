@@ -14,8 +14,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import 'jobdetails_screen.dart';
-import 'career_roadmap_hub.dart';        // multi-career hub
-import '../widgets/resource_card.dart';  // ← interactive resource cards
+import 'career_roadmap_hub.dart'; // multi-career hub
+import '../widgets/resource_card.dart'; // ← interactive resource cards
 
 class RoadmapScreen extends StatefulWidget {
   const RoadmapScreen({super.key});
@@ -27,12 +27,12 @@ class RoadmapScreen extends StatefulWidget {
 class _RoadmapScreenState extends State<RoadmapScreen>
     with SingleTickerProviderStateMixin {
   // ── Design tokens ───────────────────────────────────────────────────
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
 
   late TabController _tabController;
   late List<_Phase> _phases;
@@ -82,19 +82,27 @@ class _RoadmapScreenState extends State<RoadmapScreen>
       final matchSearch = _jobSearch.isEmpty ||
           j.title.toLowerCase().contains(_jobSearch.toLowerCase()) ||
           j.company.toLowerCase().contains(_jobSearch.toLowerCase()) ||
-          j.skills.any((s) =>
-              s.toLowerCase().contains(_jobSearch.toLowerCase()));
+          j.skills
+              .any((s) => s.toLowerCase().contains(_jobSearch.toLowerCase()));
       final matchCat = _jobCategory == 'All' ||
           j.title.toLowerCase().contains(_jobCategory.toLowerCase()) ||
-          j.skills.any((s) =>
-              s.toLowerCase().contains(_jobCategory.toLowerCase()));
+          j.skills
+              .any((s) => s.toLowerCase().contains(_jobCategory.toLowerCase()));
       return matchSearch && matchCat;
     }).toList();
   }
 
   static const _jobCategories = [
-    'All', 'Engineer', 'Scientist', 'NLP', 'Vision', 'Research',
-    'Manager', 'MLOps', 'LLM', 'Robotics',
+    'All',
+    'Engineer',
+    'Scientist',
+    'NLP',
+    'Vision',
+    'Research',
+    'Manager',
+    'MLOps',
+    'LLM',
+    'Robotics',
   ];
 
   // ─────────────────────────────────────────────────────────────────────
@@ -201,8 +209,7 @@ class _RoadmapScreenState extends State<RoadmapScreen>
           GestureDetector(
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const CareerRoadmapHub()),
+              MaterialPageRoute(builder: (_) => const CareerRoadmapHub()),
             ),
             child: Container(
               width: double.infinity,
@@ -223,14 +230,14 @@ class _RoadmapScreenState extends State<RoadmapScreen>
               ),
               child: Row(children: [
                 Container(
-                  width: 40, height: 40,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: const Color(0xFF7C3AED).withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Center(
-                    child: Text('🗺️',
-                        style: TextStyle(fontSize: 20)),
+                    child: Text('🗺️', style: TextStyle(fontSize: 20)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -249,9 +256,8 @@ class _RoadmapScreenState extends State<RoadmapScreen>
                       SizedBox(height: 2),
                       Text(
                         'Software · AI · Cloud · Security · Design & more',
-                        style: TextStyle(
-                            color: Color(0xFF888899),
-                            fontSize: 11),
+                        style:
+                            TextStyle(color: Color(0xFF888899), fontSize: 11),
                       ),
                     ],
                   ),
@@ -307,15 +313,15 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             title: '🇮🇳 India — Average Annual Salary (LPA)',
             note: 'Source: LinkedIn, Glassdoor, AmbitionBox 2025',
             rows: const [
-              _SalRow('Junior ML Engineer',     '6–10 LPA',   0.22),
-              _SalRow('Data Scientist',          '8–15 LPA',   0.32),
-              _SalRow('NLP Engineer',            '12–20 LPA',  0.42),
-              _SalRow('ML Engineer',             '15–25 LPA',  0.52),
-              _SalRow('Computer Vision Eng',     '15–28 LPA',  0.55),
-              _SalRow('AI/ML Engineer (5yr)',    '25–40 LPA',  0.72),
-              _SalRow('Senior AI Engineer',      '35–55 LPA',  0.85),
-              _SalRow('AI Research Scientist',   '40–70 LPA',  0.92),
-              _SalRow('Principal AI Scientist',  '60–100 LPA', 1.0),
+              _SalRow('Junior ML Engineer', '6–10 LPA', 0.22),
+              _SalRow('Data Scientist', '8–15 LPA', 0.32),
+              _SalRow('NLP Engineer', '12–20 LPA', 0.42),
+              _SalRow('ML Engineer', '15–25 LPA', 0.52),
+              _SalRow('Computer Vision Eng', '15–28 LPA', 0.55),
+              _SalRow('AI/ML Engineer (5yr)', '25–40 LPA', 0.72),
+              _SalRow('Senior AI Engineer', '35–55 LPA', 0.85),
+              _SalRow('AI Research Scientist', '40–70 LPA', 0.92),
+              _SalRow('Principal AI Scientist', '60–100 LPA', 1.0),
             ],
           ),
           const SizedBox(height: 20),
@@ -323,15 +329,15 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             title: '🌍 Global — Average Annual Salary (USD)',
             note: 'Source: Levels.fyi, Glassdoor, Blind 2025',
             rows: const [
-              _SalRow('Junior ML Engineer',     '\$80–110K',   0.28),
-              _SalRow('Data Scientist',          '\$95–130K',   0.38),
-              _SalRow('NLP Engineer',            '\$110–150K',  0.50),
-              _SalRow('ML Engineer (USA)',        '\$130–180K',  0.62),
-              _SalRow('CV Engineer',             '\$130–175K',  0.60),
-              _SalRow('AI Engineer (FAANG)',     '\$160–220K',  0.76),
-              _SalRow('Staff AI Engineer',       '\$200–280K',  0.88),
-              _SalRow('Principal Scientist',     '\$220–320K',  0.94),
-              _SalRow('AI Research Lead',        '\$250–400K+', 1.0),
+              _SalRow('Junior ML Engineer', '\$80–110K', 0.28),
+              _SalRow('Data Scientist', '\$95–130K', 0.38),
+              _SalRow('NLP Engineer', '\$110–150K', 0.50),
+              _SalRow('ML Engineer (USA)', '\$130–180K', 0.62),
+              _SalRow('CV Engineer', '\$130–175K', 0.60),
+              _SalRow('AI Engineer (FAANG)', '\$160–220K', 0.76),
+              _SalRow('Staff AI Engineer', '\$200–280K', 0.88),
+              _SalRow('Principal Scientist', '\$220–320K', 0.94),
+              _SalRow('AI Research Lead', '\$250–400K+', 1.0),
             ],
           ),
           const SizedBox(height: 20),
@@ -384,8 +390,7 @@ class _RoadmapScreenState extends State<RoadmapScreen>
                   fontSize: 14,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(note,
-              style: const TextStyle(color: _muted, fontSize: 11)),
+          Text(note, style: const TextStyle(color: _muted, fontSize: 11)),
           const SizedBox(height: 14),
           ...rows.map((r) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -394,8 +399,7 @@ class _RoadmapScreenState extends State<RoadmapScreen>
                     SizedBox(
                       width: 140,
                       child: Text(r.role,
-                          style: const TextStyle(
-                              color: _muted, fontSize: 11)),
+                          style: const TextStyle(color: _muted, fontSize: 11)),
                     ),
                     Expanded(
                       child: ClipRRect(
@@ -404,8 +408,7 @@ class _RoadmapScreenState extends State<RoadmapScreen>
                           value: r.pct,
                           minHeight: 7,
                           backgroundColor: const Color(0xFF0F0F20),
-                          valueColor:
-                              const AlwaysStoppedAnimation(_primary),
+                          valueColor: const AlwaysStoppedAnimation(_primary),
                         ),
                       ),
                     ),
@@ -450,7 +453,9 @@ class _RoadmapScreenState extends State<RoadmapScreen>
                     Expanded(
                       child: Text(b,
                           style: const TextStyle(
-                              color: Colors.white70, fontSize: 13, height: 1.4)),
+                              color: Colors.white70,
+                              fontSize: 13,
+                              height: 1.4)),
                     ),
                   ],
                 ),
@@ -477,12 +482,10 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             decoration: InputDecoration(
               hintText: 'Search jobs, skills, companies…',
               hintStyle: const TextStyle(color: _muted, fontSize: 13),
-              prefixIcon:
-                  const Icon(Icons.search, color: _muted, size: 20),
+              prefixIcon: const Icon(Icons.search, color: _muted, size: 20),
               suffixIcon: _jobSearch.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.close,
-                          color: _muted, size: 18),
+                      icon: const Icon(Icons.close, color: _muted, size: 18),
                       onPressed: () {
                         _searchCtrl.clear();
                         setState(() => _jobSearch = '');
@@ -503,8 +506,7 @@ class _RoadmapScreenState extends State<RoadmapScreen>
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    const BorderSide(color: _primary, width: 1.5),
+                borderSide: const BorderSide(color: _primary, width: 1.5),
               ),
             ),
             onChanged: (v) => setState(() => _jobSearch = v),
@@ -526,25 +528,20 @@ class _RoadmapScreenState extends State<RoadmapScreen>
                 onTap: () => setState(() => _jobCategory = cat),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: sel
-                        ? _primary.withOpacity(0.25)
-                        : _surface,
+                    color: sel ? _primary.withOpacity(0.25) : _surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                        color: sel ? _primary : _border,
-                        width: sel ? 1.5 : 1),
+                        color: sel ? _primary : _border, width: sel ? 1.5 : 1),
                   ),
                   child: Text(
                     cat,
                     style: TextStyle(
                       color: sel ? _secondary : _muted,
                       fontSize: 12,
-                      fontWeight: sel
-                          ? FontWeight.w600
-                          : FontWeight.normal,
+                      fontWeight: sel ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -580,9 +577,7 @@ class _RoadmapScreenState extends State<RoadmapScreen>
                   MaterialPageRoute(
                       builder: (_) => JobDetailsScreen(job: jobs[i])),
                 ),
-              )
-                  .animate()
-                  .fadeIn(delay: Duration(milliseconds: i * 30));
+              ).animate().fadeIn(delay: Duration(milliseconds: i * 30));
             },
           ),
         ),
@@ -611,7 +606,14 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'NumPy arrays and vectorised operations',
             'Pandas DataFrames — read, filter, groupby',
           ],
-          tools: ['Python 3.11+', 'Git', 'VS Code', 'Jupyter', 'NumPy', 'Pandas'],
+          tools: [
+            'Python 3.11+',
+            'Git',
+            'VS Code',
+            'Jupyter',
+            'NumPy',
+            'Pandas'
+          ],
           project: 'Build a Python CLI data analyser on a public CSV dataset',
           resources: [
             '📘 CS50P — Harvard Python (free)',
@@ -638,7 +640,8 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Information theory: entropy, KL divergence',
           ],
           tools: ['Khan Academy', 'NumPy', '3Blue1Brown', 'Matplotlib'],
-          project: 'Implement PCA and visualise MNIST digit clusters from scratch',
+          project:
+              'Implement PCA and visualise MNIST digit clusters from scratch',
           resources: [
             '📘 Mathematics for ML — Deisenroth (free PDF)',
             '🎬 3Blue1Brown Linear Algebra series (YouTube)',
@@ -665,7 +668,14 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Handling imbalanced datasets (SMOTE)',
             'Hyperparameter tuning: Grid search, Optuna',
           ],
-          tools: ['Scikit-learn', 'XGBoost', 'LightGBM', 'Matplotlib', 'Seaborn', 'Optuna'],
+          tools: [
+            'Scikit-learn',
+            'XGBoost',
+            'LightGBM',
+            'Matplotlib',
+            'Seaborn',
+            'Optuna'
+          ],
           project: 'Win a Kaggle Playground competition (top 20%)',
           resources: [
             '📘 ML Specialization — Andrew Ng (Coursera)',
@@ -691,7 +701,15 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Data validation with Great Expectations',
             'Parquet, Arrow, streaming data basics',
           ],
-          tools: ['SQL', 'PostgreSQL', 'Airflow', 'DVC', 'AWS S3', 'GCS', 'BigQuery'],
+          tools: [
+            'SQL',
+            'PostgreSQL',
+            'Airflow',
+            'DVC',
+            'AWS S3',
+            'GCS',
+            'BigQuery'
+          ],
           project: 'Build an automated ML data pipeline with Airflow + S3',
           resources: [
             '📘 Mode SQL Tutorial (free)',
@@ -719,7 +737,8 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Experiment tracking with Weights & Biases',
           ],
           tools: ['PyTorch', 'TensorFlow/Keras', 'W&B', 'CUDA', 'torchvision'],
-          project: 'Train ResNet-50 on custom image dataset, deploy as REST API',
+          project:
+              'Train ResNet-50 on custom image dataset, deploy as REST API',
           resources: [
             '📘 Deep Learning Specialization — DeepLearning.AI (Coursera)',
             '📘 fast.ai Practical Deep Learning (free)',
@@ -746,8 +765,14 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Machine translation, summarisation',
             'HuggingFace Transformers library',
           ],
-          tools: ['HuggingFace Transformers', 'spaCy', 'NLTK', 'SentenceTransformers'],
-          project: 'Fine-tune BERT for a domain-specific classification task (>90% F1)',
+          tools: [
+            'HuggingFace Transformers',
+            'spaCy',
+            'NLTK',
+            'SentenceTransformers'
+          ],
+          project:
+              'Fine-tune BERT for a domain-specific classification task (>90% F1)',
           resources: [
             '📘 HuggingFace NLP Course (free)',
             '📘 Stanford CS224N (lecture videos free)',
@@ -773,7 +798,14 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Data augmentation: Albumentations, torchvision',
             'Model deployment: ONNX, TensorRT optimisation',
           ],
-          tools: ['PyTorch', 'OpenCV', 'Ultralytics YOLO', 'SAM', 'CLIP', 'Albumentations'],
+          tools: [
+            'PyTorch',
+            'OpenCV',
+            'Ultralytics YOLO',
+            'SAM',
+            'CLIP',
+            'Albumentations'
+          ],
           project: 'Build a real-time object detection app with YOLO + FastAPI',
           resources: [
             '📘 fast.ai Part 2 — Deep Learning from the Foundations',
@@ -802,8 +834,17 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Evaluation: ROUGE, BERTScore, LLM-as-judge',
             'Prompt engineering patterns: CoT, ReAct, ToT',
           ],
-          tools: ['OpenAI API', 'HuggingFace', 'LangChain', 'LlamaIndex', 'Pinecone', 'ChromaDB', 'Ollama'],
-          project: 'Build a RAG-powered AI assistant on your own document corpus',
+          tools: [
+            'OpenAI API',
+            'HuggingFace',
+            'LangChain',
+            'LlamaIndex',
+            'Pinecone',
+            'ChromaDB',
+            'Ollama'
+          ],
+          project:
+              'Build a RAG-powered AI assistant on your own document corpus',
           resources: [
             '📘 Full Stack LLM Bootcamp — LangChain (free)',
             '📘 LLM Course — Maxime Labonne (GitHub, free)',
@@ -829,8 +870,14 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Evaluation metrics: FID, CLIP score, IS',
             'ComfyUI, Automatic1111 — practical workflows',
           ],
-          tools: ['Diffusers (HuggingFace)', 'ComfyUI', 'ControlNet', 'Replicate API'],
-          project: 'Build a fine-tuned image generation pipeline with LoRA + ComfyUI',
+          tools: [
+            'Diffusers (HuggingFace)',
+            'ComfyUI',
+            'ControlNet',
+            'Replicate API'
+          ],
+          project:
+              'Build a fine-tuned image generation pipeline with LoRA + ComfyUI',
           resources: [
             '📘 fast.ai Stable Diffusion from Scratch',
             '📘 HuggingFace Diffusers docs',
@@ -857,8 +904,15 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'OpenAI Gym / Gymnasium environments',
             'Real-world RL: robotics, recommendation systems',
           ],
-          tools: ['Stable-Baselines3', 'RLlib', 'Gymnasium', 'TensorBoard', 'trlX'],
-          project: 'Train a PPO agent to solve a continuous control task (MuJoCo/Brax)',
+          tools: [
+            'Stable-Baselines3',
+            'RLlib',
+            'Gymnasium',
+            'TensorBoard',
+            'trlX'
+          ],
+          project:
+              'Train a PPO agent to solve a continuous control task (MuJoCo/Brax)',
           resources: [
             '📘 Spinning Up in Deep RL — OpenAI (free)',
             '📘 Deep RL Course — HuggingFace (free)',
@@ -886,8 +940,17 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'GPU optimisation: memory profiling, Flash Attention',
             'Cloud: AWS SageMaker, Vertex AI, Azure ML',
           ],
-          tools: ['Docker', 'Kubernetes', 'MLflow', 'W&B', 'FastAPI', 'Triton', 'Evidently'],
-          project: 'Deploy a real ML model on Kubernetes with monitoring and auto-scaling',
+          tools: [
+            'Docker',
+            'Kubernetes',
+            'MLflow',
+            'W&B',
+            'FastAPI',
+            'Triton',
+            'Evidently'
+          ],
+          project:
+              'Deploy a real ML model on Kubernetes with monitoring and auto-scaling',
           resources: [
             '📘 MLOps Zoomcamp — DataTalks.Club (free)',
             '📘 Made With ML — Goku Mohandas (free)',
@@ -915,7 +978,8 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Academic collaboration and author culture',
           ],
           tools: ['LaTeX', 'Overleaf', 'Arxiv', 'Papers With Code', 'Notion'],
-          project: 'Reproduce a top NeurIPS/ICML paper and write an analysis report',
+          project:
+              'Reproduce a top NeurIPS/ICML paper and write an analysis report',
           resources: [
             '📘 How to Read a Paper — Keshav (free PDF)',
             '📘 Papers With Code (paperswithcode.com)',
@@ -942,7 +1006,8 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Pick ONE vertical and go deep for 6 weeks',
           ],
           tools: ['Domain-specific: ROS2 / or MONAI / or QuantLib / or CARLA'],
-          project: 'End-to-end domain project published on GitHub with write-up',
+          project:
+              'End-to-end domain project published on GitHub with write-up',
           resources: [
             '📘 Choose domain-specific courses on Coursera/Udemy',
             '📘 Domain papers on Arxiv',
@@ -968,7 +1033,8 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Record a 2-min demo video for each project',
           ],
           tools: ['GitHub', 'Streamlit', 'HuggingFace Spaces', 'Kaggle'],
-          project: 'Deploy 1 project on HuggingFace Spaces with >100 unique users',
+          project:
+              'Deploy 1 project on HuggingFace Spaces with >100 unique users',
           resources: [
             '📘 Sourabh Bajaj — ML Career Guide (GitHub)',
             '📘 Eugene Yan — Applied ML blog (free)',
@@ -993,7 +1059,12 @@ class _RoadmapScreenState extends State<RoadmapScreen>
             'Negotiation: competing offers, equity, signing bonuses',
             'Mock interviews: Pramp, Interviewing.io, peer mocks',
           ],
-          tools: ['LeetCode', 'Pramp', 'Interviewing.io', 'Grokking ML Interview'],
+          tools: [
+            'LeetCode',
+            'Pramp',
+            'Interviewing.io',
+            'Grokking ML Interview'
+          ],
           project: 'Complete 5 mock interviews + apply to 20+ companies',
           resources: [
             '📘 Chip Huyen — Machine Learning Interviews (GitHub free)',
@@ -1068,12 +1139,12 @@ class _PhaseCard extends StatefulWidget {
 class _PhaseCardState extends State<_PhaseCard> {
   bool _expanded = false;
 
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
 
   @override
   Widget build(BuildContext context) {
@@ -1084,9 +1155,7 @@ class _PhaseCardState extends State<_PhaseCard> {
         color: _surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: p.isDone
-              ? _primary.withOpacity(0.5)
-              : _border,
+          color: p.isDone ? _primary.withOpacity(0.5) : _border,
           width: p.isDone ? 1.5 : 1,
         ),
       ),
@@ -1108,9 +1177,7 @@ class _PhaseCardState extends State<_PhaseCard> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: p.isDone
-                            ? _primary
-                            : const Color(0xFF0F0F20),
+                        color: p.isDone ? _primary : const Color(0xFF0F0F20),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: p.isDone ? _primary : _border,
@@ -1148,8 +1215,8 @@ class _PhaseCardState extends State<_PhaseCard> {
                         ),
                         const SizedBox(height: 2),
                         Text(p.subtitle,
-                            style: const TextStyle(
-                                color: _muted, fontSize: 12)),
+                            style:
+                                const TextStyle(color: _muted, fontSize: 12)),
                         const SizedBox(height: 4),
                         Row(
                           children: [
@@ -1189,16 +1256,13 @@ class _PhaseCardState extends State<_PhaseCard> {
                     decoration: BoxDecoration(
                       color: _primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: _primary.withOpacity(0.3)),
+                      border: Border.all(color: _primary.withOpacity(0.3)),
                     ),
                     child: Row(
                       children: [
-                        const Text('💰 ',
-                            style: TextStyle(fontSize: 14)),
+                        const Text('💰 ', style: TextStyle(fontSize: 14)),
                         const Text('Salary after this phase: ',
-                            style: TextStyle(
-                                color: _muted, fontSize: 12)),
+                            style: TextStyle(color: _muted, fontSize: 12)),
                         Text(p.salaryUnlock,
                             style: const TextStyle(
                                 color: _secondary,
@@ -1216,13 +1280,11 @@ class _PhaseCardState extends State<_PhaseCard> {
                   ...p.topics.map((t) => Padding(
                         padding: const EdgeInsets.only(bottom: 5),
                         child: Row(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text('  • ',
-                                style: TextStyle(
-                                    color: _secondary,
-                                    fontSize: 13)),
+                                style:
+                                    TextStyle(color: _secondary, fontSize: 13)),
                             Expanded(
                               child: Text(t,
                                   style: const TextStyle(
@@ -1248,15 +1310,13 @@ class _PhaseCardState extends State<_PhaseCard> {
                                   horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF0F0F20),
-                                borderRadius:
-                                    BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: const Color(0xFF333345)),
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: const Color(0xFF333345)),
                               ),
                               child: Text(t,
                                   style: const TextStyle(
-                                      color: _secondary,
-                                      fontSize: 11)),
+                                      color: _secondary, fontSize: 11)),
                             ))
                         .toList(),
                   ),
@@ -1272,8 +1332,7 @@ class _PhaseCardState extends State<_PhaseCard> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF0F1A0F),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: const Color(0xFF1A3A1A)),
+                      border: Border.all(color: const Color(0xFF1A3A1A)),
                     ),
                     child: Text(p.project,
                         style: const TextStyle(
@@ -1297,28 +1356,22 @@ class _PhaseCardState extends State<_PhaseCard> {
                     child: OutlinedButton.icon(
                       onPressed: widget.onToggle,
                       icon: Icon(
-                        p.isDone
-                            ? Icons.refresh
-                            : Icons.check_circle_outline,
+                        p.isDone ? Icons.refresh : Icons.check_circle_outline,
                         size: 16,
                       ),
                       label: Text(p.isDone
                           ? 'And then click on learn'
                           : 'If you want to learn here, Click On Course Section ✓'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: p.isDone
-                            ? _muted
-                            : const Color(0xFF4ADE80),
+                        foregroundColor:
+                            p.isDone ? _muted : const Color(0xFF4ADE80),
                         side: BorderSide(
-                          color: p.isDone
-                              ? _border
-                              : const Color(0xFF4ADE80),
+                          color: p.isDone ? _border : const Color(0xFF4ADE80),
                           width: 1.5,
                         ),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                     ),
                   ),
@@ -1332,22 +1385,18 @@ class _PhaseCardState extends State<_PhaseCard> {
   }
 
   Widget _chip(String label, Color color) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: color.withOpacity(0.3)),
         ),
-        child: Text(label,
-            style: TextStyle(color: color, fontSize: 10)),
+        child: Text(label, style: TextStyle(color: color, fontSize: 10)),
       );
 
   Widget _sectionLabel(String t) => Text(t,
       style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 13));
+          color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13));
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1380,12 +1429,10 @@ class _JobListCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF0F0F20),
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: const Color(0xFF2A2A40)),
+                border: Border.all(color: const Color(0xFF2A2A40)),
               ),
               child: Center(
-                child: Text(job.icon,
-                    style: const TextStyle(fontSize: 22)),
+                child: Text(job.icon, style: const TextStyle(fontSize: 22)),
               ),
             ),
             const SizedBox(width: 12),
@@ -1403,27 +1450,28 @@ class _JobListCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${job.company} · ${job.location}',
-                    style: const TextStyle(
-                        color: Color(0xFF888899), fontSize: 12),
+                    style:
+                        const TextStyle(color: Color(0xFF888899), fontSize: 12),
                   ),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 5,
                     runSpacing: 4,
-                    children: job.skills.take(3).map((s) => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED)
-                                .withOpacity(0.12),
-                            borderRadius:
-                                BorderRadius.circular(6),
-                          ),
-                          child: Text(s,
-                              style: const TextStyle(
-                                  color: Color(0xFFA78BFA),
-                                  fontSize: 10)),
-                        )).toList(),
+                    children: job.skills
+                        .take(3)
+                        .map((s) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    const Color(0xFF7C3AED).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(s,
+                                  style: const TextStyle(
+                                      color: Color(0xFFA78BFA), fontSize: 10)),
+                            ))
+                        .toList(),
                   ),
                 ],
               ),
@@ -1441,13 +1489,12 @@ class _JobListCard extends StatelessWidget {
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: job.type == 'Full-time'
                         ? const Color(0xFF4ADE80).withOpacity(0.12)
-                        : const Color(0xFFF59E0B)
-                            .withOpacity(0.12),
+                        : const Color(0xFFF59E0B).withOpacity(0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(

@@ -74,28 +74,40 @@ enum SkillLevel { beginner, intermediate, advanced, expert }
 extension SkillLevelExt on SkillLevel {
   String get label {
     switch (this) {
-      case SkillLevel.beginner:     return 'Beginner';
-      case SkillLevel.intermediate: return 'Intermediate';
-      case SkillLevel.advanced:     return 'Advanced';
-      case SkillLevel.expert:       return 'Expert';
+      case SkillLevel.beginner:
+        return 'Beginner';
+      case SkillLevel.intermediate:
+        return 'Intermediate';
+      case SkillLevel.advanced:
+        return 'Advanced';
+      case SkillLevel.expert:
+        return 'Expert';
     }
   }
 
   int get value {
     switch (this) {
-      case SkillLevel.beginner:     return 1;
-      case SkillLevel.intermediate: return 2;
-      case SkillLevel.advanced:     return 3;
-      case SkillLevel.expert:       return 4;
+      case SkillLevel.beginner:
+        return 1;
+      case SkillLevel.intermediate:
+        return 2;
+      case SkillLevel.advanced:
+        return 3;
+      case SkillLevel.expert:
+        return 4;
     }
   }
 
   static SkillLevel fromString(String s) {
     switch (s.toLowerCase()) {
-      case 'intermediate': return SkillLevel.intermediate;
-      case 'advanced':     return SkillLevel.advanced;
-      case 'expert':       return SkillLevel.expert;
-      default:             return SkillLevel.beginner;
+      case 'intermediate':
+        return SkillLevel.intermediate;
+      case 'advanced':
+        return SkillLevel.advanced;
+      case 'expert':
+        return SkillLevel.expert;
+      default:
+        return SkillLevel.beginner;
     }
   }
 }
@@ -111,19 +123,23 @@ extension SkillLevelExt on SkillLevel {
 // enum only describes the shape of an evidence reference.
 
 enum SkillEvidenceType {
-  learning,   // consumed content (lesson, course)
-  practice,   // deliberate drills (exercises, katas)
-  project,    // shipped work demonstrating the skill
+  learning, // consumed content (lesson, course)
+  practice, // deliberate drills (exercises, katas)
+  project, // shipped work demonstrating the skill
   assessment, // graded evaluation / validation (quiz, mock interview)
 }
 
 extension SkillEvidenceTypeExt on SkillEvidenceType {
   String get label {
     switch (this) {
-      case SkillEvidenceType.learning:   return 'Learning';
-      case SkillEvidenceType.practice:   return 'Practice';
-      case SkillEvidenceType.project:    return 'Project';
-      case SkillEvidenceType.assessment: return 'Assessment';
+      case SkillEvidenceType.learning:
+        return 'Learning';
+      case SkillEvidenceType.practice:
+        return 'Practice';
+      case SkillEvidenceType.project:
+        return 'Project';
+      case SkillEvidenceType.assessment:
+        return 'Assessment';
     }
   }
 
@@ -147,33 +163,44 @@ extension SkillEvidenceTypeExt on SkillEvidenceType {
 // to match the legacy shapes.
 
 enum CareerStage {
-  exploration,   // 0 knowledge / choosing a career
-  assessment,    // identifying skill gaps
-  learning,      // foundational learning
-  practice,      // deliberate practice
-  projects,      // building real projects
-  portfolio,     // packaging work
-  cvReady,       // CV / resume ready
+  exploration, // 0 knowledge / choosing a career
+  assessment, // identifying skill gaps
+  learning, // foundational learning
+  practice, // deliberate practice
+  projects, // building real projects
+  portfolio, // packaging work
+  cvReady, // CV / resume ready
   interviewPrep, // interview preparation and mocks
-  jobSearch,     // applying for roles
-  jobReady,      // meets the career blueprint bar
-  growth,        // continuous professional growth
+  jobSearch, // applying for roles
+  jobReady, // meets the career blueprint bar
+  growth, // continuous professional growth
 }
 
 extension CareerStageExt on CareerStage {
   String get label {
     switch (this) {
-      case CareerStage.exploration:   return 'Exploration';
-      case CareerStage.assessment:    return 'Assessment';
-      case CareerStage.learning:      return 'Learning';
-      case CareerStage.practice:      return 'Practice';
-      case CareerStage.projects:      return 'Projects';
-      case CareerStage.portfolio:     return 'Portfolio';
-      case CareerStage.cvReady:       return 'CV Ready';
-      case CareerStage.interviewPrep: return 'Interview Prep';
-      case CareerStage.jobSearch:     return 'Job Search';
-      case CareerStage.jobReady:      return 'Job Ready';
-      case CareerStage.growth:        return 'Growth';
+      case CareerStage.exploration:
+        return 'Exploration';
+      case CareerStage.assessment:
+        return 'Assessment';
+      case CareerStage.learning:
+        return 'Learning';
+      case CareerStage.practice:
+        return 'Practice';
+      case CareerStage.projects:
+        return 'Projects';
+      case CareerStage.portfolio:
+        return 'Portfolio';
+      case CareerStage.cvReady:
+        return 'CV Ready';
+      case CareerStage.interviewPrep:
+        return 'Interview Prep';
+      case CareerStage.jobSearch:
+        return 'Job Search';
+      case CareerStage.jobReady:
+        return 'Job Ready';
+      case CareerStage.growth:
+        return 'Growth';
     }
   }
 
@@ -202,29 +229,47 @@ enum CareerGoal {
 extension CareerGoalExt on CareerGoal {
   String get label {
     switch (this) {
-      case CareerGoal.aiEngineer:       return 'AI Engineer';
-      case CareerGoal.mlEngineer:       return 'ML Engineer';
-      case CareerGoal.dataScientist:    return 'Data Scientist';
-      case CareerGoal.nlpEngineer:      return 'NLP Engineer';
-      case CareerGoal.cvEngineer:       return 'CV Engineer';
-      case CareerGoal.promptEngineer:   return 'Prompt Engineer';
-      case CareerGoal.aiResearcher:     return 'AI Researcher';
-      case CareerGoal.aiProductManager: return 'AI Product Manager';
-      case CareerGoal.softwareEngineer: return 'Software Engineer';
+      case CareerGoal.aiEngineer:
+        return 'AI Engineer';
+      case CareerGoal.mlEngineer:
+        return 'ML Engineer';
+      case CareerGoal.dataScientist:
+        return 'Data Scientist';
+      case CareerGoal.nlpEngineer:
+        return 'NLP Engineer';
+      case CareerGoal.cvEngineer:
+        return 'CV Engineer';
+      case CareerGoal.promptEngineer:
+        return 'Prompt Engineer';
+      case CareerGoal.aiResearcher:
+        return 'AI Researcher';
+      case CareerGoal.aiProductManager:
+        return 'AI Product Manager';
+      case CareerGoal.softwareEngineer:
+        return 'Software Engineer';
     }
   }
 
   String get emoji {
     switch (this) {
-      case CareerGoal.aiEngineer:       return '🤖';
-      case CareerGoal.mlEngineer:       return '🧠';
-      case CareerGoal.dataScientist:    return '📊';
-      case CareerGoal.nlpEngineer:      return '💬';
-      case CareerGoal.cvEngineer:       return '👁️';
-      case CareerGoal.promptEngineer:   return '✍️';
-      case CareerGoal.aiResearcher:     return '🔬';
-      case CareerGoal.aiProductManager: return '🚀';
-      case CareerGoal.softwareEngineer: return '💻';
+      case CareerGoal.aiEngineer:
+        return '🤖';
+      case CareerGoal.mlEngineer:
+        return '🧠';
+      case CareerGoal.dataScientist:
+        return '📊';
+      case CareerGoal.nlpEngineer:
+        return '💬';
+      case CareerGoal.cvEngineer:
+        return '👁️';
+      case CareerGoal.promptEngineer:
+        return '✍️';
+      case CareerGoal.aiResearcher:
+        return '🔬';
+      case CareerGoal.aiProductManager:
+        return '🚀';
+      case CareerGoal.softwareEngineer:
+        return '💻';
     }
   }
 
@@ -232,15 +277,24 @@ extension CareerGoalExt on CareerGoal {
   /// (matches `CopilotController._careerIdForGoal`).
   String get careerId {
     switch (this) {
-      case CareerGoal.aiEngineer:       return 'ai_engineer';
-      case CareerGoal.mlEngineer:       return 'ml_engineer';
-      case CareerGoal.dataScientist:    return 'data_scientist';
-      case CareerGoal.nlpEngineer:      return 'llm_engineer';
-      case CareerGoal.cvEngineer:       return 'cv_engineer';
-      case CareerGoal.promptEngineer:   return 'prompt_engineer';
-      case CareerGoal.aiResearcher:     return 'ai_researcher';
-      case CareerGoal.aiProductManager: return 'ai_product_manager';
-      case CareerGoal.softwareEngineer: return 'software_engineer';
+      case CareerGoal.aiEngineer:
+        return 'ai_engineer';
+      case CareerGoal.mlEngineer:
+        return 'ml_engineer';
+      case CareerGoal.dataScientist:
+        return 'data_scientist';
+      case CareerGoal.nlpEngineer:
+        return 'llm_engineer';
+      case CareerGoal.cvEngineer:
+        return 'cv_engineer';
+      case CareerGoal.promptEngineer:
+        return 'prompt_engineer';
+      case CareerGoal.aiResearcher:
+        return 'ai_researcher';
+      case CareerGoal.aiProductManager:
+        return 'ai_product_manager';
+      case CareerGoal.softwareEngineer:
+        return 'software_engineer';
     }
   }
 
@@ -302,8 +356,8 @@ class UserSkill {
   factory UserSkill.fromFirestore(Map<String, dynamic> map) => UserSkill(
         name: map['name'] as String? ?? '',
         level: SkillLevelExt.fromString(map['level'] as String? ?? 'beginner'),
-        addedAt:
-            DateTime.tryParse(map['addedAt'] as String? ?? '') ?? DateTime.now(),
+        addedAt: DateTime.tryParse(map['addedAt'] as String? ?? '') ??
+            DateTime.now(),
         lastEvidenceType: map['lastEvidenceType'] == null
             ? null
             : SkillEvidenceTypeExt.fromString(
@@ -364,17 +418,16 @@ class UserSkillProfile {
     final rawSkills = map['skills'] as List<dynamic>? ?? [];
     return UserSkillProfile(
       uid: map['uid'] as String? ?? '',
-      targetRole:
-          CareerGoalExt.fromString(map['targetRole'] as String? ?? ''),
+      targetRole: CareerGoalExt.fromString(map['targetRole'] as String? ?? ''),
       skills: rawSkills
           .map((s) => UserSkill.fromFirestore(s as Map<String, dynamic>))
           .toList(),
       experienceMonths: (map['experienceMonths'] as num?)?.toInt() ?? 0,
       currentRole: map['currentRole'] as String? ?? 'Student',
-      createdAt:
-          DateTime.tryParse(map['createdAt'] as String? ?? '') ?? DateTime.now(),
-      updatedAt:
-          DateTime.tryParse(map['updatedAt'] as String? ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+      updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 
@@ -402,9 +455,12 @@ enum SkillGapStatus { open, improving, closed }
 extension SkillGapStatusExt on SkillGapStatus {
   String get label {
     switch (this) {
-      case SkillGapStatus.open:      return 'Open';
-      case SkillGapStatus.improving: return 'Improving';
-      case SkillGapStatus.closed:    return 'Closed';
+      case SkillGapStatus.open:
+        return 'Open';
+      case SkillGapStatus.improving:
+        return 'Improving';
+      case SkillGapStatus.closed:
+        return 'Closed';
     }
   }
 
@@ -431,7 +487,7 @@ class SkillGap {
   final String skillName;
   final SkillLevel requiredLevel;
   final SkillLevel? currentLevel; // null = not learned yet
-  final int priority;             // 1=critical, 2=important, 3=nice-to-have
+  final int priority; // 1=critical, 2=important, 3=nice-to-have
   final String reason;
 
   /// Optional career scope. Null = not career-scoped (existing behaviour).
@@ -465,9 +521,12 @@ class SkillGap {
 
   String get priorityLabel {
     switch (priority) {
-      case 1:  return 'Critical';
-      case 2:  return 'Important';
-      default: return 'Nice to have';
+      case 1:
+        return 'Critical';
+      case 2:
+        return 'Important';
+      default:
+        return 'Nice to have';
     }
   }
 
@@ -600,8 +659,7 @@ class RoadmapPhase {
       description: map['description'] as String? ?? '',
       skills: List<String>.from(map['skills'] as List? ?? []),
       resources: rawRes
-          .map((r) =>
-              LearningResource.fromFirestore(r as Map<String, dynamic>))
+          .map((r) => LearningResource.fromFirestore(r as Map<String, dynamic>))
           .toList(),
       estimatedDuration: map['estimatedDuration'] as String? ?? '',
       isCompleted: map['isCompleted'] as bool? ?? false,
@@ -652,16 +710,13 @@ class PersonalizedRoadmap {
     final rawPhases = map['phases'] as List<dynamic>? ?? [];
     return PersonalizedRoadmap(
       uid: map['uid'] as String? ?? '',
-      targetRole:
-          CareerGoalExt.fromString(map['targetRole'] as String? ?? ''),
+      targetRole: CareerGoalExt.fromString(map['targetRole'] as String? ?? ''),
       phases: rawPhases
-          .map((p) =>
-              RoadmapPhase.fromFirestore(p as Map<String, dynamic>))
+          .map((p) => RoadmapPhase.fromFirestore(p as Map<String, dynamic>))
           .toList(),
       currentPhaseIndex: (map['currentPhaseIndex'] as num?)?.toInt() ?? 0,
-      generatedAt:
-          DateTime.tryParse(map['generatedAt'] as String? ?? '') ??
-              DateTime.now(),
+      generatedAt: DateTime.tryParse(map['generatedAt'] as String? ?? '') ??
+          DateTime.now(),
       completedAt: map['completedAt'] == null
           ? null
           : DateTime.tryParse(map['completedAt'] as String),
@@ -693,21 +748,31 @@ enum GoalCategory { learning, practice, networking, application, project }
 extension GoalCategoryExt on GoalCategory {
   String get label {
     switch (this) {
-      case GoalCategory.learning:    return 'Learning';
-      case GoalCategory.practice:    return 'Practice';
-      case GoalCategory.networking:  return 'Networking';
-      case GoalCategory.application: return 'Application';
-      case GoalCategory.project:     return 'Project';
+      case GoalCategory.learning:
+        return 'Learning';
+      case GoalCategory.practice:
+        return 'Practice';
+      case GoalCategory.networking:
+        return 'Networking';
+      case GoalCategory.application:
+        return 'Application';
+      case GoalCategory.project:
+        return 'Project';
     }
   }
 
   String get icon {
     switch (this) {
-      case GoalCategory.learning:    return '📚';
-      case GoalCategory.practice:    return '💻';
-      case GoalCategory.networking:  return '🤝';
-      case GoalCategory.application: return '📝';
-      case GoalCategory.project:     return '🚀';
+      case GoalCategory.learning:
+        return '📚';
+      case GoalCategory.practice:
+        return '💻';
+      case GoalCategory.networking:
+        return '🤝';
+      case GoalCategory.application:
+        return '📝';
+      case GoalCategory.project:
+        return '🚀';
     }
   }
 
@@ -757,8 +822,7 @@ class DailyGoal {
         id: map['id'] as String? ?? '',
         uid: map['uid'] as String? ?? '',
         title: map['title'] as String? ?? '',
-        category:
-            GoalCategoryExt.fromString(map['category'] as String? ?? ''),
+        category: GoalCategoryExt.fromString(map['category'] as String? ?? ''),
         date: map['date'] as String? ?? '',
         isCompleted: map['isCompleted'] as bool? ?? false,
         xpReward: (map['xpReward'] as num?)?.toInt() ?? 10,
@@ -865,12 +929,11 @@ class CopilotState {
   });
 
   bool get hasProfile => skillProfile != null;
-  bool get hasRoadmap  => roadmap != null;
+  bool get hasRoadmap => roadmap != null;
 
   /// COMPATIBILITY VIEW — not authoritative.
   /// See the class-level note above. Authoritative XP lives on Firestore.
-  int get totalXp =>
-      progressHistory.fold(0, (sum, e) => sum + e.xpEarned);
+  int get totalXp => progressHistory.fold(0, (sum, e) => sum + e.xpEarned);
 
   /// COMPATIBILITY VIEW — not authoritative.
   /// Streak is career momentum; the authoritative value is owned by the
@@ -931,7 +994,8 @@ class CareerContext {
   final String careerTitle;
   final String categoryId;
   final String emoji;
-  final bool isStaticCareer; // true = real authored lessons, false = AI-generated
+  final bool
+      isStaticCareer; // true = real authored lessons, false = AI-generated
   final DateTime selectedAt;
 
   /// Optional blueprint version reference. Null when the user's career
@@ -1116,12 +1180,11 @@ class CareerBlueprint {
       categoryId: map['categoryId'] as String?,
       version: (map['version'] as num?)?.toInt() ?? 1,
       summary: map['summary'] as String?,
-      stages: rawStages
-          .map((s) => CareerStageExt.fromString(s as String))
-          .toList(),
+      stages:
+          rawStages.map((s) => CareerStageExt.fromString(s as String)).toList(),
       requirements: rawReqs
-          .map((r) =>
-              CareerRequirement.fromFirestore(r as Map<String, dynamic>))
+          .map(
+              (r) => CareerRequirement.fromFirestore(r as Map<String, dynamic>))
           .toList(),
       metadata: Map<String, dynamic>.from(
           (map['metadata'] as Map?) ?? const <String, dynamic>{}),
@@ -1188,8 +1251,7 @@ class LearningProgressContext {
 
   int get completedCount => completedLessonIds.length;
 
-  double get progress =>
-      totalLessons == 0 ? 0 : completedCount / totalLessons;
+  double get progress => totalLessons == 0 ? 0 : completedCount / totalLessons;
 
   Map<String, dynamic> toFirestore() => {
         'careerId': careerId,
@@ -1347,9 +1409,8 @@ class ProjectProgressContext {
     String milestoneId,
   ) {
     final existing = projectMilestones[projectId] ?? const <String>[];
-    final updated = existing.contains(milestoneId)
-        ? existing
-        : [...existing, milestoneId];
+    final updated =
+        existing.contains(milestoneId) ? existing : [...existing, milestoneId];
     final nextMap = <String, List<String>>{...projectMilestones};
     nextMap[projectId] = updated;
     return ProjectProgressContext(
@@ -1370,7 +1431,7 @@ class ProjectProgressContext {
 // the applied-jobs list.
 
 class JobProgressContext {
-  final List<String> appliedJobIds;   // permanent history, append-only
+  final List<String> appliedJobIds; // permanent history, append-only
   final List<String> savedJobIds;
   final int offersReceived;
   final DateTime updatedAt;
@@ -1478,9 +1539,8 @@ class InterviewAttempt {
   factory InterviewAttempt.fromFirestore(Map<String, dynamic> map) =>
       InterviewAttempt(
         interviewId: map['interviewId'] as String? ?? '',
-        attemptedAt:
-            DateTime.tryParse(map['attemptedAt'] as String? ?? '') ??
-                DateTime.now(),
+        attemptedAt: DateTime.tryParse(map['attemptedAt'] as String? ?? '') ??
+            DateTime.now(),
         score: (map['score'] as num?)?.toDouble(),
       );
 
@@ -1521,8 +1581,8 @@ class InterviewAttempt {
 
 class InterviewProgressContext {
   final List<String> completedInterviewIds; // unique completed ids, append-only
-  final int mockInterviewsDone;             // unique interviews with a score
-  final double averageScore;                // 0–100 over ALL scored attempts
+  final int mockInterviewsDone; // unique interviews with a score
+  final double averageScore; // 0–100 over ALL scored attempts
   final DateTime? lastInterviewDate;
   final DateTime updatedAt;
 
@@ -1558,8 +1618,7 @@ class InterviewProgressContext {
     return InterviewProgressContext(
       completedInterviewIds:
           List<String>.from(map['completedInterviewIds'] as List? ?? []),
-      mockInterviewsDone:
-          (map['mockInterviewsDone'] as num?)?.toInt() ?? 0,
+      mockInterviewsDone: (map['mockInterviewsDone'] as num?)?.toInt() ?? 0,
       averageScore: (map['averageScore'] as num?)?.toDouble() ?? 0,
       lastInterviewDate: map['lastInterviewDate'] == null
           ? null
@@ -1568,8 +1627,7 @@ class InterviewProgressContext {
           DateTime.now(),
       careerId: map['careerId'] as String?,
       attempts: rawAttempts
-          .map((a) =>
-              InterviewAttempt.fromFirestore(a as Map<String, dynamic>))
+          .map((a) => InterviewAttempt.fromFirestore(a as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -1696,9 +1754,9 @@ class InterviewProgressContext {
 // evidence layer). Populated by the readiness engine; never fabricated.
 
 class PortfolioReadiness {
-  final int itemCount;          // portfolio items currently published
-  final int targetCount;        // blueprint target
-  final List<String> highlights;// optional item ids flagged as highlights
+  final int itemCount; // portfolio items currently published
+  final int targetCount; // blueprint target
+  final List<String> highlights; // optional item ids flagged as highlights
 
   const PortfolioReadiness({
     this.itemCount = 0,
@@ -1776,8 +1834,7 @@ class CvReadiness {
 
   factory CvReadiness.fromFirestore(Map<String, dynamic> map) => CvReadiness(
         hasSummary: map['hasSummary'] as bool? ?? false,
-        hasExperienceSection:
-            map['hasExperienceSection'] as bool? ?? false,
+        hasExperienceSection: map['hasExperienceSection'] as bool? ?? false,
         hasEducationSection: map['hasEducationSection'] as bool? ?? false,
         hasSkillsSection: map['hasSkillsSection'] as bool? ?? false,
         hasProjectsSection: map['hasProjectsSection'] as bool? ?? false,
@@ -1803,11 +1860,11 @@ class CvReadiness {
 // as proof of job readiness.
 
 class CareerReadiness {
-  final double skillReadiness;     // 0–1
-  final double learningReadiness;  // 0–1
-  final double projectReadiness;   // 0–1
+  final double skillReadiness; // 0–1
+  final double learningReadiness; // 0–1
+  final double projectReadiness; // 0–1
   final double interviewReadiness; // 0–1
-  final double jobReadiness;       // 0–1
+  final double jobReadiness; // 0–1
   final DateTime computedAt;
 
   /// Optional career scope. Null = unscoped (existing behaviour).
@@ -1904,8 +1961,7 @@ class CareerReadiness {
   factory CareerReadiness.fromFirestore(Map<String, dynamic> map) =>
       CareerReadiness(
         skillReadiness: (map['skillReadiness'] as num?)?.toDouble() ?? 0,
-        learningReadiness:
-            (map['learningReadiness'] as num?)?.toDouble() ?? 0,
+        learningReadiness: (map['learningReadiness'] as num?)?.toDouble() ?? 0,
         projectReadiness: (map['projectReadiness'] as num?)?.toDouble() ?? 0,
         interviewReadiness:
             (map['interviewReadiness'] as num?)?.toDouble() ?? 0,
@@ -1966,17 +2022,30 @@ class CareerReadiness {
 // is owned by the Next Best Action Engine. This model represents that
 // decision, so the user can understand WHAT / WHY / HOW / OUTCOME.
 
-enum NextActionType { lesson, project, interview, application, skillReview, networking }
+enum NextActionType {
+  lesson,
+  project,
+  interview,
+  application,
+  skillReview,
+  networking
+}
 
 extension NextActionTypeExt on NextActionType {
   String get label {
     switch (this) {
-      case NextActionType.lesson:        return 'Lesson';
-      case NextActionType.project:       return 'Project';
-      case NextActionType.interview:     return 'Interview Prep';
-      case NextActionType.application:   return 'Job Application';
-      case NextActionType.skillReview:   return 'Skill Review';
-      case NextActionType.networking:    return 'Networking';
+      case NextActionType.lesson:
+        return 'Lesson';
+      case NextActionType.project:
+        return 'Project';
+      case NextActionType.interview:
+        return 'Interview Prep';
+      case NextActionType.application:
+        return 'Job Application';
+      case NextActionType.skillReview:
+        return 'Skill Review';
+      case NextActionType.networking:
+        return 'Networking';
     }
   }
 
@@ -2061,8 +2130,7 @@ class NextBestAction {
         if (relatedRequirement != null)
           'relatedRequirement': relatedRequirement,
         if (destinationRef != null) 'destinationRef': destinationRef,
-        if (estimatedDuration != null)
-          'estimatedDuration': estimatedDuration,
+        if (estimatedDuration != null) 'estimatedDuration': estimatedDuration,
         if (completionEvidenceType != null)
           'completionEvidenceType': completionEvidenceType!.name,
         if (stateVersion != null) 'stateVersion': stateVersion,
@@ -2145,12 +2213,18 @@ enum RecommendationCategory {
 extension RecommendationCategoryExt on RecommendationCategory {
   String get label {
     switch (this) {
-      case RecommendationCategory.skillGap:      return 'Skill Gap';
-      case RecommendationCategory.learningPath:  return 'Learning Path';
-      case RecommendationCategory.project:       return 'Project';
-      case RecommendationCategory.interviewPrep: return 'Interview Prep';
-      case RecommendationCategory.jobMatch:      return 'Job Match';
-      case RecommendationCategory.streakNudge:   return 'Streak Nudge';
+      case RecommendationCategory.skillGap:
+        return 'Skill Gap';
+      case RecommendationCategory.learningPath:
+        return 'Learning Path';
+      case RecommendationCategory.project:
+        return 'Project';
+      case RecommendationCategory.interviewPrep:
+        return 'Interview Prep';
+      case RecommendationCategory.jobMatch:
+        return 'Job Match';
+      case RecommendationCategory.streakNudge:
+        return 'Streak Nudge';
     }
   }
 
@@ -2367,8 +2441,7 @@ class CopilotContext {
         'interviewProgress': interviewProgress.toFirestore(),
         'readiness': readiness.toFirestore(),
         'nextActions': nextActions.map((a) => a.toFirestore()).toList(),
-        'recommendations':
-            recommendations.map((r) => r.toFirestore()).toList(),
+        'recommendations': recommendations.map((r) => r.toFirestore()).toList(),
         if (blueprint != null) 'blueprint': blueprint!.toFirestore(),
         if (currentStage != null) 'currentStage': currentStage!.name,
       };

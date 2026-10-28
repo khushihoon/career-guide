@@ -94,7 +94,12 @@ enum RewardSource {
 /// seven legacy methods keep their original try/catch → bool/null/int
 /// failure contract untouched, so no existing caller has to learn a new
 /// error-handling pattern.
-enum RewardFailureReason { alreadyClaimed, notEligible, persistenceFailure, invalidInput }
+enum RewardFailureReason {
+  alreadyClaimed,
+  notEligible,
+  persistenceFailure,
+  invalidInput
+}
 
 class RewardClaimException implements Exception {
   final RewardFailureReason reason;
@@ -262,7 +267,9 @@ class XpMultiplierState {
   });
 
   bool get isActive =>
-      multiplier > 1.0 && expiresAt != null && expiresAt!.isAfter(DateTime.now());
+      multiplier > 1.0 &&
+      expiresAt != null &&
+      expiresAt!.isAfter(DateTime.now());
 
   Duration get remaining =>
       isActive ? expiresAt!.difference(DateTime.now()) : Duration.zero;
@@ -298,7 +305,8 @@ class RewardHistoryEntry {
     this.badgeId,
   });
 
-  factory RewardHistoryEntry.fromFirestore(String id, Map<String, dynamic> map) {
+  factory RewardHistoryEntry.fromFirestore(
+      String id, Map<String, dynamic> map) {
     final rawType = map['type'];
     final type = RewardType.values.firstWhere(
       (t) => t.name == rawType,
@@ -372,32 +380,61 @@ class RewardSummary {
 /// achievements (14/30/50/100 days) independently of this weekly wrap.
 const List<DailyRewardSlot> _dailyCycleDefinitions = [
   DailyRewardSlot(
-    day: 1, title: 'Day 1', description: 'Welcome back!',
-    emoji: '🎁', type: RewardType.xp, xpAmount: 20,
+    day: 1,
+    title: 'Day 1',
+    description: 'Welcome back!',
+    emoji: '🎁',
+    type: RewardType.xp,
+    xpAmount: 20,
   ),
   DailyRewardSlot(
-    day: 2, title: 'Day 2', description: 'Keep it going.',
-    emoji: '🎁', type: RewardType.xp, xpAmount: 25,
+    day: 2,
+    title: 'Day 2',
+    description: 'Keep it going.',
+    emoji: '🎁',
+    type: RewardType.xp,
+    xpAmount: 25,
   ),
   DailyRewardSlot(
-    day: 3, title: 'Day 3', description: 'Three in a row.',
-    emoji: '🔥', type: RewardType.xp, xpAmount: 30,
+    day: 3,
+    title: 'Day 3',
+    description: 'Three in a row.',
+    emoji: '🔥',
+    type: RewardType.xp,
+    xpAmount: 30,
   ),
   DailyRewardSlot(
-    day: 4, title: 'Day 4', description: 'Building a real habit.',
-    emoji: '🔥', type: RewardType.xp, xpAmount: 35,
+    day: 4,
+    title: 'Day 4',
+    description: 'Building a real habit.',
+    emoji: '🔥',
+    type: RewardType.xp,
+    xpAmount: 35,
   ),
   DailyRewardSlot(
-    day: 5, title: 'Day 5', description: 'Almost a full week.',
-    emoji: '⚡', type: RewardType.xp, xpAmount: 45,
+    day: 5,
+    title: 'Day 5',
+    description: 'Almost a full week.',
+    emoji: '⚡',
+    type: RewardType.xp,
+    xpAmount: 45,
   ),
   DailyRewardSlot(
-    day: 6, title: 'Day 6', description: 'One more to go.',
-    emoji: '⚡', type: RewardType.xp, xpAmount: 50,
+    day: 6,
+    title: 'Day 6',
+    description: 'One more to go.',
+    emoji: '⚡',
+    type: RewardType.xp,
+    xpAmount: 50,
   ),
   DailyRewardSlot(
-    day: 7, title: 'Day 7 — Weekly Streak', description: 'A full week, well earned.',
-    emoji: '🏆', type: RewardType.xp, xpAmount: 60, shieldAmount: 1,
+    day: 7,
+    title: 'Day 7 — Weekly Streak',
+    description: 'A full week, well earned.',
+    emoji: '🏆',
+    type: RewardType.xp,
+    xpAmount: 60,
+    shieldAmount: 1,
     isMilestone: true,
   ),
 ];
@@ -408,36 +445,64 @@ const List<DailyRewardSlot> _dailyCycleDefinitions = [
 /// re-award it.
 final List<StreakMilestoneDefinition> _milestones = [
   const StreakMilestoneDefinition(
-    days: 3, id: 'streak_3', title: '3-Day Streak',
+    days: 3,
+    id: 'streak_3',
+    title: '3-Day Streak',
     description: 'Three days of consistent progress.',
-    emoji: '🔥', xpAmount: 15,
+    emoji: '🔥',
+    xpAmount: 15,
   ),
   const StreakMilestoneDefinition(
-    days: 7, id: 'streak_7', title: '7-Day Streak',
+    days: 7,
+    id: 'streak_7',
+    title: '7-Day Streak',
     description: 'A full week of showing up.',
-    emoji: '🔥', xpAmount: 50, shieldAmount: 1, badgeId: 'streak_7',
+    emoji: '🔥',
+    xpAmount: 50,
+    shieldAmount: 1,
+    badgeId: 'streak_7',
   ),
   const StreakMilestoneDefinition(
-    days: 14, id: 'streak_14', title: '14-Day Streak',
+    days: 14,
+    id: 'streak_14',
+    title: '14-Day Streak',
     description: 'Two weeks — this is becoming a habit.',
-    emoji: '🏆', xpAmount: 100, shieldAmount: 1, badgeId: 'streak_14',
+    emoji: '🏆',
+    xpAmount: 100,
+    shieldAmount: 1,
+    badgeId: 'streak_14',
   ),
   StreakMilestoneDefinition(
-    days: 30, id: 'streak_30', title: '30-Day Streak',
+    days: 30,
+    id: 'streak_30',
+    title: '30-Day Streak',
     description: 'A full month of consistent learning.',
-    emoji: '👑', xpAmount: 250, badgeId: 'streak_30',
-    multiplierAmount: 1.5, multiplierDuration: const Duration(hours: 24),
+    emoji: '👑',
+    xpAmount: 250,
+    badgeId: 'streak_30',
+    multiplierAmount: 1.5,
+    multiplierDuration: const Duration(hours: 24),
   ),
   const StreakMilestoneDefinition(
-    days: 50, id: 'streak_50', title: '50-Day Streak',
+    days: 50,
+    id: 'streak_50',
+    title: '50-Day Streak',
     description: 'Fifty days. Genuinely elite consistency.',
-    emoji: '🌟', xpAmount: 400, shieldAmount: 2, badgeId: 'streak_50',
+    emoji: '🌟',
+    xpAmount: 400,
+    shieldAmount: 2,
+    badgeId: 'streak_50',
   ),
   StreakMilestoneDefinition(
-    days: 100, id: 'streak_100', title: '100-Day Streak',
+    days: 100,
+    id: 'streak_100',
+    title: '100-Day Streak',
     description: 'One hundred days. Career-changing consistency.',
-    emoji: '🏅', xpAmount: 1000, badgeId: 'streak_100',
-    multiplierAmount: 2.0, multiplierDuration: const Duration(hours: 48),
+    emoji: '🏅',
+    xpAmount: 1000,
+    badgeId: 'streak_100',
+    multiplierAmount: 2.0,
+    multiplierDuration: const Duration(hours: 48),
   ),
 ];
 
@@ -475,15 +540,15 @@ class RewardService {
   // Field names on rewards/{uid}. The first five are the ORIGINAL fields,
   // preserved verbatim so existing stored documents keep working without
   // migration. Everything below them is new and additive.
-  static const String _dailyBoxField      = 'dailyBoxClaimed';
-  static const String _dailyBoxDateKey    = 'dailyBoxClaimedOn';
-  static const String _checkInDateKey     = 'lastCheckInOn';
-  static const String _shieldsField       = 'streakShieldCount';
-  static const String _surpriseDateKey    = 'surpriseRollDate';
+  static const String _dailyBoxField = 'dailyBoxClaimed';
+  static const String _dailyBoxDateKey = 'dailyBoxClaimedOn';
+  static const String _checkInDateKey = 'lastCheckInOn';
+  static const String _shieldsField = 'streakShieldCount';
+  static const String _surpriseDateKey = 'surpriseRollDate';
 
-  static const String _claimedMilestonesField   = 'claimedMilestoneIds';
-  static const String _multiplierValueField     = 'xpMultiplierValue';
-  static const String _multiplierExpiresField   = 'xpMultiplierExpiresAt';
+  static const String _claimedMilestonesField = 'claimedMilestoneIds';
+  static const String _multiplierValueField = 'xpMultiplierValue';
+  static const String _multiplierExpiresField = 'xpMultiplierExpiresAt';
   static const String _multiplierActivatedField = 'xpMultiplierActivatedAt';
 
   // ══════════════════════════════════════════════════════════════════
@@ -533,17 +598,29 @@ class RewardService {
     final String emoji;
     final bool isBonus;
     if (currentStreak >= 30) {
-      xp = 100; msg = 'Legendary streak bonus!'; emoji = '👑'; isBonus = true;
+      xp = 100;
+      msg = 'Legendary streak bonus!';
+      emoji = '👑';
+      isBonus = true;
     } else if (currentStreak >= 7) {
-      xp = 60; msg = 'Week streak reward!'; emoji = '🔥'; isBonus = true;
+      xp = 60;
+      msg = 'Week streak reward!';
+      emoji = '🔥';
+      isBonus = true;
     } else if (currentStreak >= 3) {
-      xp = 35; msg = 'Streak bonus XP!'; emoji = '⚡'; isBonus = false;
+      xp = 35;
+      msg = 'Streak bonus XP!';
+      emoji = '⚡';
+      isBonus = false;
     } else {
-      xp = 20; msg = 'Daily reward claimed!'; emoji = '🎁'; isBonus = false;
+      xp = 20;
+      msg = 'Daily reward claimed!';
+      emoji = '🎁';
+      isBonus = false;
     }
 
     final rewardsRef = _rewardsRef(uid);
-    final userRef    = _userRef(uid);
+    final userRef = _userRef(uid);
     final historyRef = _historyRef(uid).doc('dailybox_$today');
 
     bool alreadyClaimed = false;
@@ -562,14 +639,15 @@ class RewardService {
         tx.set(
           rewardsRef,
           {
-            _dailyBoxField: true,   // legacy boolean, kept in sync
+            _dailyBoxField: true, // legacy boolean, kept in sync
             _dailyBoxDateKey: today,
           },
           SetOptions(merge: true),
         );
 
         if (xp > 0) {
-          tx.set(userRef, {'totalXp': FieldValue.increment(xp)}, SetOptions(merge: true));
+          tx.set(userRef, {'totalXp': FieldValue.increment(xp)},
+              SetOptions(merge: true));
         }
 
         tx.set(historyRef, {
@@ -613,7 +691,8 @@ class RewardService {
   /// already been claimed. Pure function — safe to call from anywhere,
   /// including widget build methods, and trivially unit-testable since
   /// it touches no Firestore state itself.
-  List<DailyRewardSlot> getDailyRewardChain(int currentStreak, bool claimedToday) {
+  List<DailyRewardSlot> getDailyRewardChain(
+      int currentStreak, bool claimedToday) {
     final position = _cyclePosition(currentStreak <= 0 ? 1 : currentStreak);
     return List.generate(7, (i) {
       final day = i + 1;
@@ -652,7 +731,8 @@ class RewardService {
   /// count before deciding whether to decrement.
   Future<bool> useStreakShield(String uid) async {
     final rewardsRef = _rewardsRef(uid);
-    final historyRef = _historyRef(uid).doc(); // auto-id: each use is a distinct event
+    final historyRef =
+        _historyRef(uid).doc(); // auto-id: each use is a distinct event
     bool consumed = false;
 
     try {
@@ -665,7 +745,8 @@ class RewardService {
           return;
         }
 
-        tx.set(rewardsRef, {_shieldsField: FieldValue.increment(-1)}, SetOptions(merge: true));
+        tx.set(rewardsRef, {_shieldsField: FieldValue.increment(-1)},
+            SetOptions(merge: true));
         tx.set(historyRef, {
           'type': RewardType.streakShield.name,
           'xpAmount': 0,
@@ -703,7 +784,9 @@ class RewardService {
       source: source,
       shieldAmount: amount,
       sourceId: sourceId,
-      message: amount == 1 ? 'Streak Shield earned!' : '$amount Streak Shields earned!',
+      message: amount == 1
+          ? 'Streak Shield earned!'
+          : '$amount Streak Shields earned!',
       emoji: '🛡️',
     );
   }
@@ -743,15 +826,19 @@ class RewardService {
             ? DateTime.fromMillisecondsSinceEpoch(currentExpiryMs)
             : null;
 
-        effectiveExpiry = (currentExpiry != null && currentExpiry.isAfter(requestedExpiry))
-            ? currentExpiry
-            : requestedExpiry;
+        effectiveExpiry =
+            (currentExpiry != null && currentExpiry.isAfter(requestedExpiry))
+                ? currentExpiry
+                : requestedExpiry;
 
-        tx.set(rewardsRef, {
-          _multiplierValueField: multiplier,
-          _multiplierExpiresField: effectiveExpiry.millisecondsSinceEpoch,
-          _multiplierActivatedField: now.millisecondsSinceEpoch,
-        }, SetOptions(merge: true));
+        tx.set(
+            rewardsRef,
+            {
+              _multiplierValueField: multiplier,
+              _multiplierExpiresField: effectiveExpiry.millisecondsSinceEpoch,
+              _multiplierActivatedField: now.millisecondsSinceEpoch,
+            },
+            SetOptions(merge: true));
 
         tx.set(_historyRef(uid).doc(), {
           'type': RewardType.xpMultiplier.name,
@@ -790,14 +877,17 @@ class RewardService {
       if (expiresMs <= 0) return XpMultiplierState.inactive();
 
       final expiresAt = DateTime.fromMillisecondsSinceEpoch(expiresMs);
-      if (expiresAt.isBefore(DateTime.now())) return XpMultiplierState.inactive();
+      if (expiresAt.isBefore(DateTime.now()))
+        return XpMultiplierState.inactive();
 
       final value = _readDouble(data[_multiplierValueField], fallback: 1.0);
       final activatedMs = _readInt(data[_multiplierActivatedField]);
 
       return XpMultiplierState(
         multiplier: value,
-        activatedAt: activatedMs > 0 ? DateTime.fromMillisecondsSinceEpoch(activatedMs) : null,
+        activatedAt: activatedMs > 0
+            ? DateTime.fromMillisecondsSinceEpoch(activatedMs)
+            : null,
         expiresAt: expiresAt,
       );
     } catch (_) {
@@ -847,11 +937,12 @@ class RewardService {
     final localKey = 'checkin_$today';
 
     if (prefs.getBool(localKey) ?? false) {
-      return RewardResult.notEligible(message: 'Already checked in today.', emoji: '✅');
+      return RewardResult.notEligible(
+          message: 'Already checked in today.', emoji: '✅');
     }
 
     final rewardsRef = _rewardsRef(uid);
-    final userRef    = _userRef(uid);
+    final userRef = _userRef(uid);
     final historyRef = _historyRef(uid).doc('checkin_$today');
 
     bool alreadyCheckedIn = false;
@@ -892,7 +983,8 @@ class RewardService {
 
     if (alreadyCheckedIn) {
       await prefs.setBool(localKey, true);
-      return RewardResult.notEligible(message: 'Already checked in today.', emoji: '✅');
+      return RewardResult.notEligible(
+          message: 'Already checked in today.', emoji: '✅');
     }
 
     await prefs.setBool(localKey, true);
@@ -922,7 +1014,7 @@ class RewardService {
 
     final today = _todayKey();
     final rewardsRef = _rewardsRef(uid);
-    final userRef    = _userRef(uid);
+    final userRef = _userRef(uid);
     final variant = _pickSurpriseVariant();
 
     bool alreadyRolledToday = false;
@@ -943,18 +1035,26 @@ class RewardService {
 
         switch (variant.type) {
           case RewardType.xp:
-            tx.set(userRef, {'totalXp': FieldValue.increment(variant.xpAmount)}, SetOptions(merge: true));
+            tx.set(userRef, {'totalXp': FieldValue.increment(variant.xpAmount)},
+                SetOptions(merge: true));
             break;
           case RewardType.streakShield:
-            tx.set(rewardsRef, {_shieldsField: FieldValue.increment(variant.shieldAmount)}, SetOptions(merge: true));
+            tx.set(
+                rewardsRef,
+                {_shieldsField: FieldValue.increment(variant.shieldAmount)},
+                SetOptions(merge: true));
             break;
           case RewardType.xpMultiplier:
             final expiry = DateTime.now().add(variant.multiplierDuration!);
-            tx.set(rewardsRef, {
-              _multiplierValueField: variant.multiplierAmount,
-              _multiplierExpiresField: expiry.millisecondsSinceEpoch,
-              _multiplierActivatedField: DateTime.now().millisecondsSinceEpoch,
-            }, SetOptions(merge: true));
+            tx.set(
+                rewardsRef,
+                {
+                  _multiplierValueField: variant.multiplierAmount,
+                  _multiplierExpiresField: expiry.millisecondsSinceEpoch,
+                  _multiplierActivatedField:
+                      DateTime.now().millisecondsSinceEpoch,
+                },
+                SetOptions(merge: true));
             break;
           case RewardType.badge:
             break; // not used for surprise outcomes today
@@ -991,22 +1091,33 @@ class RewardService {
   _SurpriseVariant _pickSurpriseVariant() {
     final roll = _random.nextInt(100);
     if (roll < 70) {
-      const messages = ['Mystery bonus XP!', 'Lucky learner bonus!', 'AI approved your hustle!'];
+      const messages = [
+        'Mystery bonus XP!',
+        'Lucky learner bonus!',
+        'AI approved your hustle!'
+      ];
       const emojis = ['🎲', '🍀', '🤖'];
       final i = _random.nextInt(messages.length);
       return _SurpriseVariant(
-        type: RewardType.xp, xpAmount: 50, message: messages[i], emoji: emojis[i],
+        type: RewardType.xp,
+        xpAmount: 50,
+        message: messages[i],
+        emoji: emojis[i],
       );
     } else if (roll < 90) {
       return const _SurpriseVariant(
-        type: RewardType.streakShield, shieldAmount: 1,
-        message: 'Surprise Streak Shield!', emoji: '🛡️',
+        type: RewardType.streakShield,
+        shieldAmount: 1,
+        message: 'Surprise Streak Shield!',
+        emoji: '🛡️',
       );
     } else {
       return const _SurpriseVariant(
-        type: RewardType.xpMultiplier, multiplierAmount: 1.5,
+        type: RewardType.xpMultiplier,
+        multiplierAmount: 1.5,
         multiplierDuration: Duration(hours: 12),
-        message: '1.5x XP for 12 hours!', emoji: '⚡',
+        message: '1.5x XP for 12 hours!',
+        emoji: '⚡',
       );
     }
   }
@@ -1020,7 +1131,8 @@ class RewardService {
   /// If a user's streak jumped past several unclaimed milestones at
   /// once (e.g. after being offline), calling this repeatedly claims
   /// them one at a time — never skips, never double-awards.
-  Future<RewardResult?> checkAndClaimMilestone(String uid, int currentStreak) async {
+  Future<RewardResult?> checkAndClaimMilestone(
+      String uid, int currentStreak) async {
     final eligible = _milestones.where((m) => m.days <= currentStreak).toList();
     if (eligible.isEmpty) return null;
 
@@ -1043,23 +1155,34 @@ class RewardService {
 
         final m = toAward!;
 
-        tx.set(rewardsRef, {
-          _claimedMilestonesField: FieldValue.arrayUnion([m.id]),
-        }, SetOptions(merge: true));
+        tx.set(
+            rewardsRef,
+            {
+              _claimedMilestonesField: FieldValue.arrayUnion([m.id]),
+            },
+            SetOptions(merge: true));
 
         if (m.xpAmount > 0) {
-          tx.set(_userRef(uid), {'totalXp': FieldValue.increment(m.xpAmount)}, SetOptions(merge: true));
+          tx.set(_userRef(uid), {'totalXp': FieldValue.increment(m.xpAmount)},
+              SetOptions(merge: true));
         }
         if (m.shieldAmount > 0) {
-          tx.set(rewardsRef, {_shieldsField: FieldValue.increment(m.shieldAmount)}, SetOptions(merge: true));
+          tx.set(
+              rewardsRef,
+              {_shieldsField: FieldValue.increment(m.shieldAmount)},
+              SetOptions(merge: true));
         }
         if (m.multiplierAmount != null && m.multiplierDuration != null) {
           final expiry = DateTime.now().add(m.multiplierDuration!);
-          tx.set(rewardsRef, {
-            _multiplierValueField: m.multiplierAmount,
-            _multiplierExpiresField: expiry.millisecondsSinceEpoch,
-            _multiplierActivatedField: DateTime.now().millisecondsSinceEpoch,
-          }, SetOptions(merge: true));
+          tx.set(
+              rewardsRef,
+              {
+                _multiplierValueField: m.multiplierAmount,
+                _multiplierExpiresField: expiry.millisecondsSinceEpoch,
+                _multiplierActivatedField:
+                    DateTime.now().millisecondsSinceEpoch,
+              },
+              SetOptions(merge: true));
         }
 
         tx.set(_historyRef(uid).doc('milestone_${m.id}'), {
@@ -1152,7 +1275,9 @@ class RewardService {
     final eventId = (sourceId != null && sourceId.isNotEmpty)
         ? 'grant_${source.name}_$sourceId'
         : null;
-    final historyRef = eventId != null ? _historyRef(uid).doc(eventId) : _historyRef(uid).doc();
+    final historyRef = eventId != null
+        ? _historyRef(uid).doc(eventId)
+        : _historyRef(uid).doc();
 
     bool alreadyGranted = false;
 
@@ -1178,18 +1303,25 @@ class RewardService {
         });
 
         if (xpAmount > 0) {
-          tx.set(userRef, {'totalXp': FieldValue.increment(xpAmount)}, SetOptions(merge: true));
+          tx.set(userRef, {'totalXp': FieldValue.increment(xpAmount)},
+              SetOptions(merge: true));
         }
         if (shieldAmount > 0) {
-          tx.set(rewardsRef, {_shieldsField: FieldValue.increment(shieldAmount)}, SetOptions(merge: true));
+          tx.set(
+              rewardsRef,
+              {_shieldsField: FieldValue.increment(shieldAmount)},
+              SetOptions(merge: true));
         }
         if (multiplierAmount != null && multiplierDuration != null) {
           final expiry = now.add(multiplierDuration);
-          tx.set(rewardsRef, {
-            _multiplierValueField: multiplierAmount,
-            _multiplierExpiresField: expiry.millisecondsSinceEpoch,
-            _multiplierActivatedField: now.millisecondsSinceEpoch,
-          }, SetOptions(merge: true));
+          tx.set(
+              rewardsRef,
+              {
+                _multiplierValueField: multiplierAmount,
+                _multiplierExpiresField: expiry.millisecondsSinceEpoch,
+                _multiplierActivatedField: now.millisecondsSinceEpoch,
+              },
+              SetOptions(merge: true));
         }
       });
     } catch (_) {
@@ -1200,7 +1332,8 @@ class RewardService {
     }
 
     if (alreadyGranted) {
-      return RewardResult.notEligible(message: 'Reward already granted.', emoji: '✅');
+      return RewardResult.notEligible(
+          message: 'Reward already granted.', emoji: '✅');
     }
 
     return RewardResult(
@@ -1220,19 +1353,27 @@ class RewardService {
 
   String _defaultMessageFor(RewardType type) {
     switch (type) {
-      case RewardType.xp:           return 'XP earned!';
-      case RewardType.streakShield: return 'Streak Shield earned!';
-      case RewardType.xpMultiplier: return 'XP Multiplier activated!';
-      case RewardType.badge:        return 'Reward earned!';
+      case RewardType.xp:
+        return 'XP earned!';
+      case RewardType.streakShield:
+        return 'Streak Shield earned!';
+      case RewardType.xpMultiplier:
+        return 'XP Multiplier activated!';
+      case RewardType.badge:
+        return 'Reward earned!';
     }
   }
 
   String _defaultEmojiFor(RewardType type) {
     switch (type) {
-      case RewardType.xp:           return '⚡';
-      case RewardType.streakShield: return '🛡️';
-      case RewardType.xpMultiplier: return '⚡';
-      case RewardType.badge:        return '🏅';
+      case RewardType.xp:
+        return '⚡';
+      case RewardType.streakShield:
+        return '🛡️';
+      case RewardType.xpMultiplier:
+        return '⚡';
+      case RewardType.badge:
+        return '🏅';
     }
   }
 
@@ -1246,7 +1387,8 @@ class RewardService {
   /// long a user has been active. Fully defensive parsing: one malformed
   /// row is skipped by RewardHistoryEntry.fromFirestore's own safe
   /// defaults, never by throwing and discarding the whole list.
-  Future<List<RewardHistoryEntry>> getRecentRewards(String uid, {int limit = 20}) async {
+  Future<List<RewardHistoryEntry>> getRecentRewards(String uid,
+      {int limit = 20}) async {
     final safeLimit = limit < 1 ? 1 : (limit > 100 ? 100 : limit);
     try {
       final snap = await _historyRef(uid)
@@ -1278,24 +1420,26 @@ class RewardService {
       final chain = getDailyRewardChain(currentStreak, claimedToday);
       final position = _cyclePosition(currentStreak <= 0 ? 1 : currentStreak);
       final todaySlot = chain[position - 1];
-      final nextSlot = claimedToday
-          ? chain[position == 7 ? 0 : position]
-          : todaySlot;
+      final nextSlot =
+          claimedToday ? chain[position == 7 ? 0 : position] : todaySlot;
 
       final shieldCount = _readInt(data[_shieldsField]);
       final multiplier = await getActiveMultiplier(uid);
       final nextMilestone = getNextMilestone(currentStreak);
-      final daysUntil = nextMilestone != null ? nextMilestone.days - currentStreak : null;
+      final daysUntil =
+          nextMilestone != null ? nextMilestone.days - currentStreak : null;
 
       final lastSurprise = data[_surpriseDateKey];
-      final surpriseEligible = !(lastSurprise is String && lastSurprise == today);
+      final surpriseEligible =
+          !(lastSurprise is String && lastSurprise == today);
 
       return RewardSummary(
         todayReward: claimedToday ? null : todaySlot,
         claimedToday: claimedToday,
         currentStreak: currentStreak,
         nextMilestone: nextMilestone,
-        daysUntilMilestone: (daysUntil != null && daysUntil > 0) ? daysUntil : null,
+        daysUntilMilestone:
+            (daysUntil != null && daysUntil > 0) ? daysUntil : null,
         shieldCount: shieldCount,
         activeMultiplier: multiplier,
         recentHistory: history,

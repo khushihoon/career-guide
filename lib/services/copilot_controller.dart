@@ -184,7 +184,7 @@ class CopilotController extends ChangeNotifier {
   /// analysis while an explicit career switch is rebuilding context.
   bool _careerSwitchInProgress = false;
 
-  final RewardService _rewardService = RewardService();
+  late final RewardService _rewardService = RewardService();
 
   static bool get _hasApiKey => false;
 
@@ -236,11 +236,10 @@ class CopilotController extends ChangeNotifier {
         // Both the existence check and the analysis it gates now resolve
         // to the identical career id — previously these could silently
         // disagree when _selectedCareerId was still null at this point.
-        final existingGoals =
-            await CopilotFirestoreService.getTodayGoals(
-              uid,
-              careerId: resolvedCareerId,
-            );
+        final existingGoals = await CopilotFirestoreService.getTodayGoals(
+          uid,
+          careerId: resolvedCareerId,
+        );
         if (existingGoals.isEmpty) {
           await _runAnalysis(p, careerId: resolvedCareerId);
         }
@@ -250,16 +249,16 @@ class CopilotController extends ChangeNotifier {
     });
 
     _roadmapSub = CopilotFirestoreService.roadmapStream(
-        uid,
-        careerId: _selectedCareerId,
-      ).listen((r) {
+      uid,
+      careerId: _selectedCareerId,
+    ).listen((r) {
       _set(_state.copyWith(roadmap: r));
     });
 
     _goalsSub = CopilotFirestoreService.todayGoalsStream(
-        uid,
-        careerId: _selectedCareerId,
-      ).listen((g) {
+      uid,
+      careerId: _selectedCareerId,
+    ).listen((g) {
       _set(_state.copyWith(todayGoals: g));
     });
 
@@ -279,9 +278,9 @@ class CopilotController extends ChangeNotifier {
 
     final activeCareerId = _selectedCareerId;
     if (activeCareerId != null && activeCareerId.isNotEmpty) {
-      _learningProgressSub = CopilotFirestoreService
-          .learningProgressStream(uid, activeCareerId)
-          .listen((progress) {
+      _learningProgressSub =
+          CopilotFirestoreService.learningProgressStream(uid, activeCareerId)
+              .listen((progress) {
         _learningProgress = progress;
         notifyListeners();
       });
@@ -435,12 +434,12 @@ class CopilotController extends ChangeNotifier {
 
     // 2. Decide whether full analysis is genuinely required.
     final profile = _state.skillProfile;
-    final needsFullAnalysis = profile == null ||
-        _state.roadmap == null ||
-        _state.todayGoals.isEmpty;
+    final needsFullAnalysis =
+        profile == null || _state.roadmap == null || _state.todayGoals.isEmpty;
 
     if (needsFullAnalysis && profile != null) {
-      await _runAnalysis(profile, careerId: _selectedCareerId ?? _careerIdForGoal(profile.targetRole));
+      await _runAnalysis(profile,
+          careerId: _selectedCareerId ?? _careerIdForGoal(profile.targetRole));
     }
 
     // 3. Always refresh the intelligence pipeline (readiness / actions /
@@ -594,19 +593,18 @@ class CopilotController extends ChangeNotifier {
           await CopilotFirestoreService.saveRoadmap(roadmap);
         }
         _set(_state.copyWith(roadmap: roadmap));
-        final existingGoals =
-            await CopilotFirestoreService.getTodayGoals(
-              profile.uid,
-              careerId: activeCareerId,
-            );
+        final existingGoals = await CopilotFirestoreService.getTodayGoals(
+          profile.uid,
+          careerId: activeCareerId,
+        );
         if (existingGoals.isEmpty) {
-          goals = await CopilotAIService.generateDailyGoals(
-              profile, roadmap, gaps);
+          goals =
+              await CopilotAIService.generateDailyGoals(profile, roadmap, gaps);
           await CopilotFirestoreService.saveDailyGoals(
-              profile.uid,
-              goals,
-              careerId: activeCareerId,
-            );
+            profile.uid,
+            goals,
+            careerId: activeCareerId,
+          );
           _set(_state.copyWith(todayGoals: goals));
         }
       } else {
@@ -641,11 +639,10 @@ class CopilotController extends ChangeNotifier {
           await CopilotFirestoreService.saveRoadmap(roadmap);
         }
         _set(_state.copyWith(roadmap: roadmap));
-        final existingGoals =
-            await CopilotFirestoreService.getTodayGoals(
-              profile.uid,
-              careerId: activeCareerId,
-            );
+        final existingGoals = await CopilotFirestoreService.getTodayGoals(
+          profile.uid,
+          careerId: activeCareerId,
+        );
 
         // Always hydrate the active career's existing goals first.
         // This prevents the UI from showing "No goals yet" while the
@@ -670,10 +667,10 @@ class CopilotController extends ChangeNotifier {
             context: _copilotContext,
           );
           await CopilotFirestoreService.saveDailyGoals(
-              profile.uid,
-              goals,
-              careerId: activeCareerId,
-            );
+            profile.uid,
+            goals,
+            careerId: activeCareerId,
+          );
           _set(_state.copyWith(todayGoals: goals));
         }
       }
@@ -773,145 +770,246 @@ class CopilotController extends ChangeNotifier {
 
   static String _careerIdForGoal(CareerGoal goal) {
     switch (goal) {
-      case CareerGoal.aiEngineer:       return 'ai_engineer';
-      case CareerGoal.mlEngineer:       return 'ml_engineer';
-      case CareerGoal.dataScientist:    return 'data_scientist';
-      case CareerGoal.nlpEngineer:      return 'llm_engineer';
-      case CareerGoal.cvEngineer:       return 'cv_engineer';
-      case CareerGoal.promptEngineer:   return 'prompt_engineer';
-      case CareerGoal.aiResearcher:     return 'ai_researcher';
-      case CareerGoal.aiProductManager: return 'ai_product_manager';
-      case CareerGoal.softwareEngineer: return 'software_engineer';
+      case CareerGoal.aiEngineer:
+        return 'ai_engineer';
+      case CareerGoal.mlEngineer:
+        return 'ml_engineer';
+      case CareerGoal.dataScientist:
+        return 'data_scientist';
+      case CareerGoal.nlpEngineer:
+        return 'llm_engineer';
+      case CareerGoal.cvEngineer:
+        return 'cv_engineer';
+      case CareerGoal.promptEngineer:
+        return 'prompt_engineer';
+      case CareerGoal.aiResearcher:
+        return 'ai_researcher';
+      case CareerGoal.aiProductManager:
+        return 'ai_product_manager';
+      case CareerGoal.softwareEngineer:
+        return 'software_engineer';
     }
   }
 
   static CareerGoal? _careerGoalForId(String careerId) {
     switch (careerId) {
-      case 'ai_engineer':       return CareerGoal.aiEngineer;
-      case 'ml_engineer':       return CareerGoal.mlEngineer;
-      case 'data_scientist':    return CareerGoal.dataScientist;
-      case 'llm_engineer':      return CareerGoal.nlpEngineer;
-      case 'cv_engineer':       return CareerGoal.cvEngineer;
-      case 'prompt_engineer':   return CareerGoal.promptEngineer;
-      case 'ai_researcher':     return CareerGoal.aiResearcher;
-      case 'ai_product_manager':return CareerGoal.aiProductManager;
-      case 'software_engineer': return CareerGoal.softwareEngineer;
-      default: return null;
+      case 'ai_engineer':
+        return CareerGoal.aiEngineer;
+      case 'ml_engineer':
+        return CareerGoal.mlEngineer;
+      case 'data_scientist':
+        return CareerGoal.dataScientist;
+      case 'llm_engineer':
+        return CareerGoal.nlpEngineer;
+      case 'cv_engineer':
+        return CareerGoal.cvEngineer;
+      case 'prompt_engineer':
+        return CareerGoal.promptEngineer;
+      case 'ai_researcher':
+        return CareerGoal.aiResearcher;
+      case 'ai_product_manager':
+        return CareerGoal.aiProductManager;
+      case 'software_engineer':
+        return CareerGoal.softwareEngineer;
+      default:
+        return null;
     }
   }
 
   static final Map<String, List<_CareerSkill>> _careerSkillSpecs = {
     'ai_engineer': const [
-      _CareerSkill('Python',            SkillLevel.advanced,     1, 'Core language for all AI/ML roles'),
-      _CareerSkill('Machine Learning',  SkillLevel.advanced,     1, 'Foundation skill for AI Engineer'),
-      _CareerSkill('Deep Learning',     SkillLevel.intermediate, 1, 'Essential for neural network applications'),
-      _CareerSkill('PyTorch',           SkillLevel.intermediate, 2, 'Industry-standard deep learning framework'),
-      _CareerSkill('LLMs',              SkillLevel.intermediate, 2, 'Large language models are key in 2025'),
-      _CareerSkill('MLOps',             SkillLevel.beginner,     3, 'Deploying and monitoring ML models in production'),
+      _CareerSkill('Python', SkillLevel.advanced, 1,
+          'Core language for all AI/ML roles'),
+      _CareerSkill('Machine Learning', SkillLevel.advanced, 1,
+          'Foundation skill for AI Engineer'),
+      _CareerSkill('Deep Learning', SkillLevel.intermediate, 1,
+          'Essential for neural network applications'),
+      _CareerSkill('PyTorch', SkillLevel.intermediate, 2,
+          'Industry-standard deep learning framework'),
+      _CareerSkill('LLMs', SkillLevel.intermediate, 2,
+          'Large language models are key in 2025'),
+      _CareerSkill('MLOps', SkillLevel.beginner, 3,
+          'Deploying and monitoring ML models in production'),
     ],
     'ml_engineer': const [
-      _CareerSkill('Python',            SkillLevel.advanced,     1, 'Core language for ML engineering'),
-      _CareerSkill('Machine Learning',  SkillLevel.advanced,     1, 'Core skill for ML Engineer'),
-      _CareerSkill('Deep Learning',     SkillLevel.advanced,     1, 'Neural networks are central to ML work'),
-      _CareerSkill('PyTorch',           SkillLevel.advanced,     1, 'Primary framework for production models'),
-      _CareerSkill('MLOps',             SkillLevel.intermediate, 2, 'Shipping and monitoring models in production'),
-      _CareerSkill('System Design',     SkillLevel.intermediate, 3, 'Designing scalable training and serving pipelines'),
+      _CareerSkill(
+          'Python', SkillLevel.advanced, 1, 'Core language for ML engineering'),
+      _CareerSkill('Machine Learning', SkillLevel.advanced, 1,
+          'Core skill for ML Engineer'),
+      _CareerSkill('Deep Learning', SkillLevel.advanced, 1,
+          'Neural networks are central to ML work'),
+      _CareerSkill('PyTorch', SkillLevel.advanced, 1,
+          'Primary framework for production models'),
+      _CareerSkill('MLOps', SkillLevel.intermediate, 2,
+          'Shipping and monitoring models in production'),
+      _CareerSkill('System Design', SkillLevel.intermediate, 3,
+          'Designing scalable training and serving pipelines'),
     ],
     'data_scientist': const [
-      _CareerSkill('Python',            SkillLevel.advanced,     1, 'Primary language for data work'),
-      _CareerSkill('SQL',               SkillLevel.advanced,     1, 'Querying data is a daily task'),
-      _CareerSkill('Statistics',        SkillLevel.advanced,     1, 'Backbone of sound data analysis'),
-      _CareerSkill('Machine Learning',  SkillLevel.intermediate, 2, 'Predictive modelling on real data'),
-      _CareerSkill('Data Visualisation',SkillLevel.intermediate, 2, 'Communicating insights to stakeholders'),
-      _CareerSkill('Feature Engineering',SkillLevel.intermediate,2, 'Turning raw data into useful signals'),
+      _CareerSkill(
+          'Python', SkillLevel.advanced, 1, 'Primary language for data work'),
+      _CareerSkill(
+          'SQL', SkillLevel.advanced, 1, 'Querying data is a daily task'),
+      _CareerSkill('Statistics', SkillLevel.advanced, 1,
+          'Backbone of sound data analysis'),
+      _CareerSkill('Machine Learning', SkillLevel.intermediate, 2,
+          'Predictive modelling on real data'),
+      _CareerSkill('Data Visualisation', SkillLevel.intermediate, 2,
+          'Communicating insights to stakeholders'),
+      _CareerSkill('Feature Engineering', SkillLevel.intermediate, 2,
+          'Turning raw data into useful signals'),
     ],
     'llm_engineer': const [
-      _CareerSkill('Python',            SkillLevel.advanced,     1, 'Primary language for LLM pipelines'),
-      _CareerSkill('LLMs',              SkillLevel.advanced,     1, 'Core subject of this career'),
-      _CareerSkill('Prompt Engineering',SkillLevel.advanced,     1, 'Directly shapes model behaviour'),
-      _CareerSkill('RAG',               SkillLevel.intermediate, 1, 'Retrieval-augmented generation is standard for production LLM apps'),
-      _CareerSkill('Transformers',      SkillLevel.intermediate, 2, 'The architecture behind modern LLMs'),
-      _CareerSkill('MLOps',             SkillLevel.beginner,     3, 'Serving and monitoring LLM services'),
+      _CareerSkill('Python', SkillLevel.advanced, 1,
+          'Primary language for LLM pipelines'),
+      _CareerSkill(
+          'LLMs', SkillLevel.advanced, 1, 'Core subject of this career'),
+      _CareerSkill('Prompt Engineering', SkillLevel.advanced, 1,
+          'Directly shapes model behaviour'),
+      _CareerSkill('RAG', SkillLevel.intermediate, 1,
+          'Retrieval-augmented generation is standard for production LLM apps'),
+      _CareerSkill('Transformers', SkillLevel.intermediate, 2,
+          'The architecture behind modern LLMs'),
+      _CareerSkill('MLOps', SkillLevel.beginner, 3,
+          'Serving and monitoring LLM services'),
     ],
     'web_developer': const [
-      _CareerSkill('HTML',              SkillLevel.advanced,     1, 'Structure of every web page'),
-      _CareerSkill('CSS',               SkillLevel.advanced,     1, 'Styling and layout are core to web work'),
-      _CareerSkill('JavaScript',        SkillLevel.advanced,     1, 'Primary language of the web'),
-      _CareerSkill('React',             SkillLevel.intermediate, 2, 'Most widely used UI framework'),
-      _CareerSkill('Git',               SkillLevel.intermediate, 2, 'Version control on every project'),
-      _CareerSkill('APIs',              SkillLevel.intermediate, 3, 'Connecting front-end to real data'),
+      _CareerSkill(
+          'HTML', SkillLevel.advanced, 1, 'Structure of every web page'),
+      _CareerSkill('CSS', SkillLevel.advanced, 1,
+          'Styling and layout are core to web work'),
+      _CareerSkill(
+          'JavaScript', SkillLevel.advanced, 1, 'Primary language of the web'),
+      _CareerSkill(
+          'React', SkillLevel.intermediate, 2, 'Most widely used UI framework'),
+      _CareerSkill('Git', SkillLevel.intermediate, 2,
+          'Version control on every project'),
+      _CareerSkill('APIs', SkillLevel.intermediate, 3,
+          'Connecting front-end to real data'),
     ],
     'frontend_dev': const [
-      _CareerSkill('HTML',              SkillLevel.advanced,     1, 'Structure of every UI'),
-      _CareerSkill('CSS',               SkillLevel.advanced,     1, 'Layout and styling mastery'),
-      _CareerSkill('JavaScript',        SkillLevel.advanced,     1, 'Core language of the front-end'),
-      _CareerSkill('React',             SkillLevel.advanced,     1, 'Most in-demand frontend framework'),
-      _CareerSkill('APIs',              SkillLevel.intermediate, 2, 'Consuming backend services'),
-      _CareerSkill('Git',               SkillLevel.intermediate, 3, 'Daily version-control workflow'),
+      _CareerSkill('HTML', SkillLevel.advanced, 1, 'Structure of every UI'),
+      _CareerSkill('CSS', SkillLevel.advanced, 1, 'Layout and styling mastery'),
+      _CareerSkill('JavaScript', SkillLevel.advanced, 1,
+          'Core language of the front-end'),
+      _CareerSkill(
+          'React', SkillLevel.advanced, 1, 'Most in-demand frontend framework'),
+      _CareerSkill(
+          'APIs', SkillLevel.intermediate, 2, 'Consuming backend services'),
+      _CareerSkill(
+          'Git', SkillLevel.intermediate, 3, 'Daily version-control workflow'),
     ],
     'software_engineer': const [
-      _CareerSkill('Data Structures & Algorithms', SkillLevel.advanced, 1, 'Core skill for every software engineering interview'),
-      _CareerSkill('System Design',     SkillLevel.intermediate, 1, 'Designing scalable, maintainable systems'),
-      _CareerSkill('Git',               SkillLevel.advanced,     2, 'Version control on every project'),
-      _CareerSkill('Testing',           SkillLevel.intermediate, 2, 'Writing reliable, maintainable code'),
-      _CareerSkill('APIs',              SkillLevel.intermediate, 2, 'Building and consuming services'),
-      _CareerSkill('Databases',         SkillLevel.intermediate, 3, 'Persisting and querying data'),
+      _CareerSkill('Data Structures & Algorithms', SkillLevel.advanced, 1,
+          'Core skill for every software engineering interview'),
+      _CareerSkill('System Design', SkillLevel.intermediate, 1,
+          'Designing scalable, maintainable systems'),
+      _CareerSkill(
+          'Git', SkillLevel.advanced, 2, 'Version control on every project'),
+      _CareerSkill('Testing', SkillLevel.intermediate, 2,
+          'Writing reliable, maintainable code'),
+      _CareerSkill('APIs', SkillLevel.intermediate, 2,
+          'Building and consuming services'),
+      _CareerSkill('Databases', SkillLevel.intermediate, 3,
+          'Persisting and querying data'),
     ],
     'cyber_security': const [
-      _CareerSkill('Networking',        SkillLevel.advanced,     1, 'Every attack travels through a network'),
-      _CareerSkill('Linux',             SkillLevel.advanced,     1, 'Primary OS for security work'),
-      _CareerSkill('Security Fundamentals',SkillLevel.advanced, 1, 'Core concepts behind every defence'),
-      _CareerSkill('Python',            SkillLevel.intermediate, 2, 'Automating security tasks and tooling'),
-      _CareerSkill('Cryptography',      SkillLevel.intermediate, 2, 'Encryption, hashing and key management'),
-      _CareerSkill('Penetration Testing',SkillLevel.beginner,    3, 'Ethical offensive security practice'),
+      _CareerSkill('Networking', SkillLevel.advanced, 1,
+          'Every attack travels through a network'),
+      _CareerSkill(
+          'Linux', SkillLevel.advanced, 1, 'Primary OS for security work'),
+      _CareerSkill('Security Fundamentals', SkillLevel.advanced, 1,
+          'Core concepts behind every defence'),
+      _CareerSkill('Python', SkillLevel.intermediate, 2,
+          'Automating security tasks and tooling'),
+      _CareerSkill('Cryptography', SkillLevel.intermediate, 2,
+          'Encryption, hashing and key management'),
+      _CareerSkill('Penetration Testing', SkillLevel.beginner, 3,
+          'Ethical offensive security practice'),
     ],
     'ethical_hacker': const [
-      _CareerSkill('Networking',        SkillLevel.advanced,     1, 'Traffic flows through networks you must understand'),
-      _CareerSkill('Linux',             SkillLevel.advanced,     1, 'Most hacking tooling runs on Linux'),
-      _CareerSkill('Security Fundamentals',SkillLevel.advanced, 1, 'Attack + defence fundamentals'),
-      _CareerSkill('Penetration Testing',SkillLevel.intermediate,1, 'The core activity of the role'),
-      _CareerSkill('Python',            SkillLevel.intermediate, 2, 'Scripting exploits and tools'),
-      _CareerSkill('Cryptography',      SkillLevel.intermediate, 3, 'Understanding real-world crypto'),
+      _CareerSkill('Networking', SkillLevel.advanced, 1,
+          'Traffic flows through networks you must understand'),
+      _CareerSkill('Linux', SkillLevel.advanced, 1,
+          'Most hacking tooling runs on Linux'),
+      _CareerSkill('Security Fundamentals', SkillLevel.advanced, 1,
+          'Attack + defence fundamentals'),
+      _CareerSkill('Penetration Testing', SkillLevel.intermediate, 1,
+          'The core activity of the role'),
+      _CareerSkill(
+          'Python', SkillLevel.intermediate, 2, 'Scripting exploits and tools'),
+      _CareerSkill('Cryptography', SkillLevel.intermediate, 3,
+          'Understanding real-world crypto'),
     ],
     'ui_ux_designer': const [
-      _CareerSkill('UX Fundamentals',   SkillLevel.advanced,     1, 'Foundation of every design decision'),
-      _CareerSkill('UI Design',         SkillLevel.advanced,     1, 'Visual craft of the product'),
-      _CareerSkill('Design Thinking',   SkillLevel.intermediate, 1, 'Human-centred problem solving'),
-      _CareerSkill('Figma',             SkillLevel.intermediate, 2, 'Industry-standard design tool'),
-      _CareerSkill('Prototyping',       SkillLevel.intermediate, 2, 'Testing ideas before building them'),
-      _CareerSkill('Accessibility',     SkillLevel.beginner,     3, 'Designing for everyone, not just the median user'),
+      _CareerSkill('UX Fundamentals', SkillLevel.advanced, 1,
+          'Foundation of every design decision'),
+      _CareerSkill(
+          'UI Design', SkillLevel.advanced, 1, 'Visual craft of the product'),
+      _CareerSkill('Design Thinking', SkillLevel.intermediate, 1,
+          'Human-centred problem solving'),
+      _CareerSkill(
+          'Figma', SkillLevel.intermediate, 2, 'Industry-standard design tool'),
+      _CareerSkill('Prototyping', SkillLevel.intermediate, 2,
+          'Testing ideas before building them'),
+      _CareerSkill('Accessibility', SkillLevel.beginner, 3,
+          'Designing for everyone, not just the median user'),
     ],
     'devops_engineer': const [
-      _CareerSkill('Linux',             SkillLevel.advanced,     1, 'Foundation of every server'),
-      _CareerSkill('Docker',            SkillLevel.advanced,     1, 'Packaging and shipping applications'),
-      _CareerSkill('Kubernetes',        SkillLevel.intermediate, 1, 'Orchestrating containers in production'),
-      _CareerSkill('Cloud Computing',   SkillLevel.intermediate, 2, 'Running workloads on real infrastructure'),
-      _CareerSkill('CI/CD',             SkillLevel.intermediate, 2, 'Automating builds and deployments'),
-      _CareerSkill('Networking',        SkillLevel.beginner,     3, 'Understanding how services talk to each other'),
+      _CareerSkill(
+          'Linux', SkillLevel.advanced, 1, 'Foundation of every server'),
+      _CareerSkill('Docker', SkillLevel.advanced, 1,
+          'Packaging and shipping applications'),
+      _CareerSkill('Kubernetes', SkillLevel.intermediate, 1,
+          'Orchestrating containers in production'),
+      _CareerSkill('Cloud Computing', SkillLevel.intermediate, 2,
+          'Running workloads on real infrastructure'),
+      _CareerSkill('CI/CD', SkillLevel.intermediate, 2,
+          'Automating builds and deployments'),
+      _CareerSkill('Networking', SkillLevel.beginner, 3,
+          'Understanding how services talk to each other'),
     ],
     'qa_engineer': const [
-      _CareerSkill('Software Testing Fundamentals', SkillLevel.advanced, 1, 'Core skill of the role'),
-      _CareerSkill('Testing',           SkillLevel.advanced,     1, 'Writing and maintaining tests'),
-      _CareerSkill('Python',            SkillLevel.intermediate, 2, 'Automation and scripting'),
-      _CareerSkill('Git',               SkillLevel.intermediate, 2, 'Working with codebases and PRs'),
-      _CareerSkill('APIs',              SkillLevel.intermediate, 3, 'Testing services end-to-end'),
-      _CareerSkill('Debugging',         SkillLevel.beginner,     3, 'Root-causing failures quickly'),
+      _CareerSkill('Software Testing Fundamentals', SkillLevel.advanced, 1,
+          'Core skill of the role'),
+      _CareerSkill(
+          'Testing', SkillLevel.advanced, 1, 'Writing and maintaining tests'),
+      _CareerSkill(
+          'Python', SkillLevel.intermediate, 2, 'Automation and scripting'),
+      _CareerSkill(
+          'Git', SkillLevel.intermediate, 2, 'Working with codebases and PRs'),
+      _CareerSkill(
+          'APIs', SkillLevel.intermediate, 3, 'Testing services end-to-end'),
+      _CareerSkill(
+          'Debugging', SkillLevel.beginner, 3, 'Root-causing failures quickly'),
     ],
     'blockchain_dev': const [
-      _CareerSkill('Blockchain',        SkillLevel.advanced,     1, 'Core subject of the career'),
-      _CareerSkill('Smart Contracts',   SkillLevel.intermediate, 1, 'The building blocks of dApps'),
-      _CareerSkill('Solidity',          SkillLevel.intermediate, 2, 'Primary smart-contract language'),
-      _CareerSkill('Cryptography',      SkillLevel.intermediate, 2, 'Underpins trust and immutability'),
-      _CareerSkill('Security Fundamentals', SkillLevel.intermediate, 2, 'Smart-contract bugs are permanent'),
-      _CareerSkill('JavaScript',        SkillLevel.beginner,     3, 'Front-end integration for dApps'),
+      _CareerSkill(
+          'Blockchain', SkillLevel.advanced, 1, 'Core subject of the career'),
+      _CareerSkill('Smart Contracts', SkillLevel.intermediate, 1,
+          'The building blocks of dApps'),
+      _CareerSkill('Solidity', SkillLevel.intermediate, 2,
+          'Primary smart-contract language'),
+      _CareerSkill('Cryptography', SkillLevel.intermediate, 2,
+          'Underpins trust and immutability'),
+      _CareerSkill('Security Fundamentals', SkillLevel.intermediate, 2,
+          'Smart-contract bugs are permanent'),
+      _CareerSkill('JavaScript', SkillLevel.beginner, 3,
+          'Front-end integration for dApps'),
     ],
     'solutions_architect': const [
-      _CareerSkill('System Design',     SkillLevel.advanced,     1, 'The core skill of the role'),
-      _CareerSkill('Architecture',      SkillLevel.advanced,     1, 'High-level component design'),
-      _CareerSkill('Cloud Computing',   SkillLevel.intermediate, 2, 'Where most systems run today'),
-      _CareerSkill('Databases',         SkillLevel.intermediate, 2, 'Choosing and designing storage'),
-      _CareerSkill('Networking',        SkillLevel.intermediate, 3, 'How services communicate reliably'),
-      _CareerSkill('Security Fundamentals', SkillLevel.beginner, 3, 'Designing systems that resist attack'),
+      _CareerSkill('System Design', SkillLevel.advanced, 1,
+          'The core skill of the role'),
+      _CareerSkill('Architecture', SkillLevel.advanced, 1,
+          'High-level component design'),
+      _CareerSkill('Cloud Computing', SkillLevel.intermediate, 2,
+          'Where most systems run today'),
+      _CareerSkill('Databases', SkillLevel.intermediate, 2,
+          'Choosing and designing storage'),
+      _CareerSkill('Networking', SkillLevel.intermediate, 3,
+          'How services communicate reliably'),
+      _CareerSkill('Security Fundamentals', SkillLevel.beginner, 3,
+          'Designing systems that resist attack'),
     ],
   };
 
@@ -973,8 +1071,8 @@ class CopilotController extends ChangeNotifier {
           currentLevel: inferred,
           priority: req.priority,
           reason: req.reason,
-          careerId: context?.career?.careerId ??
-              _careerIdForGoal(profile.targetRole),
+          careerId:
+              context?.career?.careerId ?? _careerIdForGoal(profile.targetRole),
           status: SkillGapStatus.open,
         ));
       }
@@ -1075,15 +1173,16 @@ class CopilotController extends ChangeNotifier {
     final learningProgress = context?.learningProgress;
     final hasLearningEvidence =
         learningProgress != null && learningProgress.totalLessons > 0;
-    final evidenceProgress = hasLearningEvidence
-        ? learningProgress!.progress.clamp(0.0, 1.0)
-        : 0.0;
+    final evidenceProgress =
+        hasLearningEvidence ? learningProgress!.progress.clamp(0.0, 1.0) : 0.0;
 
     // Fresh career-scoped learning evidence wins over the previous roadmap
     // snapshot. This makes lesson completion visibly move the roadmap.
     final double progress = hasLearningEvidence
         ? evidenceProgress
-        : (liveRoadmap?.overallProgress ?? localRoadmap?.overallProgress ?? 0.0);
+        : (liveRoadmap?.overallProgress ??
+            localRoadmap?.overallProgress ??
+            0.0);
     final int persistedPhaseIndex =
         liveRoadmap?.currentPhaseIndex ?? localRoadmap?.currentPhaseIndex ?? 0;
 
@@ -1100,15 +1199,15 @@ class CopilotController extends ChangeNotifier {
       return persisted ||
           (totalPhases != 0 && progress >= (phaseNumber + 1) / totalPhases);
     }
+
     bool phaseUnlocked(int phaseNumber) =>
         phaseNumber == 0 ||
         (totalPhases > 0 && progress >= phaseNumber / totalPhases);
     final computedIndex = totalPhases == 0
         ? 0
         : min(totalPhases - 1, (progress * totalPhases).floor());
-    final currentPhaseIndex =
-        min(totalPhases == 0 ? 0 : totalPhases - 1,
-            max(persistedPhaseIndex, computedIndex));
+    final currentPhaseIndex = min(totalPhases == 0 ? 0 : totalPhases - 1,
+        max(persistedPhaseIndex, computedIndex));
 
     final phases = <RoadmapPhase>[];
     for (var i = 0; i < spec.phases.length; i++) {
@@ -1153,7 +1252,8 @@ class CopilotController extends ChangeNotifier {
   ///
   /// This method never awards XP. It only re-reads the authoritative
   /// career-scoped aggregate and global XP cache after evidence changes.
-  Future<CopilotContext?> refreshIntelligence(String uid, {String? careerId}) async {
+  Future<CopilotContext?> refreshIntelligence(String uid,
+      {String? careerId}) async {
     final switchToken = _careerSwitchToken;
     try {
       final resolvedCareerId = careerId ?? _selectedCareerId;
@@ -1179,8 +1279,7 @@ class CopilotController extends ChangeNotifier {
           .where((a) => !existingActionIds.contains(a.id))
           .toList();
 
-      final existingRecIds =
-          context.recommendations.map((r) => r.id).toSet();
+      final existingRecIds = context.recommendations.map((r) => r.id).toSet();
       final newRecs = _generateRecommendations(context, readiness)
           .where((r) => !existingRecIds.contains(r.id))
           .toList();
@@ -1219,7 +1318,7 @@ class CopilotController extends ChangeNotifier {
       if (resolvedCareerId != null && resolvedCareerId.isNotEmpty) {
         try {
           _careerTotalXp = await CopilotFirestoreService.getCareerTotalXp(
-            uid, resolvedCareerId);
+              uid, resolvedCareerId);
         } catch (_) {}
       }
       return updatedContext;
@@ -1246,14 +1345,14 @@ class CopilotController extends ChangeNotifier {
       // Restore this career's previous editable skill profile if one exists.
       // If this is the first visit to the career, keep the current profile
       // but align its targetRole with the selected career.
-      var activeProfile =
-          await CopilotFirestoreService.getCareerSkillProfile(
+      var activeProfile = await CopilotFirestoreService.getCareerSkillProfile(
         uid,
         career.careerId,
       );
 
       final mappedGoal = _careerGoalForId(career.careerId);
-      if (activeProfile != null && mappedGoal != null &&
+      if (activeProfile != null &&
+          mappedGoal != null &&
           activeProfile.targetRole != mappedGoal) {
         activeProfile = activeProfile.copyWith(targetRole: mappedGoal);
       }
@@ -1386,17 +1485,16 @@ class CopilotController extends ChangeNotifier {
       _set(_state.copyWith(progressHistory: history));
     });
 
-    _learningProgressSub = CopilotFirestoreService
-        .learningProgressStream(uid, careerId)
-        .listen((progress) {
+    _learningProgressSub =
+        CopilotFirestoreService.learningProgressStream(uid, careerId)
+            .listen((progress) {
       if (token != _careerSwitchToken) return;
       _learningProgress = progress;
       notifyListeners();
     });
   }
 
-  static CareerContext _careerContextForGoal(CareerGoal goal) =>
-      CareerContext(
+  static CareerContext _careerContextForGoal(CareerGoal goal) => CareerContext(
         careerId: goal.careerId,
         careerTitle: goal.label,
         categoryId: 'ai',
@@ -1408,8 +1506,8 @@ class CopilotController extends ChangeNotifier {
   Future<void> _refreshCareerJourney(String uid, String careerId) async {
     if (uid.isEmpty || careerId.isEmpty) return;
     try {
-      final freshContext = await CopilotFirestoreService.getCopilotContext(
-        uid, careerId: careerId);
+      final freshContext = await CopilotFirestoreService.getCopilotContext(uid,
+          careerId: careerId);
       final scoped = _scopeContextToCareer(freshContext, careerId);
       _copilotContext = scoped;
       _set(_state.copyWith(
@@ -1655,7 +1753,8 @@ class CopilotController extends ChangeNotifier {
     }
   }
 
-  Future<void> dismissRecommendation(String uid, String recommendationId) async {
+  Future<void> dismissRecommendation(
+      String uid, String recommendationId) async {
     try {
       await CopilotFirestoreService.dismissRecommendation(
           uid, recommendationId);
@@ -1707,7 +1806,8 @@ class CopilotController extends ChangeNotifier {
         : context.jobProgress;
     final interview = context.interviewProgress.careerId != null &&
             context.interviewProgress.careerId != careerId
-        ? InterviewProgressContext(updatedAt: DateTime.now(), careerId: careerId)
+        ? InterviewProgressContext(
+            updatedAt: DateTime.now(), careerId: careerId)
         : context.interviewProgress;
 
     final readiness = context.readiness.careerId != null &&
@@ -1754,9 +1854,7 @@ class CopilotController extends ChangeNotifier {
       return id != null && id.isNotEmpty;
     });
     if (!hasScoped) return items;
-    return items
-        .where((item) => careerOf(item) == careerId)
-        .toList();
+    return items.where((item) => careerOf(item) == careerId).toList();
   }
 
   CareerReadiness _computeReadiness(CopilotContext context) {
@@ -1793,9 +1891,8 @@ class CopilotController extends ChangeNotifier {
 
     final blockers = <String>[];
     final missingRequirements = <String>[];
-    final criticalGaps = context.state.skillGaps
-        .where((g) => g.priority == 1)
-        .toList();
+    final criticalGaps =
+        context.state.skillGaps.where((g) => g.priority == 1).toList();
 
     for (final gap in criticalGaps.take(5)) {
       blockers.add('${gap.skillName}: ${gap.reason}');
@@ -1877,7 +1974,8 @@ class CopilotController extends ChangeNotifier {
         careerId: context.career?.careerId,
         what: 'Strengthen ${gap.skillName}.',
         why: gap.reason,
-        how: 'Use the current career roadmap and complete evidence-backed practice for this skill.',
+        how:
+            'Use the current career roadmap and complete evidence-backed practice for this skill.',
         expectedOutcome: 'Reduce the ${gap.skillName} skill gap.',
         relatedRequirement: 'skill:${gap.skillName}',
         stateVersion: levelKey,
@@ -1891,10 +1989,9 @@ class CopilotController extends ChangeNotifier {
     // Hub will therefore show "Start Fixing Now" whenever the active
     // career still has something concrete to fix.
     if (readiness.learningReadiness < 1.0) {
-      final careerKey =
-          context.learningProgress.careerId.isEmpty
-              ? 'general'
-              : context.learningProgress.careerId;
+      final careerKey = context.learningProgress.careerId.isEmpty
+          ? 'general'
+          : context.learningProgress.careerId;
       final frontier = context.learningProgress.completedCount;
       actions.add(NextBestAction(
         id: 'action_${careerKey}_continue_learning_$frontier',
@@ -1920,7 +2017,8 @@ class CopilotController extends ChangeNotifier {
     // Rule 3: learning ≥ 0.4 and project < 0.6 → build project.
     // Version = projectsCompleted so the ID changes as the user ships
     // projects, releasing the action for the next project.
-    if (readiness.learningReadiness >= 0.4 && readiness.projectReadiness < 0.6) {
+    if (readiness.learningReadiness >= 0.4 &&
+        readiness.projectReadiness < 0.6) {
       final projectsCompleted = context.projectProgress.completedCount;
       actions.add(NextBestAction(
         id: 'action_${context.career?.careerId ?? 'general'}_build_project_$projectsCompleted',
@@ -1943,7 +2041,8 @@ class CopilotController extends ChangeNotifier {
     // Rule 4: learning ≥ 0.5 and interview < 0.5 → mock interview.
     // Version = interview readiness bucket (0–10). Changes as interview
     // evidence updates, releasing the action for the next attempt tier.
-    if (readiness.learningReadiness >= 0.5 && readiness.interviewReadiness < 0.5) {
+    if (readiness.learningReadiness >= 0.5 &&
+        readiness.interviewReadiness < 0.5) {
       final interviewBucket = (readiness.interviewReadiness * 10).floor();
       actions.add(NextBestAction(
         id: 'action_${context.career?.careerId ?? 'general'}_mock_interview_$interviewBucket',
@@ -1954,9 +2053,11 @@ class CopilotController extends ChangeNotifier {
         createdAt: now,
         careerId: context.career?.careerId,
         what: 'Complete a scored mock interview.',
-        why: 'Interview evidence is still below the current progression target.',
+        why:
+            'Interview evidence is still below the current progression target.',
         how: 'Run a mock interview and review the scored result.',
-        expectedOutcome: 'Increase interview readiness with real attempt evidence.',
+        expectedOutcome:
+            'Increase interview readiness with real attempt evidence.',
         relatedRequirement: 'interview',
         stateVersion: 'bucket_$interviewBucket',
       ));
@@ -1977,8 +2078,10 @@ class CopilotController extends ChangeNotifier {
         createdAt: now,
         careerId: context.career?.careerId,
         what: 'Apply to matching roles.',
-        why: 'The deterministic compatibility readiness score has reached the application threshold.',
-        how: 'Choose roles matching the active career and apply with verified evidence.',
+        why:
+            'The deterministic compatibility readiness score has reached the application threshold.',
+        how:
+            'Choose roles matching the active career and apply with verified evidence.',
         expectedOutcome: 'Create real job-application evidence.',
         relatedRequirement: 'job',
         stateVersion: 'bucket_$jobBucket',
@@ -2000,8 +2103,10 @@ class CopilotController extends ChangeNotifier {
         careerId: context.career?.careerId,
         what: 'Resume one meaningful career action.',
         why: 'There is historical progress but no current streak.',
-        how: 'Complete a small lesson, practice task, project milestone, or interview action today.',
-        expectedOutcome: 'Restore meaningful activity momentum without changing historical progress.',
+        how:
+            'Complete a small lesson, practice task, project milestone, or interview action today.',
+        expectedOutcome:
+            'Restore meaningful activity momentum without changing historical progress.',
         relatedRequirement: 'activity',
         stateVersion: 'history_$historyDays',
       ));
@@ -2039,8 +2144,10 @@ class CopilotController extends ChangeNotifier {
         createdAt: now,
         careerId: context.career?.careerId,
         what: 'Focus on the highest-priority skill gaps.',
-        why: 'These gaps are currently the most important missing requirements.',
-        how: 'Follow the active career roadmap and complete evidence-backed practice.',
+        why:
+            'These gaps are currently the most important missing requirements.',
+        how:
+            'Follow the active career roadmap and complete evidence-backed practice.',
         expectedOutcome: 'Reduce the highest-priority skill gaps.',
         relatedRequirement: 'skill',
         stateVersion: levelKey,
@@ -2069,7 +2176,8 @@ class CopilotController extends ChangeNotifier {
     }
 
     // Project → versioned by projects completed.
-    if (readiness.learningReadiness >= 0.4 && readiness.projectReadiness < 0.5) {
+    if (readiness.learningReadiness >= 0.4 &&
+        readiness.projectReadiness < 0.5) {
       final projectsCompleted = context.projectProgress.completedCount;
       recs.add(CopilotRecommendation(
         id: 'rec_${context.career?.careerId ?? 'general'}_project_$projectsCompleted',
@@ -2089,7 +2197,8 @@ class CopilotController extends ChangeNotifier {
     }
 
     // Interview prep → versioned by interview-readiness bucket.
-    if (readiness.learningReadiness >= 0.5 && readiness.interviewReadiness < 0.5) {
+    if (readiness.learningReadiness >= 0.5 &&
+        readiness.interviewReadiness < 0.5) {
       final interviewBucket = (readiness.interviewReadiness * 10).floor();
       recs.add(CopilotRecommendation(
         id: 'rec_${context.career?.careerId ?? 'general'}_interview_prep_$interviewBucket',
@@ -2102,7 +2211,8 @@ class CopilotController extends ChangeNotifier {
         what: 'Practice a scored mock interview.',
         why: 'Interview evidence is still below the current threshold.',
         how: 'Complete an interview attempt and review the score.',
-        expectedOutcome: 'Improve interview readiness with real attempt evidence.',
+        expectedOutcome:
+            'Improve interview readiness with real attempt evidence.',
         relatedRequirement: 'interview',
         stateVersion: 'bucket_$interviewBucket',
       ));
@@ -2121,7 +2231,8 @@ class CopilotController extends ChangeNotifier {
         createdAt: now,
         careerId: context.career?.careerId,
         what: 'Consider matching job openings.',
-        why: 'The deterministic compatibility readiness score has reached the application threshold.',
+        why:
+            'The deterministic compatibility readiness score has reached the application threshold.',
         how: 'Match roles to the active career and your verified skills.',
         expectedOutcome: 'Create relevant application evidence.',
         relatedRequirement: 'job',
@@ -2141,9 +2252,11 @@ class CopilotController extends ChangeNotifier {
         createdAt: now,
         careerId: context.career?.careerId,
         what: 'Resume one meaningful career action.',
-        why: 'Historical progress exists but current meaningful activity is inactive.',
+        why:
+            'Historical progress exists but current meaningful activity is inactive.',
         how: 'Complete one small career task today.',
-        expectedOutcome: 'Restore momentum without changing historical progress.',
+        expectedOutcome:
+            'Restore momentum without changing historical progress.',
         relatedRequirement: 'activity',
         stateVersion: 'history_$historyDays',
       ));
@@ -2250,7 +2363,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'Mathematics for ML',
           platform: 'Coursera',
-          url: 'https://coursera.org/specializations/mathematics-machine-learning',
+          url:
+              'https://coursera.org/specializations/mathematics-machine-learning',
           isFree: false,
           duration: '5 weeks',
           icon: '📐',
@@ -2272,7 +2386,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'ML Specialization',
           platform: 'Coursera (Andrew Ng)',
-          url: 'https://coursera.org/specializations/machine-learning-introduction',
+          url:
+              'https://coursera.org/specializations/machine-learning-introduction',
           isFree: false,
           duration: '3 months',
           icon: '🧠',
@@ -2355,7 +2470,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'Build Your AI Portfolio',
           platform: 'YouTube',
-          url: 'https://youtube.com/results?search_query=AI+ML+portfolio+projects',
+          url:
+              'https://youtube.com/results?search_query=AI+ML+portfolio+projects',
           isFree: true,
           duration: '4 weeks',
           icon: '💼',
@@ -2384,7 +2500,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'Git & GitHub Crash Course',
           platform: 'YouTube',
-          url: 'https://youtube.com/results?search_query=git+github+crash+course',
+          url:
+              'https://youtube.com/results?search_query=git+github+crash+course',
           isFree: true,
           duration: '1 week',
           icon: '📦',
@@ -2396,12 +2513,18 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
       title: 'Machine Learning in Production',
       description:
           'Classic ML algorithms plus the model-evaluation and feature-engineering rigour production teams expect.',
-      skills: ['Machine Learning', 'Model Evaluation', 'Feature Engineering', 'Scikit-learn'],
+      skills: [
+        'Machine Learning',
+        'Model Evaluation',
+        'Feature Engineering',
+        'Scikit-learn'
+      ],
       resources: [
         _RoadmapResourceSpec(
           title: 'ML Specialization',
           platform: 'Coursera (Andrew Ng)',
-          url: 'https://coursera.org/specializations/machine-learning-introduction',
+          url:
+              'https://coursera.org/specializations/machine-learning-introduction',
           isFree: false,
           duration: '3 months',
           icon: '🧠',
@@ -2459,7 +2582,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'Designing Machine Learning Systems',
           platform: 'O\'Reilly (Book)',
-          url: 'https://www.oreilly.com/library/view/designing-machine-learning/9781098107956/',
+          url:
+              'https://www.oreilly.com/library/view/designing-machine-learning/9781098107956/',
           isFree: false,
           duration: '5 weeks',
           icon: '📘',
@@ -2476,7 +2600,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'Build an ML Portfolio',
           platform: 'YouTube',
-          url: 'https://youtube.com/results?search_query=machine+learning+portfolio',
+          url:
+              'https://youtube.com/results?search_query=machine+learning+portfolio',
           isFree: true,
           duration: '3 weeks',
           icon: '💼',
@@ -2490,8 +2615,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
   'data_scientist': const _CareerRoadmapSpec([
     _RoadmapPhaseSpec(
       title: 'Python, SQL & Statistics',
-      description:
-          'The analytical toolkit every data scientist uses daily.',
+      description: 'The analytical toolkit every data scientist uses daily.',
       skills: ['Python', 'SQL', 'Statistics', 'Pandas', 'NumPy'],
       resources: [
         _RoadmapResourceSpec(
@@ -2517,7 +2641,12 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
       title: 'Data Wrangling & Visualisation',
       description:
           'Clean real datasets and turn them into stories stakeholders understand.',
-      skills: ['Data Cleaning', 'Feature Engineering', 'Data Visualisation', 'Matplotlib'],
+      skills: [
+        'Data Cleaning',
+        'Feature Engineering',
+        'Data Visualisation',
+        'Matplotlib'
+      ],
       resources: [
         _RoadmapResourceSpec(
           title: 'Data Analysis with Python',
@@ -2534,12 +2663,18 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
       title: 'Machine Learning for Analysts',
       description:
           'Apply ML to real business problems and evaluate models honestly.',
-      skills: ['Machine Learning', 'Model Evaluation', 'Scikit-learn', 'Kaggle'],
+      skills: [
+        'Machine Learning',
+        'Model Evaluation',
+        'Scikit-learn',
+        'Kaggle'
+      ],
       resources: [
         _RoadmapResourceSpec(
           title: 'ML Specialization',
           platform: 'Coursera (Andrew Ng)',
-          url: 'https://coursera.org/specializations/machine-learning-introduction',
+          url:
+              'https://coursera.org/specializations/machine-learning-introduction',
           isFree: false,
           duration: '3 months',
           icon: '🧠',
@@ -2564,7 +2699,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'Data Science Portfolio Guide',
           platform: 'YouTube',
-          url: 'https://youtube.com/results?search_query=data+science+portfolio',
+          url:
+              'https://youtube.com/results?search_query=data+science+portfolio',
           isFree: true,
           duration: '3 weeks',
           icon: '💼',
@@ -2650,14 +2786,14 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
   'web_developer': const _CareerRoadmapSpec([
     _RoadmapPhaseSpec(
       title: 'Web Foundations',
-      description:
-          'The three pillars every web page is built on.',
+      description: 'The three pillars every web page is built on.',
       skills: ['HTML', 'CSS', 'JavaScript', 'Git'],
       resources: [
         _RoadmapResourceSpec(
           title: 'The Odin Project — Foundations',
           platform: 'The Odin Project',
-          url: 'https://www.theodinproject.com/paths/foundations/courses/foundations',
+          url:
+              'https://www.theodinproject.com/paths/foundations/courses/foundations',
           isFree: true,
           duration: '4 weeks',
           icon: '🌐',
@@ -2675,8 +2811,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
     ),
     _RoadmapPhaseSpec(
       title: 'Modern JavaScript & DOM',
-      description:
-          'Master ES6+, async patterns, and building interactive UIs.',
+      description: 'Master ES6+, async patterns, and building interactive UIs.',
       skills: ['JavaScript', 'DOM', 'Fetch API', 'Async/Await'],
       resources: [
         _RoadmapResourceSpec(
@@ -2728,14 +2863,14 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
   'frontend_dev': const _CareerRoadmapSpec([
     _RoadmapPhaseSpec(
       title: 'Web Foundations',
-      description:
-          'Structure, style and behaviour of every web page.',
+      description: 'Structure, style and behaviour of every web page.',
       skills: ['HTML', 'CSS', 'JavaScript', 'Git'],
       resources: [
         _RoadmapResourceSpec(
           title: 'The Odin Project — Foundations',
           platform: 'The Odin Project',
-          url: 'https://www.theodinproject.com/paths/foundations/courses/foundations',
+          url:
+              'https://www.theodinproject.com/paths/foundations/courses/foundations',
           isFree: true,
           duration: '4 weeks',
           icon: '🌐',
@@ -2817,8 +2952,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
     ),
     _RoadmapPhaseSpec(
       title: 'Data Structures & Algorithms',
-      description:
-          'The core toolkit for every technical interview.',
+      description: 'The core toolkit for every technical interview.',
       skills: ['Data Structures & Algorithms', 'Big-O', 'Problem Solving'],
       resources: [
         _RoadmapResourceSpec(
@@ -2834,8 +2968,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
     ),
     _RoadmapPhaseSpec(
       title: 'System Design & Databases',
-      description:
-          'Design and reason about real, scalable systems.',
+      description: 'Design and reason about real, scalable systems.',
       skills: ['System Design', 'Databases', 'APIs'],
       resources: [
         _RoadmapResourceSpec(
@@ -2851,8 +2984,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
     ),
     _RoadmapPhaseSpec(
       title: 'Portfolio & Job Ready',
-      description:
-          'Ship real projects, prepare stories, and start applying.',
+      description: 'Ship real projects, prepare stories, and start applying.',
       skills: ['Portfolio', 'Interview Prep', 'System Design'],
       resources: [
         _RoadmapResourceSpec(
@@ -2872,8 +3004,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
   'cyber_security': const _CareerRoadmapSpec([
     _RoadmapPhaseSpec(
       title: 'Networking & Linux Foundations',
-      description:
-          'The two things every security professional must know cold.',
+      description: 'The two things every security professional must know cold.',
       skills: ['Networking', 'Linux', 'TCP/IP', 'Command Line'],
       resources: [
         _RoadmapResourceSpec(
@@ -2899,7 +3030,12 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
       title: 'Security Fundamentals',
       description:
           'Core concepts: authentication, encryption, hashing, secure design.',
-      skills: ['Security Fundamentals', 'Cryptography', 'Authentication', 'Authorization'],
+      skills: [
+        'Security Fundamentals',
+        'Cryptography',
+        'Authentication',
+        'Authorization'
+      ],
       resources: [
         _RoadmapResourceSpec(
           title: 'TryHackMe — Pre-Security Path',
@@ -2916,7 +3052,12 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
       title: 'Offensive Security',
       description:
           'Ethical hacking, reconnaissance, exploitation and reporting.',
-      skills: ['Penetration Testing', 'Reconnaissance', 'Exploitation', 'Reporting'],
+      skills: [
+        'Penetration Testing',
+        'Reconnaissance',
+        'Exploitation',
+        'Reporting'
+      ],
       resources: [
         _RoadmapResourceSpec(
           title: 'TryHackMe — Jr Penetration Tester',
@@ -2986,7 +3127,12 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
       title: 'Ethical Hacking Tooling',
       description:
           'Reconnaissance, scanning, exploitation and post-exploitation with real tools.',
-      skills: ['Penetration Testing', 'Reconnaissance', 'Exploitation', 'Metasploit'],
+      skills: [
+        'Penetration Testing',
+        'Reconnaissance',
+        'Exploitation',
+        'Metasploit'
+      ],
       resources: [
         _RoadmapResourceSpec(
           title: 'TryHackMe — Jr Penetration Tester',
@@ -3029,7 +3175,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'Google UX Design Certificate',
           platform: 'Coursera (Google)',
-          url: 'https://coursera.org/professional-certificates/google-ux-design',
+          url:
+              'https://coursera.org/professional-certificates/google-ux-design',
           isFree: false,
           duration: '3 months',
           icon: '🎨',
@@ -3099,7 +3246,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'Google UX Design Certificate',
           platform: 'Coursera (Google)',
-          url: 'https://coursera.org/professional-certificates/google-ux-design',
+          url:
+              'https://coursera.org/professional-certificates/google-ux-design',
           isFree: false,
           duration: '3 months',
           icon: '🎨',
@@ -3143,8 +3291,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
     ),
     _RoadmapPhaseSpec(
       title: 'Portfolio & Job Ready',
-      description:
-          'Turn your best work into case studies that get interviews.',
+      description: 'Turn your best work into case studies that get interviews.',
       skills: ['Portfolio', 'Case Studies', 'Interview Prep'],
       resources: [
         _RoadmapResourceSpec(
@@ -3188,7 +3335,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'Docker & Kubernetes Guide',
           platform: 'YouTube (TechWorld with Nana)',
-          url: 'https://youtube.com/results?search_query=techworld+with+nana+docker+kubernetes',
+          url:
+              'https://youtube.com/results?search_query=techworld+with+nana+docker+kubernetes',
           isFree: true,
           duration: '5 weeks',
           icon: '🐳',
@@ -3236,8 +3384,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
   'qa_engineer': const _CareerRoadmapSpec([
     _RoadmapPhaseSpec(
       title: 'Testing Fundamentals',
-      description:
-          'The mindset and vocabulary of software quality.',
+      description: 'The mindset and vocabulary of software quality.',
       skills: ['Software Testing Fundamentals', 'Testing', 'Test Design'],
       resources: [
         _RoadmapResourceSpec(
@@ -3270,8 +3417,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
     ),
     _RoadmapPhaseSpec(
       title: 'Automation & Tooling',
-      description:
-          'Automate the boring parts — API tests, UI tests, CI.',
+      description: 'Automate the boring parts — API tests, UI tests, CI.',
       skills: ['Automation', 'Python', 'APIs', 'Git'],
       resources: [
         _RoadmapResourceSpec(
@@ -3325,8 +3471,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
     ),
     _RoadmapPhaseSpec(
       title: 'Smart Contracts & Solidity',
-      description:
-          'Write, test, and deploy contracts on Ethereum.',
+      description: 'Write, test, and deploy contracts on Ethereum.',
       skills: ['Smart Contracts', 'Solidity', 'Testing'],
       resources: [
         _RoadmapResourceSpec(
@@ -3359,8 +3504,7 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
     ),
     _RoadmapPhaseSpec(
       title: 'dApps & Portfolio',
-      description:
-          'Build a full dApp, ship it, and showcase your contracts.',
+      description: 'Build a full dApp, ship it, and showcase your contracts.',
       skills: ['JavaScript', 'Web3', 'Portfolio'],
       resources: [
         _RoadmapResourceSpec(
@@ -3438,7 +3582,8 @@ final Map<String, _CareerRoadmapSpec> _careerRoadmapSpecs = {
         _RoadmapResourceSpec(
           title: 'System Design Interview Guide',
           platform: 'YouTube',
-          url: 'https://youtube.com/results?search_query=system+design+interview',
+          url:
+              'https://youtube.com/results?search_query=system+design+interview',
           isFree: true,
           duration: '3 weeks',
           icon: '💼',

@@ -71,7 +71,8 @@ class CompanyIntelligenceLiveSourceCatalog {
       companyId: 'together_ai',
       companyName: 'Together AI',
       sourceType: CompanySourceType.greenhouse,
-      sourceUrl: CompanyIntelligenceSourceCatalog.greenhouseApiUrl('togetherai'),
+      sourceUrl:
+          CompanyIntelligenceSourceCatalog.greenhouseApiUrl('togetherai'),
       sourceLabel: 'Together AI official Greenhouse job board',
       isOfficialCompanySource: true,
       supportsLiveJobs: true,
@@ -155,8 +156,7 @@ class CompanyIntelligenceLiveSourceCatalog {
     final normalized = CompanyIntelligenceIds.fromIdOrName(companyId);
 
     for (final source in _sources) {
-      if (CompanyIntelligenceIds.fromIdOrName(source.companyId) ==
-          normalized) {
+      if (CompanyIntelligenceIds.fromIdOrName(source.companyId) == normalized) {
         return source;
       }
     }

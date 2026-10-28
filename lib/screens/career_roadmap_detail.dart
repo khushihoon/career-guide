@@ -20,7 +20,7 @@ import '../widgets/resource_card.dart'; // ← interactive resource cards
 
 class CareerRoadmapDetail extends StatefulWidget {
   final CareerData career;
-  final Color      catColor;
+  final Color catColor;
 
   const CareerRoadmapDetail({
     super.key,
@@ -34,12 +34,12 @@ class CareerRoadmapDetail extends StatefulWidget {
 
 class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
   // ── Design tokens (match whole app) ─────────────────────────────────
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
 
   // Progress state — parallel to _phases list
   late List<bool> _done;
@@ -64,16 +64,17 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
   }
 
   Future<void> _toggle(int index) async {
-    final prefs  = await SharedPreferences.getInstance();
-    final phase  = widget.career.phases[index];
+    final prefs = await SharedPreferences.getInstance();
+    final phase = widget.career.phases[index];
     final newVal = !_done[index];
     setState(() => _done[index] = newVal);
     await prefs.setBool(_key(phase.id), newVal);
   }
 
-  int    get _doneCount => _done.where((d) => d).length;
-  double get _progress  =>
-      widget.career.phases.isEmpty ? 0 : _doneCount / widget.career.phases.length;
+  int get _doneCount => _done.where((d) => d).length;
+  double get _progress => widget.career.phases.isEmpty
+      ? 0
+      : _doneCount / widget.career.phases.length;
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +93,8 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      width: 38, height: 38,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
                         color: _surface,
                         borderRadius: BorderRadius.circular(10),
@@ -125,7 +127,8 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
                     // Career icon + meta row
                     Row(children: [
                       Container(
-                        width: 56, height: 56,
+                        width: 56,
+                        height: 56,
                         decoration: BoxDecoration(
                           color: widget.catColor.withOpacity(0.14),
                           borderRadius: BorderRadius.circular(16),
@@ -144,16 +147,12 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
                           children: [
                             Text(career.tagline,
                                 style: const TextStyle(
-                                    color: _muted,
-                                    fontSize: 13,
-                                    height: 1.3)),
+                                    color: _muted, fontSize: 13, height: 1.3)),
                             const SizedBox(height: 6),
                             Row(children: [
-                              _metaChip(career.level,
-                                  widget.catColor),
+                              _metaChip(career.level, widget.catColor),
                               const SizedBox(width: 6),
-                              _metaChip(
-                                  '${career.phases.length} phases',
+                              _metaChip('${career.phases.length} phases',
                                   const Color(0xFF60A5FA)),
                             ]),
                           ],
@@ -170,8 +169,7 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
                         Row(children: [
                           Text(
                             '$_doneCount/${career.phases.length} phases completed',
-                            style: const TextStyle(
-                                color: _muted, fontSize: 12),
+                            style: const TextStyle(color: _muted, fontSize: 12),
                           ),
                           const Spacer(),
                           Text(
@@ -206,23 +204,25 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
 
                     // Top skills row
                     Wrap(
-                      spacing: 6, runSpacing: 6,
-                      children: career.skills.map((s) =>
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _primary.withOpacity(0.10),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color: _primary.withOpacity(0.25)),
-                          ),
-                          child: Text(s,
-                              style: const TextStyle(
-                                  color: _secondary,
-                                  fontSize: 11)),
-                        ),
-                      ).toList(),
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: career.skills
+                          .map(
+                            (s) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _primary.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: _primary.withOpacity(0.25)),
+                              ),
+                              child: Text(s,
+                                  style: const TextStyle(
+                                      color: _secondary, fontSize: 11)),
+                            ),
+                          )
+                          .toList(),
                     ).animate().fadeIn(delay: 130.ms),
 
                     const SizedBox(height: 18),
@@ -250,21 +250,20 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
                     return Column(
                       children: [
                         _CareerPhaseCard(
-                          phase:     career.phases[i],
-                          index:     i,
-                          isDone:    _done[i],
-                          catColor:  widget.catColor,
-                          onToggle:  () => _toggle(i),
+                          phase: career.phases[i],
+                          index: i,
+                          isDone: _done[i],
+                          catColor: widget.catColor,
+                          onToggle: () => _toggle(i),
                         )
                             .animate()
-                            .fadeIn(
-                                delay:
-                                    Duration(milliseconds: 170 + i * 45))
+                            .fadeIn(delay: Duration(milliseconds: 170 + i * 45))
                             .slideY(begin: 0.08, duration: 280.ms),
                         if (i < career.phases.length - 1)
                           Center(
                             child: Container(
-                              width: 2, height: 16,
+                              width: 2,
+                              height: 16,
                               color: _done[i]
                                   ? widget.catColor.withOpacity(0.5)
                                   : _border,
@@ -279,15 +278,12 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
             ),
 
             // ── Completion banner ──────────────────────────────────────
-            if (_doneCount == career.phases.length &&
-                career.phases.isNotEmpty)
+            if (_doneCount == career.phases.length && career.phases.isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: _CompletionBanner(career: career),
-                ).animate().scale(
-                    duration: 600.ms,
-                    curve: Curves.elasticOut),
+                ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
               ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 48)),
@@ -306,9 +302,7 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
         ),
         child: Text(label,
             style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w600)),
+                color: color, fontSize: 10, fontWeight: FontWeight.w600)),
       );
 }
 
@@ -317,10 +311,10 @@ class _CareerRoadmapDetailState extends State<CareerRoadmapDetail> {
 // ══════════════════════════════════════════════════════════════════════
 
 class _CareerPhaseCard extends StatefulWidget {
-  final CareerPhase  phase;
-  final int          index;
-  final bool         isDone;
-  final Color        catColor;
+  final CareerPhase phase;
+  final int index;
+  final bool isDone;
+  final Color catColor;
   final VoidCallback onToggle;
 
   const _CareerPhaseCard({
@@ -338,18 +332,18 @@ class _CareerPhaseCard extends StatefulWidget {
 class _CareerPhaseCardState extends State<_CareerPhaseCard> {
   bool _expanded = false;
 
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
 
   @override
   Widget build(BuildContext context) {
-    final p        = widget.phase;
-    final done     = widget.isDone;
+    final p = widget.phase;
+    final done = widget.isDone;
     final catColor = widget.catColor;
-    final lvColor  = Color(int.parse('FF${p.levelColor}', radix: 16));
+    final lvColor = Color(int.parse('FF${p.levelColor}', radix: 16));
 
     return Container(
       decoration: BoxDecoration(
@@ -373,22 +367,24 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
                 onTap: widget.onToggle,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
-                  width: 40, height: 40,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: done ? catColor : const Color(0xFF0F0F20),
                     shape: BoxShape.circle,
-                    border: Border.all(
-                        color: done ? catColor : _border),
+                    border: Border.all(color: done ? catColor : _border),
                     boxShadow: done
-                        ? [BoxShadow(
-                            color: catColor.withOpacity(0.3),
-                            blurRadius: 8, spreadRadius: 1)]
+                        ? [
+                            BoxShadow(
+                                color: catColor.withOpacity(0.3),
+                                blurRadius: 8,
+                                spreadRadius: 1)
+                          ]
                         : [],
                   ),
                   child: Center(
                     child: done
-                        ? const Icon(Icons.check,
-                            size: 20, color: Colors.white)
+                        ? const Icon(Icons.check, size: 20, color: Colors.white)
                         : Text('${widget.index + 1}',
                             style: const TextStyle(
                                 color: _muted,
@@ -412,12 +408,10 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
                         )),
                     const SizedBox(height: 2),
                     Text(p.subtitle,
-                        style: const TextStyle(
-                            color: _muted, fontSize: 12)),
+                        style: const TextStyle(color: _muted, fontSize: 12)),
                     const SizedBox(height: 5),
                     Row(children: [
-                      _chip(p.duration,
-                          const Color(0xFF60A5FA)),
+                      _chip(p.duration, const Color(0xFF60A5FA)),
                       const SizedBox(width: 6),
                       _chip(p.level, lvColor),
                     ]),
@@ -427,10 +421,9 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
 
               // Expand arrow
               Icon(
-                _expanded
-                    ? Icons.expand_less
-                    : Icons.expand_more,
-                color: _muted, size: 22,
+                _expanded ? Icons.expand_less : Icons.expand_more,
+                color: _muted,
+                size: 22,
               ),
             ]),
           ),
@@ -447,20 +440,17 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
                 // Salary unlock
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: catColor.withOpacity(0.09),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: catColor.withOpacity(0.28)),
+                    border: Border.all(color: catColor.withOpacity(0.28)),
                   ),
                   child: Row(children: [
-                    const Text('💰 ',
-                        style: TextStyle(fontSize: 14)),
+                    const Text('💰 ', style: TextStyle(fontSize: 14)),
                     const Text('Salary after this phase: ',
-                        style: TextStyle(
-                            color: _muted, fontSize: 12)),
+                        style: TextStyle(color: _muted, fontSize: 12)),
                     Flexible(
                       child: Text(p.salaryUnlock,
                           style: TextStyle(
@@ -482,8 +472,7 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('  • ',
-                              style: TextStyle(
-                                  color: catColor, fontSize: 13)),
+                              style: TextStyle(color: catColor, fontSize: 13)),
                           Expanded(
                             child: Text(t,
                                 style: const TextStyle(
@@ -501,20 +490,23 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
                 _sectionLabel('🛠️ Tools & Libraries'),
                 const SizedBox(height: 8),
                 Wrap(
-                  spacing: 6, runSpacing: 6,
-                  children: p.tools.map((t) => Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F0F20),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: const Color(0xFF333345)),
-                    ),
-                    child: Text(t,
-                        style: const TextStyle(
-                            color: _secondary, fontSize: 11)),
-                  )).toList(),
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: p.tools
+                      .map((t) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F0F20),
+                              borderRadius: BorderRadius.circular(8),
+                              border:
+                                  Border.all(color: const Color(0xFF333345)),
+                            ),
+                            child: Text(t,
+                                style: const TextStyle(
+                                    color: _secondary, fontSize: 11)),
+                          ))
+                      .toList(),
                 ),
 
                 const SizedBox(height: 14),
@@ -528,14 +520,11 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F1A0F),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: const Color(0xFF1A3A1A)),
+                    border: Border.all(color: const Color(0xFF1A3A1A)),
                   ),
                   child: Text(p.project,
                       style: const TextStyle(
-                          color: Color(0xFF6EE7B7),
-                          fontSize: 13,
-                          height: 1.4)),
+                          color: Color(0xFF6EE7B7), fontSize: 13, height: 1.4)),
                 ),
 
                 const SizedBox(height: 14),
@@ -562,13 +551,11 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
                         ? 'Continue Learning'
                         : 'Click On Course Section ✓'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: widget.isDone
-                          ? _muted
-                          : const Color(0xFF4ADE80),
+                      foregroundColor:
+                          widget.isDone ? _muted : const Color(0xFF4ADE80),
                       side: BorderSide(
-                        color: widget.isDone
-                            ? _border
-                            : const Color(0xFF4ADE80),
+                        color:
+                            widget.isDone ? _border : const Color(0xFF4ADE80),
                         width: 1.5,
                       ),
                       shape: RoundedRectangleBorder(
@@ -586,22 +573,18 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
   }
 
   Widget _chip(String label, Color color) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: color.withOpacity(0.3)),
         ),
-        child: Text(label,
-            style: TextStyle(color: color, fontSize: 10)),
+        child: Text(label, style: TextStyle(color: color, fontSize: 10)),
       );
 
   Widget _sectionLabel(String t) => Text(t,
       style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 13));
+          color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13));
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -628,8 +611,7 @@ class _CompletionBanner extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: const Color(0xFF4ADE80).withOpacity(0.4),
-            width: 1.5),
+            color: const Color(0xFF4ADE80).withOpacity(0.4), width: 1.5),
       ),
       child: Column(children: [
         const Text('🎉', style: TextStyle(fontSize: 48)),
@@ -638,28 +620,22 @@ class _CompletionBanner extends StatelessWidget {
           '${career.title} Roadmap Complete!',
           textAlign: TextAlign.center,
           style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold),
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         const Text(
           'You\'ve completed every phase.\nTime to apply what you\'ve learned — build a project, update your LinkedIn, and start applying!',
           textAlign: TextAlign.center,
-          style: TextStyle(
-              color: Color(0xFF888899),
-              fontSize: 13,
-              height: 1.5),
+          style: TextStyle(color: Color(0xFF888899), fontSize: 13, height: 1.5),
         ),
         const SizedBox(height: 16),
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
           decoration: BoxDecoration(
             color: const Color(0xFF4ADE80).withOpacity(0.12),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: const Color(0xFF4ADE80).withOpacity(0.35)),
+            border:
+                Border.all(color: const Color(0xFF4ADE80).withOpacity(0.35)),
           ),
           child: const Text(
             '✅ Roadmap Completed',

@@ -32,8 +32,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -58,7 +57,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Replit',
     officialWebsite: 'https://replit.com',
     careersWebsite: 'https://replit.com/careers',
-    description: 'Software creation platform building an agentic creation platform.',
+    description:
+        'Software creation platform building an agentic creation platform.',
     evidenceAreas: [
       'Software Engineering',
       'Agentic AI',
@@ -84,8 +84,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -120,7 +119,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Google DeepMind',
     officialWebsite: 'https://deepmind.google',
     careersWebsite: 'https://deepmind.google/careers/',
-    description: 'AI research and engineering organization working on advanced AI systems.',
+    description:
+        'AI research and engineering organization working on advanced AI systems.',
     evidenceAreas: [
       'AI Research',
       'Machine Learning',
@@ -137,8 +137,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -147,8 +146,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -156,7 +154,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Salesforce',
     officialWebsite: 'https://www.salesforce.com',
     careersWebsite: 'https://careers.salesforce.com/',
-    description: 'Salesforce develops enterprise CRM and AI-enabled business applications.',
+    description:
+        'Salesforce develops enterprise CRM and AI-enabled business applications.',
     evidenceAreas: [
       'AI',
       'Software Engineering',
@@ -184,7 +183,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Notion AI',
     officialWebsite: 'https://www.notion.com',
     careersWebsite: 'https://www.notion.com/careers',
-    description: 'Productivity and collaboration software company with AI-enabled products.',
+    description:
+        'Productivity and collaboration software company with AI-enabled products.',
     evidenceAreas: [
       'Software Engineering',
       'Data Science',
@@ -199,8 +199,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -222,7 +221,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'OpenAI',
     officialWebsite: 'https://openai.com',
     careersWebsite: 'https://openai.com/careers/',
-    description: 'AI research and product company building and deploying AI systems.',
+    description:
+        'AI research and product company building and deploying AI systems.',
     evidenceAreas: [
       'Applied AI',
       'Software Engineering',
@@ -238,7 +238,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Anthropic',
     officialWebsite: 'https://www.anthropic.com',
     careersWebsite: 'https://www.anthropic.com/careers',
-    description: 'AI company focused on AI systems, research, infrastructure and safety.',
+    description:
+        'AI company focused on AI systems, research, infrastructure and safety.',
     evidenceAreas: [
       'AI Research',
       'Machine Learning',
@@ -255,8 +256,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -265,8 +265,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -275,8 +274,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -285,8 +283,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -295,8 +292,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -305,8 +301,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -315,8 +310,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -325,8 +319,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -335,8 +328,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -345,8 +337,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -354,7 +345,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Synthesia',
     officialWebsite: 'https://www.synthesia.io',
     careersWebsite: 'https://www.synthesia.io/careers',
-    description: 'AI video company building tools for business communication and training.',
+    description:
+        'AI video company building tools for business communication and training.',
     evidenceAreas: [
       'AI Video',
       'Software Engineering',
@@ -397,8 +389,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -407,8 +398,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -416,7 +406,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Mistral AI',
     officialWebsite: 'https://mistral.ai',
     careersWebsite: 'https://mistral.ai/careers/',
-    description: 'Independent AI company building frontier AI models, products and solutions.',
+    description:
+        'Independent AI company building frontier AI models, products and solutions.',
     evidenceAreas: [
       'Science',
       'Product & Engineering',
@@ -431,8 +422,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -441,8 +431,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -451,8 +440,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -478,7 +466,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Scale AI',
     officialWebsite: 'https://scale.com',
     careersWebsite: 'https://scale.com/careers',
-    description: 'AI data and infrastructure company developing reliable AI systems.',
+    description:
+        'AI data and infrastructure company developing reliable AI systems.',
     evidenceAreas: [
       'RLHF',
       'Generative AI',
@@ -493,7 +482,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Together AI',
     officialWebsite: 'https://www.together.ai',
     careersWebsite: 'https://www.together.ai/careers',
-    description: 'AI infrastructure company building software, hardware, algorithms and models.',
+    description:
+        'AI infrastructure company building software, hardware, algorithms and models.',
     evidenceAreas: [
       'AI Infrastructure',
       'Inference',
@@ -520,7 +510,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Cerebras Systems',
     officialWebsite: 'https://www.cerebras.ai',
     careersWebsite: 'https://www.cerebras.ai/join-us',
-    description: 'AI compute company building specialized systems for AI workloads.',
+    description:
+        'AI compute company building specialized systems for AI workloads.',
     evidenceAreas: [
       'Machine Learning',
       'Inference',
@@ -550,8 +541,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -560,8 +550,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -570,8 +559,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -580,8 +568,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -590,8 +577,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -600,8 +586,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -610,8 +595,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -620,8 +604,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -630,8 +613,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -639,7 +621,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'DataRobot',
     officialWebsite: 'https://www.datarobot.com',
     careersWebsite: 'https://www.datarobot.com/careers/',
-    description: 'Enterprise AI company focused on deploying AI and agentic AI.',
+    description:
+        'Enterprise AI company focused on deploying AI and agentic AI.',
     evidenceAreas: [
       'Agentic AI',
       'Enterprise AI',
@@ -653,8 +636,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -663,8 +645,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -673,8 +654,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -682,7 +662,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Recursion Pharmaceuticals',
     officialWebsite: 'https://www.recursion.com',
     careersWebsite: 'https://recursion.com/careers',
-    description: 'TechBio company using technology and machine learning to industrialize drug discovery.',
+    description:
+        'TechBio company using technology and machine learning to industrialize drug discovery.',
     evidenceAreas: [
       'Machine Learning',
       'TechBio',
@@ -712,8 +693,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -721,7 +701,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Abridge',
     officialWebsite: 'https://www.abridge.com',
     careersWebsite: 'https://www.abridge.com/life-at-abridge',
-    description: 'Healthcare AI company developing clinical conversation technology.',
+    description:
+        'Healthcare AI company developing clinical conversation technology.',
     evidenceAreas: [
       'Machine Learning',
       'Platform Engineering',
@@ -735,8 +716,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -744,7 +724,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Glean',
     officialWebsite: 'https://www.glean.com',
     careersWebsite: 'https://www.glean.com/careers',
-    description: 'Enterprise AI company focused on helping people find and use organizational knowledge.',
+    description:
+        'Enterprise AI company focused on helping people find and use organizational knowledge.',
     evidenceAreas: [
       'Enterprise AI',
       'Software Engineering',
@@ -786,8 +767,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -796,8 +776,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -806,8 +785,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -827,7 +805,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Otter.ai',
     officialWebsite: 'https://otter.ai',
     careersWebsite: 'https://otter.ai/careers',
-    description: 'AI company building tools that help people work more effectively.',
+    description:
+        'AI company building tools that help people work more effectively.',
     evidenceAreas: [
       'AI',
       'Software Engineering',
@@ -840,8 +819,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -850,8 +828,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -884,7 +861,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Yellow.ai',
     officialWebsite: 'https://yellow.ai',
     careersWebsite: 'https://yellow.ai/career/',
-    description: 'AI company developing conversational and customer-experience solutions.',
+    description:
+        'AI company developing conversational and customer-experience solutions.',
     evidenceAreas: [
       'Conversational AI',
       'AI Agents',
@@ -897,7 +875,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Observe.AI',
     officialWebsite: 'https://www.observe.ai',
     careersWebsite: 'https://www.observe.ai/careers',
-    description: 'AI company focused on customer conversations and contact-center experiences.',
+    description:
+        'AI company focused on customer conversations and contact-center experiences.',
     evidenceAreas: [
       'AI Agents',
       'AI Copilots',
@@ -910,7 +889,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Tesla AI',
     officialWebsite: 'https://www.tesla.com',
     careersWebsite: 'https://www.tesla.com/en_in/careers',
-    description: 'Tesla develops AI and autonomy for vehicles and humanoid robotics.',
+    description:
+        'Tesla develops AI and autonomy for vehicles and humanoid robotics.',
     evidenceAreas: [
       'Deep Learning',
       'Computer Vision',
@@ -941,8 +921,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -951,8 +930,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -961,8 +939,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -971,8 +948,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -980,7 +956,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Pika Labs',
     officialWebsite: 'https://pika.art',
     careersWebsite: 'https://pika.art/careers',
-    description: 'AI-native creation company focused on image and video generation.',
+    description:
+        'AI-native creation company focused on image and video generation.',
     evidenceAreas: [
       'AI Research',
       'Generative AI',
@@ -1009,7 +986,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Stability AI',
     officialWebsite: 'https://stability.ai',
     careersWebsite: 'https://stability.ai/careers',
-    description: 'Generative AI company developing open models and creative applications.',
+    description:
+        'Generative AI company developing open models and creative applications.',
     evidenceAreas: [
       'Generative AI',
       'Image',
@@ -1025,7 +1003,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Midjourney',
     officialWebsite: 'https://www.midjourney.com',
     careersWebsite: 'https://www.midjourney.com/careers',
-    description: 'AI research group building tools for image and video generation.',
+    description:
+        'AI research group building tools for image and video generation.',
     evidenceAreas: [
       'Infrastructure',
       'Inference Optimization',
@@ -1041,8 +1020,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -1050,7 +1028,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Harvey AI',
     officialWebsite: 'https://www.harvey.ai',
     careersWebsite: 'https://www.harvey.ai/careers',
-    description: 'AI company building software for legal and professional services.',
+    description:
+        'AI company building software for legal and professional services.',
     evidenceAreas: [
       'Legal AI',
       'AI Applications',
@@ -1063,7 +1042,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Khanmigo (Khan Academy)',
     officialWebsite: 'https://www.khanacademy.org',
     careersWebsite: 'https://www.khanacademy.org/about/careers',
-    description: 'Khan Academy is a nonprofit education organization; Khanmigo is its AI-powered learning product.',
+    description:
+        'Khan Academy is a nonprofit education organization; Khanmigo is its AI-powered learning product.',
     evidenceAreas: [
       'Education Technology',
       'AI',
@@ -1075,7 +1055,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Moveworks',
     officialWebsite: 'https://www.moveworks.com',
     careersWebsite: 'https://www.moveworks.com/us/en/company/careers',
-    description: 'Enterprise AI platform focused on search, automation and AI agents.',
+    description:
+        'Enterprise AI platform focused on search, automation and AI agents.',
     evidenceAreas: [
       'Machine Learning',
       'Agentic AI',
@@ -1091,8 +1072,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -1101,8 +1081,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -1110,7 +1089,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Letta (MemGPT)',
     officialWebsite: 'https://www.letta.com',
     careersWebsite: 'https://www.letta.com/join-us/',
-    description: 'AI company focused on persistent memory and continual-learning agents.',
+    description:
+        'AI company focused on persistent memory and continual-learning agents.',
     evidenceAreas: [
       'AI Agents',
       'Memory',
@@ -1126,8 +1106,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -1136,8 +1115,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -1146,8 +1124,7 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     officialWebsite: '',
     careersWebsite: '',
     description: '',
-    evidenceAreas: [
-    ],
+    evidenceAreas: [],
     sourceChecked: false,
   ),
   CompanyReferenceEvidence(
@@ -1184,7 +1161,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'Chroma',
     officialWebsite: 'https://www.trychroma.com',
     careersWebsite: 'https://www.trychroma.com/careers',
-    description: 'Company building data and search infrastructure for AI agents.',
+    description:
+        'Company building data and search infrastructure for AI agents.',
     evidenceAreas: [
       'Database Storage',
       'Distributed Systems',
@@ -1226,7 +1204,8 @@ const List<CompanyReferenceEvidence> companyReferenceEvidence = [
     canonicalName: 'CrowdStrike',
     officialWebsite: 'https://www.crowdstrike.com',
     careersWebsite: 'https://www.crowdstrike.com/en-us/careers/',
-    description: 'Cybersecurity company developing AI-enabled security technology.',
+    description:
+        'Cybersecurity company developing AI-enabled security technology.',
     evidenceAreas: [
       'Cybersecurity',
       'AI',

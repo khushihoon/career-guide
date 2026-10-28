@@ -86,10 +86,10 @@ class AnalyticsScreen extends StatefulWidget {
 }
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
-  static const _bg        = Color(0xFF0F0F1A);
-  static const _primary   = Color(0xFF7C3AED);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _primary = Color(0xFF7C3AED);
   static const _secondary = Color(0xFFA78BFA);
-  static const _muted     = Color(0xFF888899);
+  static const _muted = Color(0xFF888899);
 
   // Derived / cached analytics loaded from analytics/{uid}. Never treated
   // as authoritative for any current value.
@@ -163,7 +163,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       _authoritativeXp = xp;
       _authoritativeGoalsCompleted = goals;
       _loading = false;
-      _loadError = cacheError && !cache.hasAnyData && xp == null && goals == null;
+      _loadError =
+          cacheError && !cache.hasAnyData && xp == null && goals == null;
     });
   }
 
@@ -186,9 +187,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   NextBestAction? _nextAction(CopilotController? ctrl) {
     final ctx = ctrl?.copilotContext;
     if (ctx == null || ctx.nextActions.isEmpty) return null;
-    final incomplete = ctx.nextActions
-        .where((a) => !a.isCompleted)
-        .toList()
+    final incomplete = ctx.nextActions.where((a) => !a.isCompleted).toList()
       ..sort((a, b) => a.priority.compareTo(b.priority));
     if (incomplete.isNotEmpty) return incomplete.first;
     final all = List<NextBestAction>.from(ctx.nextActions)
@@ -219,13 +218,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ctrl  = CopilotProvider.maybeOf(context);
+    final ctrl = CopilotProvider.maybeOf(context);
     final state = ctrl?.state;
 
-    final readiness  = _readiness(ctrl);
+    final readiness = _readiness(ctrl);
     final nextAction = _nextAction(ctrl);
-    final career     = _careerLabel(state);
-    final displayXp  = _displayXp(state);
+    final career = _careerLabel(state);
+    final displayXp = _displayXp(state);
 
     return Scaffold(
       backgroundColor: _bg,
@@ -266,16 +265,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     required String? career,
     required int? displayXp,
   }) {
-    final hasSkillData =
-        (state?.skillProfile?.skills.isNotEmpty ?? false) ||
+    final hasSkillData = (state?.skillProfile?.skills.isNotEmpty ?? false) ||
         _cache.skillMastery.isNotEmpty;
 
-    final hasAnyData =
-        state != null &&
-        (state.hasProfile ||
-            (displayXp ?? 0) > 0 ||
-            state.currentStreak > 0 ||
-            state.todayGoals.isNotEmpty) ||
+    final hasAnyData = state != null &&
+            (state.hasProfile ||
+                (displayXp ?? 0) > 0 ||
+                state.currentStreak > 0 ||
+                state.todayGoals.isNotEmpty) ||
         _cache.hasAnyData ||
         hasSkillData;
 
@@ -288,9 +285,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       children: [
         // Career readiness (authoritative when available; otherwise a
         // neutral card that does not fabricate a score).
-        _CareerReadinessCard(readiness: readiness)
-            .animate()
-            .fadeIn(),
+        _CareerReadinessCard(readiness: readiness).animate().fadeIn(),
 
         const SizedBox(height: 16),
 
@@ -412,7 +407,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
                 Text(nextAction.title,
-                    style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 13)),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -501,7 +497,7 @@ class _AnalyticsCache {
         if (e is! Map) continue;
         try {
           final label = e['week']?.toString() ?? '';
-          final xp    = _toInt(e['xp']);
+          final xp = _toInt(e['xp']);
           if (label.isEmpty) continue;
           weekly.add(WeeklyXp(weekLabel: label, xp: xp));
         } catch (_) {
@@ -595,7 +591,7 @@ class _CareerReadinessCard extends StatelessWidget {
     }
 
     final score = (readiness!.jobReadiness * 100).clamp(0, 100).round();
-    final pct   = score / 100.0;
+    final pct = score / 100.0;
     final color = score >= 75
         ? const Color(0xFF6EE7B7)
         : score >= 50
@@ -742,7 +738,7 @@ class _WeeklyXpChart extends StatelessWidget {
     if (weeks.isEmpty) return const SizedBox.shrink();
 
     final maxXp = weeks.map((w) => w.xp).fold<int>(0, (a, b) => a > b ? a : b);
-    final show  = weeks.length > 8 ? weeks.sublist(weeks.length - 8) : weeks;
+    final show = weeks.length > 8 ? weeks.sublist(weeks.length - 8) : weeks;
 
     return GlassCard(
       child: Column(
@@ -903,19 +899,27 @@ class _DeclaredSkillRow extends StatelessWidget {
   /// This is a UI hint only — NOT a mastery score.
   double get _coarseFraction {
     switch (skill.level) {
-      case SkillLevel.beginner:     return 0.25;
-      case SkillLevel.intermediate: return 0.55;
-      case SkillLevel.advanced:     return 0.80;
-      case SkillLevel.expert:       return 1.00;
+      case SkillLevel.beginner:
+        return 0.25;
+      case SkillLevel.intermediate:
+        return 0.55;
+      case SkillLevel.advanced:
+        return 0.80;
+      case SkillLevel.expert:
+        return 1.00;
     }
   }
 
   Color get _color {
     switch (skill.level) {
-      case SkillLevel.beginner:     return const Color(0xFFF59E0B);
-      case SkillLevel.intermediate: return const Color(0xFF7C3AED);
-      case SkillLevel.advanced:     return const Color(0xFF6EE7B7);
-      case SkillLevel.expert:       return const Color(0xFF60A5FA);
+      case SkillLevel.beginner:
+        return const Color(0xFFF59E0B);
+      case SkillLevel.intermediate:
+        return const Color(0xFF7C3AED);
+      case SkillLevel.advanced:
+        return const Color(0xFF6EE7B7);
+      case SkillLevel.expert:
+        return const Color(0xFF60A5FA);
     }
   }
 
@@ -930,15 +934,13 @@ class _DeclaredSkillRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(skill.name,
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 12)),
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 12)),
               ),
               Text(
                 skill.level.label,
                 style: TextStyle(
-                    color: _color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold),
+                    color: _color, fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -982,15 +984,13 @@ class _MasteryRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(name,
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 12)),
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 12)),
               ),
               Text(
                 '${(value * 100).clamp(0, 100).round()}%',
                 style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold),
+                    color: color, fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1045,13 +1045,13 @@ class _FocusAreaCard extends StatelessWidget {
     } else {
       final profileSkills = state?.skillProfile?.skills ?? const <UserSkill>[];
       if (profileSkills.isNotEmpty) {
-        final weakest = profileSkills.reduce(
-            (a, b) => a.level.value <= b.level.value ? a : b);
+        final weakest = profileSkills
+            .reduce((a, b) => a.level.value <= b.level.value ? a : b);
         focusName = weakest.name;
         focusLabel = 'One of your lowest declared skills';
       } else if (cacheMastery.isNotEmpty) {
-        final weakestEntry = cacheMastery.entries
-            .reduce((a, b) => a.value <= b.value ? a : b);
+        final weakestEntry =
+            cacheMastery.entries.reduce((a, b) => a.value <= b.value ? a : b);
         focusName = weakestEntry.key;
         focusLabel = 'One of your lowest mastery signals';
       }
@@ -1085,8 +1085,8 @@ class _FocusAreaCard extends StatelessWidget {
             if (focusLabel != null) ...[
               const SizedBox(height: 4),
               Text(focusLabel,
-                  style: const TextStyle(
-                      color: Color(0xFF888899), fontSize: 11)),
+                  style:
+                      const TextStyle(color: Color(0xFF888899), fontSize: 11)),
             ],
           ],
           if (nextAction != null) ...[
@@ -1119,8 +1119,8 @@ class _FocusAreaCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text('Start',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600)),
+                    style:
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               ),
             ),
           ] else ...[
@@ -1152,21 +1152,21 @@ class _CareerProgressCard extends StatelessWidget {
     final rows = <Widget>[];
 
     if (readiness != null) {
-      rows.add(_row('Learning', readiness!.learningReadiness,
-          const Color(0xFF60A5FA)));
-      rows.add(_row('Skills', readiness!.skillReadiness,
-          const Color(0xFFA78BFA)));
-      rows.add(_row('Projects', readiness!.projectReadiness,
-          const Color(0xFFF59E0B)));
-      rows.add(_row('Interview', readiness!.interviewReadiness,
-          const Color(0xFF4ADE80)));
+      rows.add(_row(
+          'Learning', readiness!.learningReadiness, const Color(0xFF60A5FA)));
+      rows.add(
+          _row('Skills', readiness!.skillReadiness, const Color(0xFFA78BFA)));
+      rows.add(_row(
+          'Projects', readiness!.projectReadiness, const Color(0xFFF59E0B)));
+      rows.add(_row(
+          'Interview', readiness!.interviewReadiness, const Color(0xFF4ADE80)));
     }
 
     // Roadmap progress from the current Copilot state.
     final roadmap = state?.roadmap;
     if (roadmap != null) {
-      rows.add(_row('Roadmap', roadmap.overallProgress,
-          const Color(0xFF7C3AED)));
+      rows.add(
+          _row('Roadmap', roadmap.overallProgress, const Color(0xFF7C3AED)));
     }
 
     if (rows.isEmpty) return const SizedBox.shrink();
@@ -1286,8 +1286,7 @@ class _StatCell extends StatelessWidget {
                     fontSize: 20,
                     fontWeight: FontWeight.bold)),
             Text(label,
-                style: const TextStyle(
-                    color: Color(0xFF888899), fontSize: 10)),
+                style: const TextStyle(color: Color(0xFF888899), fontSize: 10)),
           ],
         ),
       );

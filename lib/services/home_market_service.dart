@@ -55,16 +55,14 @@ class HomeMarketService {
     const meta = HomeDataMeta(
       status: HomeDataStatus.reference,
       type: HomeDataType.career,
-      note:
-          'Curated career reference data. It is not a live hiring feed.',
+      note: 'Curated career reference data. It is not a live hiring feed.',
     );
 
     return const [
       HomeCareer(
         id: 'software_engineer',
         title: 'Software Engineer',
-        shortDescription:
-            'Builds software products, platforms and systems.',
+        shortDescription: 'Builds software products, platforms and systems.',
         overview:
             'Designs, builds, tests and maintains software used by people and organizations.',
         icon: '💻',
@@ -108,8 +106,7 @@ class HomeMarketService {
       HomeCareer(
         id: 'ai_engineer',
         title: 'AI Engineer',
-        shortDescription:
-            'Builds AI-powered products and intelligent systems.',
+        shortDescription: 'Builds AI-powered products and intelligent systems.',
         overview:
             'Applies machine learning, software engineering and AI technologies to practical intelligent products.',
         icon: '🤖',
@@ -151,8 +148,7 @@ class HomeMarketService {
       HomeCareer(
         id: 'ml_engineer',
         title: 'ML Engineer',
-        shortDescription:
-            'Turns machine-learning models into useful systems.',
+        shortDescription: 'Turns machine-learning models into useful systems.',
         overview:
             'Develops, deploys and maintains machine-learning systems and production pipelines.',
         icon: '🧠',
@@ -194,8 +190,7 @@ class HomeMarketService {
       HomeCareer(
         id: 'data_scientist',
         title: 'Data Scientist',
-        shortDescription:
-            'Uses data, statistics and models to solve problems.',
+        shortDescription: 'Uses data, statistics and models to solve problems.',
         overview:
             'Analyzes data, builds models and communicates findings that support products and decisions.',
         icon: '📊',
@@ -235,8 +230,7 @@ class HomeMarketService {
       HomeCareer(
         id: 'nlp_engineer',
         title: 'NLP Engineer',
-        shortDescription:
-            'Builds systems that work with human language.',
+        shortDescription: 'Builds systems that work with human language.',
         overview:
             'Develops language-processing systems such as search, classification, translation and language-model applications.',
         icon: '🗣️',
@@ -275,8 +269,7 @@ class HomeMarketService {
       HomeCareer(
         id: 'computer_vision_engineer',
         title: 'Computer Vision Engineer',
-        shortDescription:
-            'Builds systems that understand images and video.',
+        shortDescription: 'Builds systems that understand images and video.',
         overview:
             'Develops perception and visual intelligence systems for images, video and physical-world applications.',
         icon: '👁️',
@@ -316,8 +309,7 @@ class HomeMarketService {
       HomeCareer(
         id: 'prompt_engineer',
         title: 'Prompt Engineer',
-        shortDescription:
-            'Designs and evaluates instructions for AI systems.',
+        shortDescription: 'Designs and evaluates instructions for AI systems.',
         overview:
             'Designs, tests and improves instructions and workflows for generative AI systems.',
         icon: '✍️',
@@ -355,8 +347,7 @@ class HomeMarketService {
       HomeCareer(
         id: 'ai_researcher',
         title: 'AI Researcher',
-        shortDescription:
-            'Researches new methods, models and AI capabilities.',
+        shortDescription: 'Researches new methods, models and AI capabilities.',
         overview:
             'Investigates new algorithms, model architectures, learning methods and AI capabilities.',
         icon: '🔬',
@@ -478,8 +469,7 @@ class HomeMarketService {
       HomeCareer(
         id: 'robotics_engineer',
         title: 'Robotics Engineer',
-        shortDescription:
-            'Builds intelligent machines and robotic systems.',
+        shortDescription: 'Builds intelligent machines and robotic systems.',
         overview:
             'Combines software, perception, controls and hardware to build robotic systems.',
         icon: '🦾',
@@ -668,8 +658,7 @@ class HomeMarketService {
       HomeCareerArea(
         id: 'data',
         title: 'Data',
-        description:
-            'Data science, analytics and data engineering.',
+        description: 'Data science, analytics and data engineering.',
         careerIds: [
           'data_scientist',
           'data_engineer',
@@ -679,8 +668,7 @@ class HomeMarketService {
       HomeCareerArea(
         id: 'software',
         title: 'Software',
-        description:
-            'Software engineering, platforms and systems.',
+        description: 'Software engineering, platforms and systems.',
         careerIds: [
           'software_engineer',
           'mlops_engineer',
@@ -690,8 +678,7 @@ class HomeMarketService {
       HomeCareerArea(
         id: 'security',
         title: 'Security',
-        description:
-            'Security engineering and protection of digital systems.',
+        description: 'Security engineering and protection of digital systems.',
         careerIds: [
           'ai_security_engineer',
         ],
@@ -700,8 +687,7 @@ class HomeMarketService {
       HomeCareerArea(
         id: 'robotics',
         title: 'Robotics',
-        description:
-            'Robotics, perception, autonomy and intelligent machines.',
+        description: 'Robotics, perception, autonomy and intelligent machines.',
         careerIds: [
           'robotics_engineer',
           'computer_vision_engineer',
@@ -711,8 +697,7 @@ class HomeMarketService {
       HomeCareerArea(
         id: 'product',
         title: 'AI Product',
-        description:
-            'Product roles that work closely with AI technologies.',
+        description: 'Product roles that work closely with AI technologies.',
         careerIds: [
           'ai_product_manager',
         ],
@@ -787,7 +772,8 @@ class HomeMarketService {
           : 'Company relationship reference. Detailed official profile is pending verification.',
       logo: null,
       focusAreas: List<String>.unmodifiable(company.evidenceAreas),
-      notableRoles: preliminaryCareers.map(_careerTitle).toList(growable: false),
+      notableRoles:
+          preliminaryCareers.map(_careerTitle).toList(growable: false),
       relatedCareerIds: preliminaryCareers,
       products: const [],
       industries: const [],
@@ -890,9 +876,8 @@ class HomeMarketService {
 
     // Keep legacy compatibility only when the canonical relationship layer
     // has no relationship yet.
-    final resolvedCareerIds = careers.isNotEmpty
-        ? careers
-        : company.relatedCareerIds;
+    final resolvedCareerIds =
+        careers.isNotEmpty ? careers : company.relatedCareerIds;
 
     return HomeCompany(
       id: company.id,
@@ -902,9 +887,7 @@ class HomeMarketService {
       description: company.description,
       logo: company.logo,
       focusAreas: company.focusAreas,
-      notableRoles: resolvedCareerIds
-          .map(_careerTitle)
-          .toList(growable: false),
+      notableRoles: resolvedCareerIds.map(_careerTitle).toList(growable: false),
       relatedCareerIds: resolvedCareerIds,
       products: company.products,
       industries: company.industries,
@@ -997,10 +980,9 @@ class HomeMarketService {
 
     return getCompanies()
         .where(
-          (company) =>
-              company.relatedCareerIds.any(
-                (id) => id.toLowerCase() == normalizedCareerId,
-              ),
+          (company) => company.relatedCareerIds.any(
+            (id) => id.toLowerCase() == normalizedCareerId,
+          ),
         )
         .toList(growable: false);
   }
@@ -1026,16 +1008,14 @@ class HomeMarketService {
     const meta = HomeDataMeta(
       status: HomeDataStatus.reference,
       type: HomeDataType.skill,
-      note:
-          'General reference skill signals; not a live demand ranking.',
+      note: 'General reference skill signals; not a live demand ranking.',
     );
 
     return const [
       HomeSkillSignal(
         id: 'programming',
         name: 'Programming',
-        summary:
-            'A foundation across software and many AI engineering paths.',
+        summary: 'A foundation across software and many AI engineering paths.',
         relatedCareerIds: [
           'software_engineer',
           'ai_engineer',
@@ -1046,8 +1026,7 @@ class HomeMarketService {
       HomeSkillSignal(
         id: 'python',
         name: 'Python',
-        summary:
-            'Commonly used across AI, ML, data and automation work.',
+        summary: 'Commonly used across AI, ML, data and automation work.',
         relatedCareerIds: [
           'ai_engineer',
           'ml_engineer',
@@ -1060,8 +1039,7 @@ class HomeMarketService {
       HomeSkillSignal(
         id: 'sql',
         name: 'SQL',
-        summary:
-            'Important for working with structured data and data systems.',
+        summary: 'Important for working with structured data and data systems.',
         relatedCareerIds: [
           'data_scientist',
           'data_engineer',
@@ -1072,8 +1050,7 @@ class HomeMarketService {
       HomeSkillSignal(
         id: 'machine_learning',
         name: 'Machine Learning',
-        summary:
-            'A core technical area for many AI and ML roles.',
+        summary: 'A core technical area for many AI and ML roles.',
         relatedCareerIds: [
           'ai_engineer',
           'ml_engineer',
@@ -1106,8 +1083,7 @@ class HomeMarketService {
     const meta = HomeDataMeta(
       status: HomeDataStatus.reference,
       type: HomeDataType.insight,
-      note:
-          'General career reference context, not a live market forecast.',
+      note: 'General career reference context, not a live market forecast.',
     );
 
     return const [

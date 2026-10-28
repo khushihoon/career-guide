@@ -150,9 +150,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<HomeCareer> get _filteredCareers {
     final query = _search.trim().toLowerCase();
 
-    var careers = query.isEmpty
-        ? _snapshot.careers
-        : _marketService.searchCareers(query);
+    var careers =
+        query.isEmpty ? _snapshot.careers : _marketService.searchCareers(query);
 
     final area = _selectedArea;
 
@@ -468,8 +467,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 7),
               const Text(
-                 "I'm right here\n"
-                 "to guide you.",
+                "I'm right here\n"
+                "to guide you.",
                 style: TextStyle(
                   color: _text,
                   fontSize: 29,
@@ -514,10 +513,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    )
-        .animate()
-        .fadeIn(duration: 450.ms)
-        .slideY(begin: 0.025);
+    ).animate().fadeIn(duration: 450.ms).slideY(begin: 0.025);
   }
 
   Widget _buildSearch() {
@@ -587,9 +583,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCareerWorldSignal() {
-    final insight = _snapshot.insights.isNotEmpty
-        ? _snapshot.insights.first
-        : null;
+    final insight =
+        _snapshot.insights.isNotEmpty ? _snapshot.insights.first : null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -899,8 +894,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 duration: 320.ms,
               )
               .slideY(begin: 0.03),
-          if (i != insights.length - 1)
-            const SizedBox(height: 10),
+          if (i != insights.length - 1) const SizedBox(height: 10),
         ],
       ],
     );
@@ -1009,8 +1003,7 @@ class _HomeScreenState extends State<HomeScreen> {
       (salary) => salary.meta.isLive,
     );
 
-    final bool hasLiveMarketData =
-        hasLiveJobs || hasLiveHiring || hasSalary;
+    final bool hasLiveMarketData = hasLiveJobs || hasLiveHiring || hasSalary;
 
     return Container(
       padding: const EdgeInsets.all(17),
@@ -1018,9 +1011,7 @@ class _HomeScreenState extends State<HomeScreen> {
         color: _surface,
         borderRadius: BorderRadius.circular(21),
         border: Border.all(
-          color: hasLiveMarketData
-              ? _mint.withOpacity(0.22)
-              : _border,
+          color: hasLiveMarketData ? _mint.withOpacity(0.22) : _border,
         ),
       ),
       child: Row(
@@ -1038,9 +1029,7 @@ class _HomeScreenState extends State<HomeScreen> {
               hasLiveMarketData
                   ? Icons.public_rounded
                   : Icons.info_outline_rounded,
-              color: hasLiveMarketData
-                  ? _mint
-                  : _amber,
+              color: hasLiveMarketData ? _mint : _amber,
             ),
           ),
           const SizedBox(width: 12),

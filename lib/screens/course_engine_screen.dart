@@ -1,4 +1,3 @@
-
 // ══════════════════════════════════════════════════════════════════════
 // lib/screens/course_engine_screen.dart
 //
@@ -186,33 +185,32 @@ class _LearningEvidence {
 
 class _CourseEngineScreenState extends State<CourseEngineScreen>
     with TickerProviderStateMixin {
-
   // ── Design tokens ─────────────────────────────────────────────────
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
-  static const _green    = Color(0xFF4ADE80);
-  static const _amber    = Color(0xFFF59E0B);
-  static const _red      = Color(0xFFEF4444);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
+  static const _green = Color(0xFF4ADE80);
+  static const _amber = Color(0xFFF59E0B);
+  static const _red = Color(0xFFEF4444);
 
   // ── State ──────────────────────────────────────────────────────────
-  int    _screen       = 0;
-  int    _conceptIndex = 0;
-  int    _quizIndex    = 0;
-  int    _chalIndex    = 0;
+  int _screen = 0;
+  int _conceptIndex = 0;
+  int _quizIndex = 0;
+  int _chalIndex = 0;
 
-  int    _xpEarned    = 0;
-  int    _quizXpEarned = 0;
-  int    _challengeXpEarned = 0;
-  int    _projectXpEarned = 0;
-  int?   _selectedOpt;
-  bool   _answered    = false;
+  int _xpEarned = 0;
+  int _quizXpEarned = 0;
+  int _challengeXpEarned = 0;
+  int _projectXpEarned = 0;
+  int? _selectedOpt;
+  bool _answered = false;
 
-  bool   _alreadyCompletedBefore = false;
-  bool   _progressPersisted = false;
+  bool _alreadyCompletedBefore = false;
+  bool _progressPersisted = false;
 
   /// In-flight guard for course events. An event id present here means a
   /// persist attempt for that event is currently running. Prevents
@@ -226,7 +224,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
   // ── SharedPreferences keys ────────────────────────────────────────
   String get _doneKey => 'course_done_${widget.course.id}';
-  String get _xpKey   => 'course_xp_${widget.course.id}';
+  String get _xpKey => 'course_xp_${widget.course.id}';
 
   /// Marker that the Copilot completion sync (recordLessonCompleted) has
   /// been confirmed by Firestore. Set ONLY after a successful call, so
@@ -243,8 +241,8 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   Future<void> _loadProgress() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final done          = prefs.getBool(_doneKey) ?? false;
-    final saved         = prefs.getInt(_xpKey) ?? 0;
+    final done = prefs.getBool(_doneKey) ?? false;
+    final saved = prefs.getInt(_xpKey) ?? 0;
     final copilotSynced = prefs.getBool(_copilotSyncKey) ?? false;
 
     if (!mounted) return;
@@ -299,7 +297,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
     } catch (_) {}
   }
 
-  late PageController    _pageCtrl;
+  late PageController _pageCtrl;
   late AnimationController _celebCtrl;
   late AnimationController _xpCtrl;
 
@@ -316,15 +314,18 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
     _loadProgress();
     final c = widget.course;
     _conceptScreenStart = 1;
-    _conceptScreenEnd   = c.concepts.length;
-    _quizScreenId       = c.concepts.length + 1;
-    _chalScreenId       = c.concepts.length + 2;
-    _projectScreenId    = c.concepts.length + 3;
-    _doneScreenId       = c.concepts.length + 4;
+    _conceptScreenEnd = c.concepts.length;
+    _quizScreenId = c.concepts.length + 1;
+    _chalScreenId = c.concepts.length + 2;
+    _projectScreenId = c.concepts.length + 3;
+    _doneScreenId = c.concepts.length + 4;
 
-    _pageCtrl   = PageController();
-    _celebCtrl  = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
-    _xpCtrl     = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _pageCtrl = PageController();
+    _celebCtrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat();
+    _xpCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
   }
 
   @override
@@ -338,17 +339,16 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   void _next() {
     setState(() {
       _selectedOpt = null;
-      _answered    = false;
+      _answered = false;
 
       if (_screen < _doneScreenId) {
         _screen++;
-        if (_screen >= _conceptScreenStart &&
-            _screen <= _conceptScreenEnd) {
+        if (_screen >= _conceptScreenStart && _screen <= _conceptScreenEnd) {
           _conceptIndex = _screen - 1;
         }
-        if (_screen == _quizScreenId)    _quizIndex = 0;
-        if (_screen == _chalScreenId)    _chalIndex = 0;
-        if (_screen == _doneScreenId)    _onComplete();
+        if (_screen == _quizScreenId) _quizIndex = 0;
+        if (_screen == _chalScreenId) _chalIndex = 0;
+        if (_screen == _doneScreenId) _onComplete();
       }
     });
     HapticFeedback.lightImpact();
@@ -416,7 +416,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   Future<List<Map<String, dynamic>>> _loadPendingEvents() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw   = prefs.getString(_pendingKey);
+      final raw = prefs.getString(_pendingKey);
       if (raw == null || raw.isEmpty) return <Map<String, dynamic>>[];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return <Map<String, dynamic>>[];
@@ -441,7 +441,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
   Future<bool> _queuePendingEvent(Map<String, dynamic> record) async {
     try {
-      final events  = await _loadPendingEvents();
+      final events = await _loadPendingEvents();
       final eventId = record['eventId'];
       if (eventId is! String) return false;
       // Idempotent queue: never enqueue the same event id twice.
@@ -455,7 +455,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
   Future<void> _removePendingEvent(String eventId) async {
     try {
-      final events   = await _loadPendingEvents();
+      final events = await _loadPendingEvents();
       final filtered = events.where((e) => e['eventId'] != eventId).toList();
       if (filtered.length == events.length) return;
       await _savePendingEvents(filtered);
@@ -471,7 +471,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   /// the local marker prevents double-awarding the display counter.
   Future<void> _retryPendingEvents() async {
     final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
-    final uid  = FirebaseAuth.instance.currentUser?.uid;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (ctrl == null || uid == null) return;
 
     final pending = await _loadPendingEvents();
@@ -493,11 +493,13 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           (evt['xpReward'] is num) ? (evt['xpReward'] as num).toInt() : 0;
 
       final metadata = <String, dynamic>{};
-      if (evt['eventType']      != null) metadata['eventType']      = evt['eventType'];
-      if (evt['topic']          != null) metadata['topic']          = evt['topic'];
-      if (evt['correct']        != null) metadata['correct']        = evt['correct'];
-      if (evt['questionIndex']  != null) metadata['questionIndex']  = evt['questionIndex'];
-      if (evt['challengeIndex'] != null) metadata['challengeIndex'] = evt['challengeIndex'];
+      if (evt['eventType'] != null) metadata['eventType'] = evt['eventType'];
+      if (evt['topic'] != null) metadata['topic'] = evt['topic'];
+      if (evt['correct'] != null) metadata['correct'] = evt['correct'];
+      if (evt['questionIndex'] != null)
+        metadata['questionIndex'] = evt['questionIndex'];
+      if (evt['challengeIndex'] != null)
+        metadata['challengeIndex'] = evt['challengeIndex'];
 
       _eventInFlight.add(eventId);
       try {
@@ -580,7 +582,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
     try {
       final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
-      final uid  = FirebaseAuth.instance.currentUser?.uid;
+      final uid = FirebaseAuth.instance.currentUser?.uid;
 
       // ── Offline path ────────────────────────────────────────────
       // No controller / user: queue the event locally, do NOT award
@@ -663,7 +665,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   /// controller + user were actually present.
   Future<bool> _persistCourseCompletion() async {
     final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
-    final uid  = FirebaseAuth.instance.currentUser?.uid;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
     if (ctrl == null || uid == null) return true;
 
@@ -705,7 +707,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
     }
 
     final ctrl = mounted ? CopilotProvider.maybeOf(context) : null;
-    final uid  = FirebaseAuth.instance.currentUser?.uid;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
     final ok = await _persistCourseCompletion();
     if (!ok) return false;
@@ -757,7 +759,8 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Couldn\'t save your progress locally. Please try again.'),
+            content:
+                Text('Couldn\'t save your progress locally. Please try again.'),
             backgroundColor: Color(0xFFEF4444),
             duration: Duration(seconds: 2),
           ),
@@ -801,9 +804,11 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           GestureDetector(
             onTap: () => _confirmExit(),
             child: Container(
-              width: 36, height: 36,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: _surface, borderRadius: BorderRadius.circular(10),
+                color: _surface,
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: _border),
               ),
               child: const Icon(Icons.close, color: _muted, size: 18),
@@ -813,22 +818,25 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           Expanded(
             child: Text(widget.course.topicTitle,
                 style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
                     fontSize: 15),
-                maxLines: 1, overflow: TextOverflow.ellipsis),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
           ),
           AnimatedBuilder(
             animation: _xpCtrl,
             builder: (_, __) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [_primary, _secondary]),
+                gradient: const LinearGradient(colors: [_primary, _secondary]),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: _xpCtrl.value > 0
-                    ? [BoxShadow(
-                        color: _primary.withOpacity(_xpCtrl.value * 0.5),
-                        blurRadius: 12)]
+                    ? [
+                        BoxShadow(
+                            color: _primary.withOpacity(_xpCtrl.value * 0.5),
+                            blurRadius: 12)
+                      ]
                     : const [],
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -836,7 +844,8 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 const SizedBox(width: 4),
                 Text('$_xpEarned XP',
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                         fontSize: 12)),
               ]),
             ),
@@ -848,7 +857,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
   // ── Progress bar ─────────────────────────────────────────────────
   Widget _buildProgressBar() {
-    final total    = _doneScreenId + 1;
+    final total = _doneScreenId + 1;
     final progress = _screen / total;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
@@ -857,7 +866,8 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: progress, minHeight: 5,
+              value: progress,
+              minHeight: 5,
               backgroundColor: _border,
               valueColor: const AlwaysStoppedAnimation(_primary),
             ),
@@ -866,7 +876,8 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(_stepLabel(), style: const TextStyle(color: _muted, fontSize: 10)),
+              Text(_stepLabel(),
+                  style: const TextStyle(color: _muted, fontSize: 10)),
               Text('${(_screen / total * 100).toInt()}%',
                   style: const TextStyle(color: _secondary, fontSize: 10)),
             ],
@@ -887,10 +898,10 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   }
 
   Widget _buildCurrentScreen() {
-    if (_screen == 0)              return _introScreen();
+    if (_screen == 0) return _introScreen();
     if (_screen <= _conceptScreenEnd) return _conceptScreen();
-    if (_screen == _quizScreenId)  return _quizScreen();
-    if (_screen == _chalScreenId)  return _challengeScreen();
+    if (_screen == _quizScreenId) return _quizScreen();
+    if (_screen == _chalScreenId) return _challengeScreen();
     if (_screen == _projectScreenId) return _projectScreen();
     return _completionScreen();
   }
@@ -901,76 +912,87 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   Widget _introScreen() {
     final c = widget.course;
     final diffColor = c.difficulty == 'Easy'
-        ? _green : c.difficulty == 'Medium' ? _amber : _red;
+        ? _green
+        : c.difficulty == 'Medium'
+            ? _amber
+            : _red;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
       child: Column(
         children: [
           const SizedBox(height: 20),
-
           Container(
-            width: 100, height: 100,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_primary.withOpacity(0.3), _secondary.withOpacity(0.15)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [
+                  _primary.withOpacity(0.3),
+                  _secondary.withOpacity(0.15)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
               border: Border.all(color: _secondary.withOpacity(0.4), width: 2),
             ),
-            child: Center(child: Text(c.emoji, style: const TextStyle(fontSize: 48))),
-          )
-              .animate().scale(duration: 600.ms, curve: Curves.elasticOut),
-
+            child: Center(
+                child: Text(c.emoji, style: const TextStyle(fontSize: 48))),
+          ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
           const SizedBox(height: 24),
-
           Text(c.topicTitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold))
-              .animate().fadeIn(delay: 200.ms),
-
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold))
+              .animate()
+              .fadeIn(delay: 200.ms),
           const SizedBox(height: 8),
-          Text(_alreadyCompletedBefore
-                  ? 'Already completed — reopen any time to revise'
-                  : 'Master this concept step by step',
-              style: const TextStyle(color: _muted, fontSize: 14))
-              .animate().fadeIn(delay: 300.ms),
-
+          Text(
+                  _alreadyCompletedBefore
+                      ? 'Already completed — reopen any time to revise'
+                      : 'Master this concept step by step',
+                  style: const TextStyle(color: _muted, fontSize: 14))
+              .animate()
+              .fadeIn(delay: 300.ms),
           const SizedBox(height: 28),
-
           Row(children: [
-            Expanded(child: _metaCard('🎯', 'Difficulty', c.difficulty, diffColor)),
+            Expanded(
+                child: _metaCard('🎯', 'Difficulty', c.difficulty, diffColor)),
             const SizedBox(width: 10),
-            Expanded(child: _metaCard('⏱️', 'Time', '~${c.estimatedMinutes} min', _secondary)),
+            Expanded(
+                child: _metaCard(
+                    '⏱️', 'Time', '~${c.estimatedMinutes} min', _secondary)),
             const SizedBox(width: 10),
-            Expanded(child: _metaCard('⚡', 'XP Reward', '+${c.totalXp} XP', const Color(0xFFF59E0B))),
+            Expanded(
+                child: _metaCard('⚡', 'XP Reward', '+${c.totalXp} XP',
+                    const Color(0xFFF59E0B))),
           ]).animate().fadeIn(delay: 350.ms),
-
           const SizedBox(height: 28),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _surface, borderRadius: BorderRadius.circular(16),
+              color: _surface,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('What you\'ll learn:',
-                    style: TextStyle(color: Colors.white,
-                        fontWeight: FontWeight.w600, fontSize: 14)),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14)),
                 const SizedBox(height: 12),
                 ..._buildLearnList(c),
               ],
             ),
           ).animate().fadeIn(delay: 400.ms),
-
           const SizedBox(height: 20),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -983,15 +1005,15 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 style: const TextStyle(
                     color: Colors.white70, fontSize: 13, height: 1.6)),
           ).animate().fadeIn(delay: 450.ms),
-
           const SizedBox(height: 32),
-
           SizedBox(
-            width: double.infinity, height: 54,
+            width: double.infinity,
+            height: 54,
             child: ElevatedButton(
               onPressed: _next,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _primary, foregroundColor: Colors.white,
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
@@ -999,7 +1021,9 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Start Learning', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text('Start Learning',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                   SizedBox(width: 8),
                   Icon(Icons.arrow_forward, size: 20),
                 ],
@@ -1015,13 +1039,16 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: _surface, borderRadius: BorderRadius.circular(14),
+          color: _surface,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _border),
         ),
         child: Column(children: [
           Text(emoji, style: const TextStyle(fontSize: 20)),
           const SizedBox(height: 5),
-          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(value,
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.bold, fontSize: 13)),
           Text(label, style: const TextStyle(color: _muted, fontSize: 10)),
         ]),
       );
@@ -1033,14 +1060,19 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       '${c.challenges.length} interactive mini challenges',
       'Final project with step-by-step guide',
     ];
-    return items.map((item) => Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(children: [
-        const Icon(Icons.check_circle, color: _green, size: 16),
-        const SizedBox(width: 8),
-        Expanded(child: Text(item, style: const TextStyle(color: Colors.white70, fontSize: 13))),
-      ]),
-    )).toList();
+    return items
+        .map((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(children: [
+                const Icon(Icons.check_circle, color: _green, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(item,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 13))),
+              ]),
+            ))
+        .toList();
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -1048,7 +1080,7 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   // ══════════════════════════════════════════════════════════════════
   Widget _conceptScreen() {
     final concept = widget.course.concepts[_conceptIndex];
-    final isLast  = _conceptIndex == widget.course.concepts.length - 1;
+    final isLast = _conceptIndex == widget.course.concepts.length - 1;
 
     return SingleChildScrollView(
       key: ValueKey('concept_$_conceptIndex'),
@@ -1066,40 +1098,41 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               ),
               child: Text(
                 'Concept ${_conceptIndex + 1}/${widget.course.concepts.length}',
-                style: const TextStyle(color: _secondary, fontSize: 11, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    color: _secondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ]).animate().fadeIn(),
-
           const SizedBox(height: 16),
-
           Text(concept.title,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))
-              .animate().fadeIn(delay: 50.ms).slideX(begin: -0.05),
-
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold))
+              .animate()
+              .fadeIn(delay: 50.ms)
+              .slideX(begin: -0.05),
           const SizedBox(height: 20),
-
           _conceptSection(
             icon: '📖',
             label: 'Definition',
             color: const Color(0xFF60A5FA),
             child: Text(concept.definition,
-                style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.6)),
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 14, height: 1.6)),
           ).animate().fadeIn(delay: 100.ms),
-
           const SizedBox(height: 14),
-
           _conceptSection(
             icon: '🧠',
             label: 'Real-World Analogy',
             color: _amber,
             child: Text(concept.analogy,
-                style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.6)),
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 13, height: 1.6)),
           ).animate().fadeIn(delay: 160.ms),
-
           const SizedBox(height: 14),
-
           _conceptSection(
             icon: '💡',
             label: 'Example',
@@ -1108,23 +1141,25 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 style: const TextStyle(
                     color: Color(0xFF6EE7B7),
                     fontFamily: 'monospace',
-                    fontSize: 13, height: 1.6)),
+                    fontSize: 13,
+                    height: 1.6)),
           ).animate().fadeIn(delay: 220.ms),
-
           if (concept.codeSnippet != null) ...[
             const SizedBox(height: 14),
             _codeBlock(concept.codeSnippet!).animate().fadeIn(delay: 270.ms),
           ],
-
           const SizedBox(height: 14),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_primary.withOpacity(0.18), _primary.withOpacity(0.06)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [
+                  _primary.withOpacity(0.18),
+                  _primary.withOpacity(0.06)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _primary.withOpacity(0.35)),
@@ -1132,34 +1167,42 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('🎯 ', style: TextStyle(fontSize: 18)),
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Key Takeaway',
-                      style: TextStyle(color: _secondary, fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 5),
-                  Text(concept.keyTakeaway,
-                      style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.5)),
-                ]),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Key Takeaway',
+                          style: TextStyle(
+                              color: _secondary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
+                      const SizedBox(height: 5),
+                      Text(concept.keyTakeaway,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 13, height: 1.5)),
+                    ]),
               ),
             ]),
           ).animate().fadeIn(delay: 320.ms),
-
           const SizedBox(height: 28),
-
           SizedBox(
-            width: double.infinity, height: 52,
+            width: double.infinity,
+            height: 52,
             child: ElevatedButton(
               onPressed: _next,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _primary, foregroundColor: Colors.white,
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     isLast ? 'Start Quiz →' : 'Next Concept →',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -1171,8 +1214,10 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
   }
 
   Widget _conceptSection({
-    required String icon, required String label,
-    required Color color, required Widget child,
+    required String icon,
+    required String label,
+    required Color color,
+    required Widget child,
   }) =>
       Container(
         width: double.infinity,
@@ -1185,15 +1230,16 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Text('$icon ', style: const TextStyle(fontSize: 16)),
-            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
+            Text(label,
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.w600, fontSize: 12)),
           ]),
           const SizedBox(height: 8),
           child,
         ]),
       );
 
-  Widget _codeBlock(String code) =>
-      Container(
+  Widget _codeBlock(String code) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -1204,7 +1250,9 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             const Text('💻 ', style: TextStyle(fontSize: 13)),
-            const Text('Code', style: TextStyle(color: _muted, fontSize: 11, fontWeight: FontWeight.w600)),
+            const Text('Code',
+                style: TextStyle(
+                    color: _muted, fontSize: 11, fontWeight: FontWeight.w600)),
             const Spacer(),
             GestureDetector(
               onTap: () {
@@ -1223,7 +1271,8 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               style: const TextStyle(
                   color: Color(0xFF6EE7B7),
                   fontFamily: 'monospace',
-                  fontSize: 12, height: 1.6)),
+                  fontSize: 12,
+                  height: 1.6)),
         ]),
       );
 
@@ -1257,45 +1306,57 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _amber.withOpacity(0.3)),
               ),
-              child: Text('Question ${_quizIndex + 1}/${widget.course.quiz.length}',
-                  style: const TextStyle(color: _amber, fontSize: 11, fontWeight: FontWeight.w600)),
+              child: Text(
+                  'Question ${_quizIndex + 1}/${widget.course.quiz.length}',
+                  style: const TextStyle(
+                      color: _amber,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600)),
             ),
             const Spacer(),
             Text('+${q.xpReward} XP',
-                style: const TextStyle(color: _secondary, fontWeight: FontWeight.bold, fontSize: 13)),
+                style: const TextStyle(
+                    color: _secondary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
           ]).animate().fadeIn(),
-
           const SizedBox(height: 18),
-
           Text(q.question,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600, height: 1.4))
-              .animate().fadeIn(delay: 60.ms),
-
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4))
+              .animate()
+              .fadeIn(delay: 60.ms),
           const SizedBox(height: 24),
-
           ...q.options.asMap().entries.map((e) {
-            final i     = e.key;
-            final opt   = e.value;
-            final sel   = _selectedOpt == i;
+            final i = e.key;
+            final opt = e.value;
+            final sel = _selectedOpt == i;
             final right = _answered && i == q.correctIndex;
             final wrong = _answered && sel && i != q.correctIndex;
 
             Color borderColor = _border;
-            Color bgColor     = _surface;
-            Color textColor   = Colors.white;
+            Color bgColor = _surface;
+            Color textColor = Colors.white;
             Widget? trailingIcon;
 
             if (right) {
-              borderColor = _green; bgColor = _green.withOpacity(0.12);
-              textColor   = _green;
-              trailingIcon = const Icon(Icons.check_circle, color: _green, size: 18);
+              borderColor = _green;
+              bgColor = _green.withOpacity(0.12);
+              textColor = _green;
+              trailingIcon =
+                  const Icon(Icons.check_circle, color: _green, size: 18);
             } else if (wrong) {
-              borderColor = _red; bgColor = _red.withOpacity(0.10);
-              textColor   = _red;
+              borderColor = _red;
+              bgColor = _red.withOpacity(0.10);
+              textColor = _red;
               trailingIcon = const Icon(Icons.cancel, color: _red, size: 18);
             } else if (sel && !_answered) {
-              borderColor = _primary; bgColor = _primary.withOpacity(0.12);
-              textColor   = _secondary;
+              borderColor = _primary;
+              bgColor = _primary.withOpacity(0.12);
+              textColor = _secondary;
             }
 
             return GestureDetector(
@@ -1305,35 +1366,42 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: bgColor, borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: borderColor, width: sel || right || wrong ? 1.5 : 1),
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: borderColor,
+                      width: sel || right || wrong ? 1.5 : 1),
                 ),
                 child: Row(children: [
                   Container(
-                    width: 28, height: 28,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: (sel || right || wrong)
-                          ? borderColor.withOpacity(0.15) : const Color(0xFF0F0F20),
+                          ? borderColor.withOpacity(0.15)
+                          : const Color(0xFF0F0F20),
                       border: Border.all(color: borderColor),
                     ),
                     child: Center(
                       child: Text('ABCD'[i],
                           style: TextStyle(
-                              color: sel || right || wrong ? borderColor : _muted,
-                              fontSize: 12, fontWeight: FontWeight.bold)),
+                              color:
+                                  sel || right || wrong ? borderColor : _muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(child: Text(opt, style: TextStyle(color: textColor, fontSize: 14))),
+                  Expanded(
+                      child: Text(opt,
+                          style: TextStyle(color: textColor, fontSize: 14))),
                   if (trailingIcon != null) trailingIcon,
                 ]),
               ),
             ).animate().fadeIn(delay: Duration(milliseconds: 100 + i * 60));
           }),
-
           const SizedBox(height: 8),
-
           if (_answered) ...[
             Container(
               width: double.infinity,
@@ -1343,73 +1411,85 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: _secondary.withOpacity(0.25)),
               ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Row(children: [
-                  Text('💡 ', style: TextStyle(fontSize: 16)),
-                  Text('Explanation', style: TextStyle(color: _secondary, fontWeight: FontWeight.w600, fontSize: 13)),
-                ]),
-                const SizedBox(height: 6),
-                Text(q.explanation, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5)),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(children: [
+                      Text('💡 ', style: TextStyle(fontSize: 16)),
+                      Text('Explanation',
+                          style: TextStyle(
+                              color: _secondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13)),
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(q.explanation,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 13, height: 1.5)),
+                  ]),
             ).animate().fadeIn().slideY(begin: 0.2),
             const SizedBox(height: 16),
           ],
-
           SizedBox(
-            width: double.infinity, height: 52,
+            width: double.infinity,
+            height: 52,
             child: ElevatedButton(
-              onPressed: (!_answered && _selectedOpt == null) ? null : () async {
-                if (!_answered) {
-                  final correct = _selectedOpt == q.correctIndex;
+              onPressed: (!_answered && _selectedOpt == null)
+                  ? null
+                  : () async {
+                      if (!_answered) {
+                        final correct = _selectedOpt == q.correctIndex;
 
-                  // Persist the answer as durable evidence FIRST.
-                  //   • Correct → existing mastery event id, XP awarded.
-                  //   • Wrong   → additive `quiz_miss:` weakness event,
-                  //               0 XP, does not block a later correct
-                  //               retry (different event id).
-                  // Offline: queued locally; no XP awarded until
-                  // Firestore confirms.
-                  final eventId = correct
-                      ? 'quiz:${widget.course.id}:$_quizIndex'
-                      : 'quiz_miss:${widget.course.id}:$_quizIndex';
+                        // Persist the answer as durable evidence FIRST.
+                        //   • Correct → existing mastery event id, XP awarded.
+                        //   • Wrong   → additive `quiz_miss:` weakness event,
+                        //               0 XP, does not block a later correct
+                        //               retry (different event id).
+                        // Offline: queued locally; no XP awarded until
+                        // Firestore confirms.
+                        final eventId = correct
+                            ? 'quiz:${widget.course.id}:$_quizIndex'
+                            : 'quiz_miss:${widget.course.id}:$_quizIndex';
 
-                  final ok = await _persistCourseEvent(
-                    eventId: eventId,
-                    xpReward: correct ? q.xpReward : 0,
-                    eventType: correct ? 'quiz' : 'quiz_miss',
-                    // No per-question topic field is exposed by the
-                    // current model, so the real course topicTitle is
-                    // used. Per-question granularity is preserved via
-                    // the additive questionIndex metadata key.
-                    topic: widget.course.topicTitle,
-                    correct: correct,
-                    extraMetadata: {'questionIndex': _quizIndex},
-                  );
-                  if (!mounted || !ok) return;
+                        final ok = await _persistCourseEvent(
+                          eventId: eventId,
+                          xpReward: correct ? q.xpReward : 0,
+                          eventType: correct ? 'quiz' : 'quiz_miss',
+                          // No per-question topic field is exposed by the
+                          // current model, so the real course topicTitle is
+                          // used. Per-question granularity is preserved via
+                          // the additive questionIndex metadata key.
+                          topic: widget.course.topicTitle,
+                          correct: correct,
+                          extraMetadata: {'questionIndex': _quizIndex},
+                        );
+                        if (!mounted || !ok) return;
 
-                  setState(() => _answered = true);
-                  _evidence.recordQuiz(
-                    correct: correct,
-                    topic: widget.course.topicTitle,
-                  );
-                } else {
-                  setState(() {
-                    _quizIndex++;
-                    _selectedOpt = null;
-                    _answered    = false;
-                  });
-                }
-              },
+                        setState(() => _answered = true);
+                        _evidence.recordQuiz(
+                          correct: correct,
+                          topic: widget.course.topicTitle,
+                        );
+                      } else {
+                        setState(() {
+                          _quizIndex++;
+                          _selectedOpt = null;
+                          _answered = false;
+                        });
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _answered ? _green : _primary,
                 disabledBackgroundColor: _border,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
               child: Text(
                 _answered ? 'Next →' : 'Submit Answer',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -1426,7 +1506,8 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       return _nextSectionBridge(
         icon: '🏆',
         title: 'Challenges Done!',
-        subtitle: 'Excellent work on all ${widget.course.challenges.length} challenges',
+        subtitle:
+            'Excellent work on all ${widget.course.challenges.length} challenges',
         xpNote: '+${widget.course.challenges.length * 15} XP from challenges',
         btnLabel: 'Final Project →',
       );
@@ -1448,16 +1529,21 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _green.withOpacity(0.3)),
               ),
-              child: Text('Challenge ${_chalIndex + 1}/${widget.course.challenges.length}',
-                  style: const TextStyle(color: _green, fontSize: 11, fontWeight: FontWeight.w600)),
+              child: Text(
+                  'Challenge ${_chalIndex + 1}/${widget.course.challenges.length}',
+                  style: const TextStyle(
+                      color: _green,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600)),
             ),
             const Spacer(),
             Text('+${ch.xpReward} XP',
-                style: const TextStyle(color: _secondary, fontWeight: FontWeight.bold, fontSize: 13)),
+                style: const TextStyle(
+                    color: _secondary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
           ]).animate().fadeIn(),
-
           const SizedBox(height: 20),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -1466,44 +1552,53 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _green.withOpacity(0.3)),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Row(children: [
                 Text('💻 ', style: TextStyle(fontSize: 16)),
-                Text('Mini Challenge', style: TextStyle(color: _green, fontSize: 12, fontWeight: FontWeight.w600)),
+                Text('Mini Challenge',
+                    style: TextStyle(
+                        color: _green,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
               ]),
               const SizedBox(height: 10),
               Text(ch.prompt,
                   style: const TextStyle(
                       color: Color(0xFF6EE7B7),
-                      fontFamily: 'monospace', fontSize: 13, height: 1.6)),
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      height: 1.6)),
             ]),
           ).animate().fadeIn(delay: 60.ms),
-
           const SizedBox(height: 20),
-
           ...ch.options.asMap().entries.map((e) {
-            final i     = e.key;
-            final opt   = e.value;
-            final sel   = _selectedOpt == i;
+            final i = e.key;
+            final opt = e.value;
+            final sel = _selectedOpt == i;
             final right = _answered && i == ch.correctIndex;
             final wrong = _answered && sel && i != ch.correctIndex;
 
             Color borderColor = _border;
-            Color bgColor     = _surface;
-            Color textColor   = Colors.white;
+            Color bgColor = _surface;
+            Color textColor = Colors.white;
             Widget? trailingIcon;
 
             if (right) {
-              borderColor = _green; bgColor = _green.withOpacity(0.12);
-              textColor   = _green;
-              trailingIcon = const Icon(Icons.check_circle, color: _green, size: 18);
+              borderColor = _green;
+              bgColor = _green.withOpacity(0.12);
+              textColor = _green;
+              trailingIcon =
+                  const Icon(Icons.check_circle, color: _green, size: 18);
             } else if (wrong) {
-              borderColor = _red; bgColor = _red.withOpacity(0.10);
-              textColor   = _red;
+              borderColor = _red;
+              bgColor = _red.withOpacity(0.10);
+              textColor = _red;
               trailingIcon = const Icon(Icons.cancel, color: _red, size: 18);
             } else if (sel && !_answered) {
-              borderColor = _primary; bgColor = _primary.withOpacity(0.12);
-              textColor   = _secondary;
+              borderColor = _primary;
+              bgColor = _primary.withOpacity(0.12);
+              textColor = _secondary;
             }
 
             return GestureDetector(
@@ -1513,33 +1608,41 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: bgColor, borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: borderColor, width: sel || right || wrong ? 1.5 : 1),
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: borderColor,
+                      width: sel || right || wrong ? 1.5 : 1),
                 ),
                 child: Row(children: [
                   Container(
-                    width: 28, height: 28,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: (sel || right || wrong)
-                          ? borderColor.withOpacity(0.15) : const Color(0xFF0F0F20),
+                          ? borderColor.withOpacity(0.15)
+                          : const Color(0xFF0F0F20),
                       border: Border.all(color: borderColor),
                     ),
                     child: Center(
                       child: Text('ABCD'[i],
                           style: TextStyle(
-                              color: sel || right || wrong ? borderColor : _muted,
-                              fontSize: 12, fontWeight: FontWeight.bold)),
+                              color:
+                                  sel || right || wrong ? borderColor : _muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(child: Text(opt, style: TextStyle(color: textColor, fontSize: 13))),
+                  Expanded(
+                      child: Text(opt,
+                          style: TextStyle(color: textColor, fontSize: 13))),
                   if (trailingIcon != null) trailingIcon,
                 ]),
               ),
             ).animate().fadeIn(delay: Duration(milliseconds: 80 + i * 55));
           }),
-
           if (_answered) ...[
             const SizedBox(height: 8),
             Container(
@@ -1550,66 +1653,79 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: _secondary.withOpacity(0.25)),
               ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Row(children: [
-                  Text('💡 ', style: TextStyle(fontSize: 16)),
-                  Text('Explanation', style: TextStyle(color: _secondary, fontWeight: FontWeight.w600, fontSize: 13)),
-                ]),
-                const SizedBox(height: 6),
-                Text(ch.explanation, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5)),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(children: [
+                      Text('💡 ', style: TextStyle(fontSize: 16)),
+                      Text('Explanation',
+                          style: TextStyle(
+                              color: _secondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13)),
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(ch.explanation,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 13, height: 1.5)),
+                  ]),
             ).animate().fadeIn().slideY(begin: 0.2),
             const SizedBox(height: 16),
           ],
-
           SizedBox(
-            width: double.infinity, height: 52,
+            width: double.infinity,
+            height: 52,
             child: ElevatedButton(
-              onPressed: (!_answered && _selectedOpt == null) ? null : () async {
-                if (!_answered) {
-                  final correct = _selectedOpt == ch.correctIndex;
+              onPressed: (!_answered && _selectedOpt == null)
+                  ? null
+                  : () async {
+                      if (!_answered) {
+                        final correct = _selectedOpt == ch.correctIndex;
 
-                  // Persist mastery (correct) or weakness (incorrect)
-                  // as durable evidence, exactly like the quiz screen.
-                  final eventId = correct
-                      ? 'challenge:${widget.course.id}:$_chalIndex'
-                      : 'challenge_miss:${widget.course.id}:$_chalIndex';
+                        // Persist mastery (correct) or weakness (incorrect)
+                        // as durable evidence, exactly like the quiz screen.
+                        final eventId = correct
+                            ? 'challenge:${widget.course.id}:$_chalIndex'
+                            : 'challenge_miss:${widget.course.id}:$_chalIndex';
 
-                  final ok = await _persistCourseEvent(
-                    eventId: eventId,
-                    xpReward: correct ? ch.xpReward : 0,
-                    eventType: correct ? 'challenge' : 'challenge_miss',
-                    // See quiz screen comment — no per-challenge topic
-                    // field exists on the current model, so topicTitle is
-                    // used and granularity is preserved via
-                    // challengeIndex metadata.
-                    topic: widget.course.topicTitle,
-                    correct: correct,
-                    extraMetadata: {'challengeIndex': _chalIndex},
-                  );
-                  if (!mounted || !ok) return;
+                        final ok = await _persistCourseEvent(
+                          eventId: eventId,
+                          xpReward: correct ? ch.xpReward : 0,
+                          eventType: correct ? 'challenge' : 'challenge_miss',
+                          // See quiz screen comment — no per-challenge topic
+                          // field exists on the current model, so topicTitle is
+                          // used and granularity is preserved via
+                          // challengeIndex metadata.
+                          topic: widget.course.topicTitle,
+                          correct: correct,
+                          extraMetadata: {'challengeIndex': _chalIndex},
+                        );
+                        if (!mounted || !ok) return;
 
-                  setState(() => _answered = true);
-                  _evidence.recordChallenge(
-                    correct: correct,
-                    topic: widget.course.topicTitle,
-                  );
-                } else {
-                  setState(() {
-                    _chalIndex++;
-                    _selectedOpt = null;
-                    _answered    = false;
-                  });
-                }
-              },
+                        setState(() => _answered = true);
+                        _evidence.recordChallenge(
+                          correct: correct,
+                          topic: widget.course.topicTitle,
+                        );
+                      } else {
+                        setState(() {
+                          _chalIndex++;
+                          _selectedOpt = null;
+                          _answered = false;
+                        });
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _answered ? _green : _primary,
                 disabledBackgroundColor: _border,
-                foregroundColor: Colors.white, elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
               child: Text(_answered ? 'Next →' : 'Submit',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -1635,63 +1751,78 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Text('🚀 Final Project',
-                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold)),
           ).animate().fadeIn(),
-
           const SizedBox(height: 18),
           Text(p.title,
-              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))
-              .animate().fadeIn(delay: 60.ms),
-
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold))
+              .animate()
+              .fadeIn(delay: 60.ms),
           const SizedBox(height: 16),
-
           _projectSection('🎯 Project Goal', p.goal, const Color(0xFF60A5FA))
-              .animate().fadeIn(delay: 100.ms),
-
+              .animate()
+              .fadeIn(delay: 100.ms),
           const SizedBox(height: 14),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _surface, borderRadius: BorderRadius.circular(16),
+              color: _surface,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _border),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Row(children: [
                 Text('📋 ', style: TextStyle(fontSize: 16)),
                 Text('Steps to Complete',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14)),
               ]),
               const SizedBox(height: 12),
               ...p.steps.asMap().entries.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Container(
-                    width: 24, height: 24,
-                    decoration: BoxDecoration(
-                      color: _primary.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _primary.withOpacity(0.4)),
-                    ),
-                    child: Center(
-                      child: Text('${e.key + 1}',
-                          style: const TextStyle(
-                              color: _secondary, fontSize: 11, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(e.value,
-                        style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
-                  ),
-                ]),
-              )),
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: _primary.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: _primary.withOpacity(0.4)),
+                            ),
+                            child: Center(
+                              child: Text('${e.key + 1}',
+                                  style: const TextStyle(
+                                      color: _secondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(e.value,
+                                style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    height: 1.4)),
+                          ),
+                        ]),
+                  )),
             ]),
           ).animate().fadeIn(delay: 160.ms),
-
           const SizedBox(height: 14),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(14),
@@ -1700,22 +1831,26 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _green.withOpacity(0.3)),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Row(children: [
                 Text('✅ ', style: TextStyle(fontSize: 14)),
                 Text('Expected Output',
-                    style: TextStyle(color: _green, fontWeight: FontWeight.w600, fontSize: 12)),
+                    style: TextStyle(
+                        color: _green,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12)),
               ]),
               const SizedBox(height: 8),
               Text(p.expectedOutput,
                   style: const TextStyle(
-                      color: Color(0xFF6EE7B7), fontFamily: 'monospace',
-                      fontSize: 12, height: 1.6)),
+                      color: Color(0xFF6EE7B7),
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      height: 1.6)),
             ]),
           ).animate().fadeIn(delay: 220.ms),
-
           const SizedBox(height: 14),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(14),
@@ -1727,14 +1862,16 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
             child: Row(children: [
               const Text('⚡ ', style: TextStyle(fontSize: 18)),
               Text('Complete this project to earn +${p.xpReward} XP bonus!',
-                  style: const TextStyle(color: _secondary, fontSize: 13, fontWeight: FontWeight.w500)),
+                  style: const TextStyle(
+                      color: _secondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500)),
             ]),
           ).animate().fadeIn(delay: 280.ms),
-
           const SizedBox(height: 28),
-
           SizedBox(
-            width: double.infinity, height: 52,
+            width: double.infinity,
+            height: 52,
             child: ElevatedButton(
               onPressed: () async {
                 final eventId = 'project:${widget.course.id}';
@@ -1749,9 +1886,11 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                 _next();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: _green, foregroundColor: Colors.white,
+                backgroundColor: _green,
+                foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
               child: const Text('Mark Project Complete ✓',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
@@ -1772,9 +1911,13 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           border: Border.all(color: color.withOpacity(0.25)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+          Text(title,
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.w600, fontSize: 13)),
           const SizedBox(height: 6),
-          Text(content, style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.5)),
+          Text(content,
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 13, height: 1.5)),
         ]),
       );
 
@@ -1787,7 +1930,6 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
       child: Column(
         children: [
           const SizedBox(height: 20),
-
           AnimatedBuilder(
             animation: _celebCtrl,
             builder: (_, __) {
@@ -1797,11 +1939,13 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                   Transform.rotate(
                     angle: _celebCtrl.value * 2 * pi,
                     child: Container(
-                      width: 130, height: 130,
+                      width: 130,
+                      height: 130,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _secondary.withOpacity(0.3 + 0.2 * sin(_celebCtrl.value * 2 * pi)),
+                          color: _secondary.withOpacity(
+                              0.3 + 0.2 * sin(_celebCtrl.value * 2 * pi)),
                           width: 2,
                         ),
                       ),
@@ -1810,49 +1954,55 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
                   Transform.rotate(
                     angle: -_celebCtrl.value * 2 * pi * 0.7,
                     child: Container(
-                      width: 105, height: 105,
+                      width: 105,
+                      height: 105,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: _primary.withOpacity(0.4), width: 1.5),
+                        border: Border.all(
+                            color: _primary.withOpacity(0.4), width: 1.5),
                       ),
                     ),
                   ),
                   Container(
-                    width: 80, height: 80,
+                    width: 80,
+                    height: 80,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       color: Color(0xFF1A0A35),
                     ),
-                    child: const Center(child: Text('🏆', style: TextStyle(fontSize: 38))),
+                    child: const Center(
+                        child: Text('🏆', style: TextStyle(fontSize: 38))),
                   ),
                 ],
               );
             },
           ),
-
           const SizedBox(height: 28),
-
           const Text('Lesson Complete!',
-              style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold))
-              .animate().fadeIn(delay: 100.ms),
-
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold))
+              .animate()
+              .fadeIn(delay: 100.ms),
           const SizedBox(height: 8),
-
           Text(
             '${widget.course.topicTitle} — Completed ✓',
             textAlign: TextAlign.center,
             style: const TextStyle(color: _secondary, fontSize: 15),
           ).animate().fadeIn(delay: 200.ms),
-
           const SizedBox(height: 28),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_primary.withOpacity(0.25), _secondary.withOpacity(0.10)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [
+                  _primary.withOpacity(0.25),
+                  _secondary.withOpacity(0.10)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: _primary.withOpacity(0.4), width: 1.5),
@@ -1863,7 +2013,9 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               const SizedBox(height: 6),
               Text('+$_xpEarned XP',
                   style: const TextStyle(
-                      color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                      color: Colors.white,
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 _xpBreakdown('Quiz', '$_quizXpEarned'),
@@ -1872,41 +2024,47 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
               ]),
             ]),
           ).animate().scale(duration: 500.ms, curve: Curves.elasticOut),
-
           const SizedBox(height: 20),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _surface, borderRadius: BorderRadius.circular(16),
+              color: _surface,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _border),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Concepts Covered:',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14)),
               const SizedBox(height: 10),
               ...widget.course.concepts.map((c) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(children: [
-                  const Icon(Icons.check_circle, color: _green, size: 16),
-                  const SizedBox(width: 8),
-                  Text(c.title, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                ]),
-              )),
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(children: [
+                      const Icon(Icons.check_circle, color: _green, size: 16),
+                      const SizedBox(width: 8),
+                      Text(c.title,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 13)),
+                    ]),
+                  )),
             ]),
           ).animate().fadeIn(delay: 300.ms),
-
           const SizedBox(height: 28),
-
           SizedBox(
-            width: double.infinity, height: 54,
+            width: double.infinity,
+            height: 54,
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _green, foregroundColor: Colors.white,
+                backgroundColor: _green,
+                foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
               ),
               child: const Text('Continue Learning →',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
@@ -1917,16 +2075,19 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
     );
   }
 
-  Widget _xpBreakdown(String label, String xp) =>
-      Column(children: [
-        Text('+$xp', style: const TextStyle(color: _secondary, fontWeight: FontWeight.bold, fontSize: 16)),
+  Widget _xpBreakdown(String label, String xp) => Column(children: [
+        Text('+$xp',
+            style: const TextStyle(
+                color: _secondary, fontWeight: FontWeight.bold, fontSize: 16)),
         Text(label, style: const TextStyle(color: _muted, fontSize: 10)),
       ]);
 
   // ── Bridge screen between sections ──────────────────────────────
   Widget _nextSectionBridge({
-    required String icon, required String title,
-    required String subtitle, required String xpNote,
+    required String icon,
+    required String title,
+    required String subtitle,
+    required String xpNote,
     required String btnLabel,
   }) =>
       Center(
@@ -1934,29 +2095,46 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
           padding: const EdgeInsets.all(32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(icon, style: const TextStyle(fontSize: 56))
-                .animate().scale(duration: 500.ms, curve: Curves.elasticOut),
+                .animate()
+                .scale(duration: 500.ms, curve: Curves.elasticOut),
             const SizedBox(height: 16),
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: _muted, fontSize: 14)),
+            Text(subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _muted, fontSize: 14)),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
-                color: _primary.withOpacity(0.15), borderRadius: BorderRadius.circular(12),
+                color: _primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(xpNote, style: const TextStyle(color: _secondary, fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Text(xpNote,
+                  style: const TextStyle(
+                      color: _secondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
             ),
             const SizedBox(height: 28),
             SizedBox(
-              width: 220, height: 50,
+              width: 220,
+              height: 50,
               child: ElevatedButton(
                 onPressed: _next,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _primary, foregroundColor: Colors.white, elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  backgroundColor: _primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
-                child: Text(btnLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(btnLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
           ]),
@@ -1965,34 +2143,45 @@ class _CourseEngineScreenState extends State<CourseEngineScreen>
 
   // ── Confirm exit ─────────────────────────────────────────────────
   void _confirmExit() {
-    showDialog(context: context, builder: (_) => AlertDialog(
-      backgroundColor: _surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Quit Lesson?', style: TextStyle(color: Colors.white)),
-      content: Text(
-        'You\'ve earned $_xpEarned XP so far. Your progress will be saved.',
-        style: const TextStyle(color: _muted),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context),
-            child: const Text('Keep Learning', style: TextStyle(color: _secondary))),
-        ElevatedButton(
-          onPressed: () { Navigator.pop(context); Navigator.pop(context); },
-          style: ElevatedButton.styleFrom(backgroundColor: _red, elevation: 0),
-          child: const Text('Quit'),
-        ),
-      ],
-    ));
+    showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+              backgroundColor: _surface,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Text('Quit Lesson?',
+                  style: TextStyle(color: Colors.white)),
+              content: Text(
+                'You\'ve earned $_xpEarned XP so far. Your progress will be saved.',
+                style: const TextStyle(color: _muted),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Keep Learning',
+                        style: TextStyle(color: _secondary))),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: _red, elevation: 0),
+                  child: const Text('Quit'),
+                ),
+              ],
+            ));
   }
 
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg, style: const TextStyle(color: Colors.white)),
-      backgroundColor: _surface, behavior: SnackBarBehavior.floating,
+      backgroundColor: _surface,
+      behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.all(16), duration: const Duration(seconds: 1),
+      margin: const EdgeInsets.all(16),
+      duration: const Duration(seconds: 1),
     ));
   }
 }
-

@@ -54,12 +54,12 @@ class SkillProfileScreen extends StatefulWidget {
 }
 
 class _SkillProfileScreenState extends State<SkillProfileScreen> {
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
 
   final _currentRoleCtrl = TextEditingController();
   final _newSkillCtrl = TextEditingController();
@@ -221,10 +221,12 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
         elevation: 0,
         title: Text(
           ctrl.state.hasProfile ? 'Edit Skill Profile' : 'Skill Profile',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+          icon: const Icon(Icons.arrow_back_ios_new,
+              color: Colors.white, size: 18),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -236,7 +238,6 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
             const SizedBox(height: 10),
             _careerGoalGrid(),
             const SizedBox(height: 24),
-
             _sectionTitle('💼 Current Role'),
             const SizedBox(height: 10),
             _textField(
@@ -244,7 +245,6 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
               hint: 'e.g. Student, Junior Developer, Career switcher',
             ),
             const SizedBox(height: 24),
-
             _sectionTitle('📈 Experience'),
             const SizedBox(height: 4),
             Text(
@@ -270,7 +270,6 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
               ),
             ),
             const SizedBox(height: 12),
-
             _sectionTitle('🧠 Your Skills (${_skills.length})'),
             const SizedBox(height: 10),
             _skillAdder(),
@@ -282,11 +281,11 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: _skills
-                    .map((s) => _SkillChip(skill: s, onRemove: () => _removeSkill(s)))
+                    .map((s) =>
+                        _SkillChip(skill: s, onRemove: () => _removeSkill(s)))
                     .toList(),
               ),
             const SizedBox(height: 32),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -295,8 +294,8 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
                   backgroundColor: _primary,
                   disabledBackgroundColor: _primary.withOpacity(0.5),
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape:
-                      RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 child: isSaving
                     ? const SizedBox(
@@ -334,7 +333,8 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
             color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
       );
 
-  Widget _textField({required TextEditingController controller, required String hint}) {
+  Widget _textField(
+      {required TextEditingController controller, required String hint}) {
     return TextField(
       controller: controller,
       style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -343,7 +343,8 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
         hintStyle: const TextStyle(color: _muted, fontSize: 13),
         filled: true,
         fillColor: _surface,
-        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: _border)),
@@ -372,7 +373,8 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
               color: selected ? _primary.withOpacity(0.22) : _surface,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                  color: selected ? _primary : _border, width: selected ? 1.5 : 1),
+                  color: selected ? _primary : _border,
+                  width: selected ? 1.5 : 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -422,7 +424,8 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
               return GestureDetector(
                 onTap: () => setState(() => _newSkillLevel = lvl),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: selected ? _primary.withOpacity(0.22) : _bg,
                     borderRadius: BorderRadius.circular(8),
@@ -433,7 +436,8 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
                     style: TextStyle(
                       color: selected ? _secondary : _muted,
                       fontSize: 11,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+                      fontWeight:
+                          selected ? FontWeight.w700 : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -446,11 +450,13 @@ class _SkillProfileScreenState extends State<SkillProfileScreen> {
             child: OutlinedButton.icon(
               onPressed: _addSkill,
               icon: const Icon(Icons.add, color: _secondary, size: 18),
-              label: const Text('Add Skill', style: TextStyle(color: _secondary)),
+              label:
+                  const Text('Add Skill', style: TextStyle(color: _secondary)),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: _primary),
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),
@@ -482,8 +488,8 @@ class _SkillChip extends StatelessWidget {
   const _SkillChip({required this.skill, required this.onRemove});
 
   static const _surface = Color(0xFF1A1A2E);
-  static const _border  = Color(0xFF2A2A40);
-  static const _muted   = Color(0xFF888899);
+  static const _border = Color(0xFF2A2A40);
+  static const _muted = Color(0xFF888899);
 
   Color get _levelColor {
     switch (skill.level) {
@@ -513,7 +519,8 @@ class _SkillChip extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(color: _levelColor, shape: BoxShape.circle),
+            decoration:
+                BoxDecoration(color: _levelColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
           Text(
@@ -522,7 +529,8 @@ class _SkillChip extends StatelessWidget {
                 color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(width: 6),
-          Text(skill.level.label, style: TextStyle(color: _levelColor, fontSize: 10)),
+          Text(skill.level.label,
+              style: TextStyle(color: _levelColor, fontSize: 10)),
           const SizedBox(width: 6),
           GestureDetector(
             onTap: onRemove,

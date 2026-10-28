@@ -1,599 +1,447 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
-
 import '../lib/data/courses/course_generator_config.dart';
+import '../lib/services/local_course_generator.dart';
 
-/// Course Generator Backend API
+/// OPTIONAL Course Generator API. The Flutter app works without it
+/// (it has a built-in generator). Run this only if you want real AI.
 ///
-/// Receives a course-generation prompt from the Flutter app.
+/// Public response contracts are unchanged:
+///   GET  /health               -> {success, message, mode}
+///   POST /generate-course      -> {success, mock, course}
+///   POST /generate-lesson-list -> {success, mock, lessonList}
 ///
-/// - If OPENAI_API_KEY is set  -> calls OpenAI and returns real content.
-/// - If OPENAI_API_KEY is NOT set -> returns MOCK content in the exact
-///   same JSON schema, so the entire Flutter -> Backend -> JSON ->
-///   TopicCourse -> cache pipeline can be tested with zero configuration.
+/// What changed:
+///  * CORS: in development (CAREER_GUIDE_ENV != production) any
+///    http://localhost:* or http://127.0.0.1:* origin is allowed, which is
+///    what `flutter run -d chrome` uses. Before, an empty
+///    COURSE_ALLOWED_ORIGINS rejected every browser request, which the
+///    browser reports as "ClientException: Failed to fetch".
+///    In production you MUST list origins in COURSE_ALLOWED_ORIGINS.
+///  * With no OPENAI_API_KEY the server answers with the built-in local
+///    generator (mock=true, source="local-template") instead of generic
+///    placeholder text. The app ignores mock=true and uses its own copy.
+///  * AI answers are validated; invalid ones return 502 instead of being
+///    passed to the app.
 ///
-/// To add a real key later: set OPENAI_API_KEY. No Flutter code changes.
-/// To swap AI providers later: edit only the "CALL AI" section below.
-///
-/// Example:
-/// dart run backend/course_generator_api.dart                (mock mode)
-/// OPENAI_API_KEY=sk-xxx dart run backend/course_generator_api.dart (real)
+/// Environment: PORT, OPENAI_API_KEY, FIREBASE_WEB_API_KEY,
+/// COURSE_AUTH_REQUIRED, COURSE_ALLOWED_ORIGINS, COURSE_MAX_BODY_BYTES,
+/// COURSE_AI_TIMEOUT_SECONDS, CAREER_GUIDE_ENV.
 class CourseGeneratorApi {
-  static const int port = 8080;
+  static const String openAiUrl = 'https://api.openai.com/v1/chat/completions';
+  static final http.Client _client = http.Client();
+  static final Map<String, _Window> _windows = {};
+  static int get port =>
+      int.tryParse(Platform.environment['PORT'] ?? '') ?? 8080;
+  static bool get _production =>
+      Platform.environment['CAREER_GUIDE_ENV'] == 'production';
+  static bool get _authRequired {
+    final v = Platform.environment['COURSE_AUTH_REQUIRED'];
+    return v == null || v.trim().isEmpty
+        ? _production
+        : (v == 'true' || v == '1');
+  }
 
-  static const String openAiUrl =
-      'https://api.openai.com/v1/chat/completions';
+  static int get _maxBody =>
+      int.tryParse(Platform.environment['COURSE_MAX_BODY_BYTES'] ?? '') ??
+      262144;
+  static Duration get _timeout => Duration(
+      seconds: int.tryParse(
+              Platform.environment['COURSE_AI_TIMEOUT_SECONDS'] ?? '') ??
+          45);
+  static Set<String> get _origins =>
+      (Platform.environment['COURSE_ALLOWED_ORIGINS'] ?? '')
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+  static bool get _hasAiKey =>
+      (Platform.environment['OPENAI_API_KEY'] ?? '').trim().isNotEmpty;
 
   static Future<void> start() async {
-    final server = await HttpServer.bind(
-      InternetAddress.anyIPv4,
-      port,
-    );
-
-    final mockMode = (Platform.environment['OPENAI_API_KEY'] ?? '').trim().isEmpty;
-    print('Course Generator Backend running on port $port'
-        '${mockMode ? "  [MOCK MODE - no OPENAI_API_KEY set]" : "  [LIVE AI MODE]"}');
-
+    if (_authRequired &&
+        (Platform.environment['FIREBASE_WEB_API_KEY'] ?? '').trim().isEmpty) {
+      throw StateError(
+          'FIREBASE_WEB_API_KEY is required when course authentication is enabled.');
+    }
+    final server = await HttpServer.bind(InternetAddress.anyIPv4, port);
+    stdout.writeln(
+        'Course Generator listening on $port; auth=$_authRequired; ai=$_hasAiKey; production=$_production');
     await for (final request in server) {
-      await _handleRequest(request);
+      unawaited(_handle(request));
     }
   }
 
-  static Future<void> _handleRequest(
-    HttpRequest request,
-  ) async {
-    // ----------------------------------------------------------
-    // CORS
-    // ----------------------------------------------------------
-
-    request.response.headers
-      ..set(
-        'Access-Control-Allow-Origin',
-        '*',
-      )
-      ..set(
-        'Access-Control-Allow-Headers',
-        'Content-Type',
-      )
-      ..set(
-        'Access-Control-Allow-Methods',
-        'POST, OPTIONS',
-      )
-      ..contentType = ContentType.json;
-
-    // ----------------------------------------------------------
-    // OPTIONS
-    // ----------------------------------------------------------
-
-    if (request.method == 'OPTIONS') {
-      request.response.statusCode = HttpStatus.ok;
-      await request.response.close();
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // HEALTH CHECK
-    // ----------------------------------------------------------
-
-    if (request.method == 'GET' &&
-        request.uri.path == '/health') {
-      final mockMode =
-          (Platform.environment['OPENAI_API_KEY'] ?? '').trim().isEmpty;
-      await _sendJson(
-        request,
-        HttpStatus.ok,
-        {
+  static Future<void> _handle(HttpRequest req) async {
+    try {
+      if (!_cors(req)) {
+        await _send(
+            req, 403, {'success': false, 'error': 'Origin is not allowed.'});
+        return;
+      }
+      if (req.method == 'OPTIONS') {
+        req.response.statusCode = HttpStatus.noContent;
+        await req.response.close();
+        return;
+      }
+      if (req.method == 'GET' && req.uri.path == '/health') {
+        await _send(req, 200, {
           'success': true,
           'message': 'Course Generator Backend is running.',
-          'mode': mockMode ? 'mock' : 'live',
-        },
-      );
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // COURSE GENERATION
-    // ----------------------------------------------------------
-
-    if (request.method == 'POST' &&
-        request.uri.path == '/generate-course') {
-      await _generateCourse(request);
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // LESSON LIST GENERATION (multi-lesson-per-level system —
-    // Security, Design, Emerging, Testing, Specialized only)
-    // ----------------------------------------------------------
-
-    if (request.method == 'POST' &&
-        request.uri.path == '/generate-lesson-list') {
-      await _generateLessonList(request);
-      return;
-    }
-
-    await _sendJson(
-      request,
-      HttpStatus.notFound,
-      {
+          'mode': _hasAiKey ? 'live' : 'mock',
+        });
+        return;
+      }
+      final course = req.method == 'POST' && req.uri.path == '/generate-course';
+      final lessons =
+          req.method == 'POST' && req.uri.path == '/generate-lesson-list';
+      if (!course && !lessons) {
+        await _send(
+            req, 404, {'success': false, 'error': 'Endpoint not found.'});
+        return;
+      }
+      final userId = await _verifyFirebaseToken(req);
+      if (_authRequired && userId == null) {
+        await _send(req, 401, {
+          'success': false,
+          'error': 'A valid Firebase ID token is required.'
+        });
+        return;
+      }
+      final key = userId ??
+          'ip:${req.connectionInfo?.remoteAddress.address ?? 'unknown'}';
+      if (!_allow(key)) {
+        req.response.headers.set('Retry-After', '60');
+        await _send(req, 429, {
+          'success': false,
+          'error': 'Too many requests. Please try again shortly.'
+        });
+        return;
+      }
+      final data = await _readBody(req);
+      if (data == null) return;
+      if (course) {
+        await _generateCourse(req, data);
+      } else {
+        await _generateLessonList(req, data);
+      }
+    } on _TooLarge {
+      await _send(
+          req, 413, {'success': false, 'error': 'Request body is too large.'});
+    } on _BadJson catch (e) {
+      await _send(req, 400, {'success': false, 'error': e.message});
+    } on LocalGenerationException catch (e) {
+      await _send(req, 422, {'success': false, 'error': e.message});
+    } on _AiTimeout {
+      await _send(req, 504,
+          {'success': false, 'error': 'AI provider request timed out.'});
+    } on _AiUnavailable {
+      await _send(
+          req, 502, {'success': false, 'error': 'AI provider is unavailable.'});
+    } on _AiStatus catch (e) {
+      await _send(req, 502, {
         'success': false,
-        'error': 'Endpoint not found.',
-      },
-    );
+        'error': 'AI provider returned an error.',
+        'providerStatus': e.status
+      });
+    } on _BadAiResponse {
+      await _send(req, 502,
+          {'success': false, 'error': 'AI provider returned invalid JSON.'});
+    } catch (e) {
+      stderr.writeln('Course Generator request failed: $e');
+      try {
+        await _send(
+            req, 500, {'success': false, 'error': 'Internal server error.'});
+      } catch (_) {
+        try {
+          await req.response.close();
+        } catch (_) {}
+      }
+    }
   }
+
+  static bool _originAllowed(String origin) {
+    if (_origins.contains(origin)) return true;
+    if (_production) return false; // production needs an explicit list
+    final uri = Uri.tryParse(origin);
+    if (uri == null) return false;
+    return uri.host == 'localhost' ||
+        uri.host == '127.0.0.1' ||
+        uri.host == '::1';
+  }
+
+  static bool _cors(HttpRequest req) {
+    final origin = req.headers.value('Origin');
+    if (origin != null) {
+      if (!_originAllowed(origin)) return false;
+      req.response.headers
+        ..set(HttpHeaders.accessControlAllowOriginHeader, origin)
+        ..set(HttpHeaders.varyHeader, 'Origin')
+        ..set(HttpHeaders.accessControlAllowMethodsHeader, 'GET, POST, OPTIONS')
+        ..set(HttpHeaders.accessControlAllowHeadersHeader,
+            'Content-Type, Authorization, Accept')
+        ..set(HttpHeaders.accessControlMaxAgeHeader, '600');
+    }
+    req.response.headers.contentType = ContentType.json;
+    return true;
+  }
+
+  /// Firebase Auth REST accounts:lookup validates the ID token against the
+  /// project selected by FIREBASE_WEB_API_KEY (a project key, not an Admin
+  /// credential). Do not disable auth on a public production service.
+  static Future<String?> _verifyFirebaseToken(HttpRequest req) async {
+    if (!_authRequired) return null;
+    final header = req.headers.value(HttpHeaders.authorizationHeader) ?? '';
+    if (!header.startsWith('Bearer ')) return null;
+    final token = header.substring(7).trim();
+    final key = (Platform.environment['FIREBASE_WEB_API_KEY'] ?? '').trim();
+    if (token.isEmpty || token.length > 8192 || key.isEmpty) return null;
+    try {
+      final response = await _client
+          .post(
+            Uri.https('identitytoolkit.googleapis.com', '/v1/accounts:lookup',
+                {'key': key}),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'idToken': token}),
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return null;
+      final value = jsonDecode(response.body);
+      if (value is! Map ||
+          value['users'] is! List ||
+          (value['users'] as List).isEmpty) return null;
+      final first = (value['users'] as List).first;
+      if (first is! Map) return null;
+      final id = first['localId']?.toString().trim() ?? '';
+      return id.isEmpty ? null : id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static bool _allow(String key) {
+    final now = DateTime.now().toUtc();
+    final window = _windows[key];
+    if (window == null ||
+        now.difference(window.start) >= const Duration(minutes: 1)) {
+      _windows[key] = _Window(now, 1);
+      if (_windows.length > 10000) _windows.remove(_windows.keys.first);
+      return true;
+    }
+    if (window.count >= 30) return false;
+    window.count++;
+    return true;
+  }
+
+  static Future<Map<String, dynamic>?> _readBody(HttpRequest req) async {
+    if (req.contentLength > _maxBody) throw const _TooLarge();
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in req) {
+      bytes.add(chunk);
+      if (bytes.length > _maxBody) throw const _TooLarge();
+    }
+    final String body;
+    try {
+      body = utf8.decode(bytes.takeBytes(), allowMalformed: false);
+    } catch (_) {
+      throw const _BadJson('Request body must be valid UTF-8 JSON.');
+    }
+    if (body.trim().isEmpty) throw const _BadJson('Request body is empty.');
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(body);
+    } catch (_) {
+      throw const _BadJson('Request body must be valid JSON.');
+    }
+    if (decoded is! Map)
+      throw const _BadJson('Request body must be a JSON object.');
+    return Map<String, dynamic>.from(decoded);
+  }
+
+  static int? _intOf(dynamic v) =>
+      v is int ? v : (v is num ? v.toInt() : int.tryParse('$v'));
 
   static Future<void> _generateCourse(
-    HttpRequest request,
-  ) async {
-    try {
-      // --------------------------------------------------------
-      // READ REQUEST BODY
-      // --------------------------------------------------------
-
-      final body =
-          await utf8.decoder.bind(request).join();
-
-      if (body.trim().isEmpty) {
-        await _sendJson(
-          request,
-          HttpStatus.badRequest,
-          {
-            'success': false,
-            'error': 'Request body is empty.',
-          },
-        );
+      HttpRequest req, Map<String, dynamic> data) async {
+    final prompt = data['prompt']?.toString().trim() ?? '';
+    if (prompt.length > 50000) {
+      await _send(req, 400,
+          {'success': false, 'error': 'Course generation prompt is too long.'});
+      return;
+    }
+    final mock = !_hasAiKey;
+    final Map<String, dynamic> course;
+    if (mock) {
+      final careerId = (data['careerId'] ?? '').toString();
+      final level = _intOf(data['level']);
+      if (careerId.isEmpty || level == null) {
+        await _send(req, 400,
+            {'success': false, 'error': 'careerId and level are required.'});
         return;
       }
-
-      final decoded = jsonDecode(body);
-
-      if (decoded is! Map) {
-        await _sendJson(
-          request,
-          HttpStatus.badRequest,
-          {
-            'success': false,
-            'error':
-                'Request body must be a JSON object.',
-          },
-        );
-        return;
-      }
-
-      final data =
-          Map<String, dynamic>.from(decoded);
-
-      final prompt =
-          data['prompt']?.toString().trim() ?? '';
-
-      if (prompt.isEmpty) {
-        await _sendJson(
-          request,
-          HttpStatus.badRequest,
-          {
-            'success': false,
-            'error':
-                'Course generation prompt is required.',
-          },
-        );
-        return;
-      }
-
-      // --------------------------------------------------------
-      // API KEY / PROVIDER SELECTION
-      // --------------------------------------------------------
-
-      final apiKey = Platform.environment['OPENAI_API_KEY'];
-      final useMock = apiKey == null || apiKey.trim().isEmpty;
-
-      Map<String, dynamic> courseJson;
-
-      if (useMock) {
-        // ----------------------------------------------------
-        // MOCK MODE -- no key configured. Lets the full pipeline
-        // be tested end-to-end without any AI provider.
-        // ----------------------------------------------------
-        courseJson = _buildMockCourse(data);
-      } else {
-        // ----------------------------------------------------
-        // CALL AI (swap provider here later if needed -- this is
-        // the ONLY section that needs to change to use a
-        // different AI provider/config)
-        // ----------------------------------------------------
-        final aiResponse = await http.post(
-          Uri.parse(openAiUrl),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $apiKey',
-          },
-          body: jsonEncode({
-            'model': 'gpt-4o-mini',
-            'temperature': 0.7,
-            'response_format': {
-              'type': 'json_object',
-            },
-            'messages': [
-              {
-                'role': 'system',
-                'content': '''
-You are an expert career-course generator.
-
-Generate educational course content exactly according
-to the user's supplied prompt.
-
-Return ONLY valid JSON.
-Do not return Markdown.
-Do not wrap JSON inside code blocks.
-''',
-              },
-              {
-                'role': 'user',
-                'content': prompt,
-              },
-            ],
-          }),
-        );
-
-        if (aiResponse.statusCode < 200 || aiResponse.statusCode >= 300) {
-          await _sendJson(
-            request,
-            HttpStatus.badGateway,
-            {
-              'success': false,
-              'error': 'AI provider returned an error.',
-              'providerStatus': aiResponse.statusCode,
-            },
-          );
-          return;
-        }
-
-        final aiData = jsonDecode(aiResponse.body);
-        final choices = aiData['choices'];
-
-        if (choices is! List || choices.isEmpty) {
-          throw const FormatException('AI response contains no choices.');
-        }
-
-        final firstChoice = choices.first;
-        if (firstChoice is! Map) {
-          throw const FormatException('Invalid AI choice format.');
-        }
-
-        final message = firstChoice['message'];
-        if (message is! Map) {
-          throw const FormatException('AI response contains no message.');
-        }
-
-        final content = message['content']?.toString().trim();
-        if (content == null || content.isEmpty) {
-          throw const FormatException('AI returned empty course content.');
-        }
-
-        final parsed = jsonDecode(content);
-        if (parsed is! Map) {
-          throw const FormatException('AI course response is not a JSON object.');
-        }
-
-        courseJson = Map<String, dynamic>.from(parsed);
-      }
-
-      // --------------------------------------------------------
-      // RETURN COURSE
-      // --------------------------------------------------------
-
-      await _sendJson(
-        request,
-        HttpStatus.ok,
-        {
-          'success': true,
-          'mock': useMock,
-          'course': courseJson,
-        },
+      course = LocalCourseGenerator.generateCourse(
+        careerId: careerId,
+        level: level,
+        lessonIndex: _intOf(data['lessonIndex']),
       );
-    } catch (e) {
-      await _sendJson(
-        request,
-        HttpStatus.internalServerError,
-        {
+    } else {
+      if (prompt.isEmpty) {
+        await _send(req, 400, {
           'success': false,
-          'error': e.toString(),
-        },
-      );
+          'error': 'Course generation prompt is required.'
+        });
+        return;
+      }
+      course = await _callAi(prompt,
+          'You are an expert career-course generator. Generate educational course content according to the supplied prompt. Return ONLY valid JSON; no Markdown or code fences.');
+      if (CourseJsonValidator.validate(course).isNotEmpty)
+        throw const _BadAiResponse();
     }
+    await _send(req, 200, {'success': true, 'mock': mock, 'course': course});
   }
 
-  // ============================================================
-  // MOCK COURSE BUILDER
-  //
-  // Produces schema-correct content directly from the request
-  // fields (careerId, levelTitle, topics, difficulty), using the
-  // SAME CourseGeneratorConfig counts as real generation, so the
-  // mock output structurally matches what real AI content will be.
-  // ============================================================
-
-  static Map<String, dynamic> _buildMockCourse(Map<String, dynamic> data) {
-    final careerId = (data['careerId'] ?? '').toString();
-    final careerTitle = (data['careerTitle'] ?? 'Career').toString();
-    final categoryId = (data['categoryId'] ?? '').toString();
-    final level = data['level'] is int
-        ? data['level'] as int
-        : int.tryParse('${data['level']}') ?? 1;
-    final levelTitle = (data['levelTitle'] ?? 'Level $level').toString();
-    final difficulty = (data['difficulty'] ?? 'Medium').toString();
-    final topics = (data['topics'] is List)
-        ? List<String>.from((data['topics'] as List).map((e) => e.toString()))
-        : <String>['Core Concepts'];
-
-    final concepts = List.generate(CourseGeneratorConfig.conceptsPerLesson, (i) {
-      final topic = topics[i % topics.length];
-      return {
-        'title': topic,
-        'definition': '$topic explained clearly for $careerTitle learners.',
-        'analogy': 'Think of $topic like a real-world tool you already use every day.',
-        'example': 'A practical example of $topic applied to a $careerTitle task.',
-        'keyTakeaway': 'Remember: $topic is a foundational skill for $levelTitle.',
-        'codeSnippet': null,
-      };
-    });
-
-    final quiz = List.generate(CourseGeneratorConfig.quizQuestionsPerLesson, (i) {
-      return {
-        'question': 'Question ${i + 1} about ${topics[i % topics.length]}?',
-        'options': ['Correct answer', 'Wrong option A', 'Wrong option B', 'Wrong option C'],
-        'correctIndex': 0,
-        'explanation': 'This is the correct answer because it matches the definition covered above.',
-        'xpReward': CourseGeneratorConfig.defaultQuizXp,
-      };
-    });
-
-    final challenges = List.generate(CourseGeneratorConfig.challengesPerLesson, (i) {
-      return {
-        'prompt': 'Scenario ${i + 1}: apply ${topics[i % topics.length]} to solve a real problem.',
-        'options': ['Best approach', 'Weaker option A', 'Weaker option B', 'Weaker option C'],
-        'correctIndex': 0,
-        'explanation': 'The best approach directly applies the concept correctly.',
-        'xpReward': CourseGeneratorConfig.defaultChallengeXp,
-      };
-    });
-
-    return {
-      'id': '${careerId}_level$level',
-      'topicTitle': levelTitle,
-      'careerId': careerId,
-      'categoryId': categoryId,
-      'difficulty': difficulty,
-      'estimatedMinutes': 30 + (level * 5),
-      'totalXp': (CourseGeneratorConfig.defaultQuizXp * CourseGeneratorConfig.quizQuestionsPerLesson) +
-          (CourseGeneratorConfig.defaultChallengeXp * CourseGeneratorConfig.challengesPerLesson) +
-          CourseGeneratorConfig.defaultProjectXp,
-      'intro': 'Welcome to $levelTitle — build practical, real-world $careerTitle '
-          'skills you can apply right away.',
-      'emoji': '🧪',
-      'concepts': concepts,
-      'quiz': quiz,
-      'challenges': challenges,
-      'finalProject': CourseGeneratorConfig.generateFinalProject
-          ? {
-              'title': '$levelTitle Capstone',
-              'goal': 'Apply everything from this level to a small $careerTitle project.',
-              'steps': topics.map((t) => 'Practice: $t').toList(),
-              'expectedOutput': 'A working demo showing you can apply ${topics.join(", ")}.',
-              'xpReward': CourseGeneratorConfig.defaultProjectXp,
-            }
-          : {
-              'title': 'No project configured',
-              'goal': '',
-              'steps': <String>[],
-              'expectedOutput': '',
-              'xpReward': 0,
-            },
-    };
-  }
-
-  // ============================================================
-  // LESSON LIST GENERATION (multi-lesson-per-level system)
-  //
-  // Returns exactly `lessonCount` lesson titles for ONE level —
-  // never full lesson content. Each returned title is later fed,
-  // one at a time, into the EXISTING /generate-course endpoint
-  // above (unchanged) to produce that lesson's full content.
-  // ============================================================
-
-  static Future<void> _generateLessonList(HttpRequest request) async {
-    try {
-      final body = await utf8.decoder.bind(request).join();
-
-      if (body.trim().isEmpty) {
-        await _sendJson(
-          request,
-          HttpStatus.badRequest,
-          {'success': false, 'error': 'Request body is empty.'},
-        );
+  static Future<void> _generateLessonList(
+      HttpRequest req, Map<String, dynamic> data) async {
+    final prompt = data['prompt']?.toString().trim() ?? '';
+    if (prompt.length > 50000) {
+      await _send(req, 400,
+          {'success': false, 'error': 'Lesson list prompt is too long.'});
+      return;
+    }
+    final count = _intOf(data['lessonCount']) ??
+        CourseGeneratorConfig.lessonsPerDynamicLevel;
+    if (count < CourseGeneratorConfig.minLessonCount ||
+        count > CourseGeneratorConfig.maxLessonCount) {
+      await _send(req, 400, {
+        'success': false,
+        'error':
+            'lessonCount must be between ${CourseGeneratorConfig.minLessonCount} and ${CourseGeneratorConfig.maxLessonCount}.'
+      });
+      return;
+    }
+    final mock = !_hasAiKey;
+    final Map<String, dynamic> result;
+    if (mock) {
+      final careerId = (data['careerId'] ?? '').toString();
+      final level = _intOf(data['level']);
+      if (careerId.isEmpty || level == null) {
+        await _send(req, 400,
+            {'success': false, 'error': 'careerId and level are required.'});
         return;
       }
-
-      final decoded = jsonDecode(body);
-      if (decoded is! Map) {
-        await _sendJson(
-          request,
-          HttpStatus.badRequest,
-          {'success': false, 'error': 'Request body must be a JSON object.'},
-        );
-        return;
-      }
-
-      final data = Map<String, dynamic>.from(decoded);
-      final prompt = data['prompt']?.toString().trim() ?? '';
-
+      result = LocalCourseGenerator.generateLessonList(
+          careerId: careerId, level: level, lessonCount: count);
+    } else {
       if (prompt.isEmpty) {
-        await _sendJson(
-          request,
-          HttpStatus.badRequest,
-          {'success': false, 'error': 'Lesson list prompt is required.'},
-        );
+        await _send(req, 400,
+            {'success': false, 'error': 'Lesson list prompt is required.'});
         return;
       }
+      result = await _callAi(prompt,
+          'You are an expert career-curriculum designer. Generate a lesson syllabus according to the supplied prompt. Return ONLY valid JSON; no Markdown or code fences.');
+      if (CourseJsonValidator.validateLessonList(result, expectedCount: count)
+          .isNotEmpty) throw const _BadAiResponse();
+    }
+    await _send(
+        req, 200, {'success': true, 'mock': mock, 'lessonList': result});
+  }
 
-      final careerTitle = (data['careerTitle'] ?? 'Career').toString();
-      final levelTitle = (data['levelTitle'] ?? 'Level').toString();
-      final lessonCount = data['lessonCount'] is int
-          ? data['lessonCount'] as int
-          : int.tryParse('${data['lessonCount']}') ?? 10;
-
-      final apiKey = Platform.environment['OPENAI_API_KEY'];
-      final useMock = apiKey == null || apiKey.trim().isEmpty;
-
-      Map<String, dynamic> lessonListJson;
-
-      if (useMock) {
-        // No key configured — generic, career-agnostic syllabus so
-        // the full pipeline can be tested end-to-end without any AI
-        // provider. Nothing here is written per-career; it only uses
-        // the career/level titles passed in the request.
-        lessonListJson = _buildMockLessonList(careerTitle, levelTitle, lessonCount);
-      } else {
-        // Same AI-call pattern as /generate-course above — only the
-        // system prompt and expected JSON shape differ.
-        final aiResponse = await http.post(
-          Uri.parse(openAiUrl),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $apiKey',
-          },
-          body: jsonEncode({
-            'model': 'gpt-4o-mini',
-            'temperature': 0.7,
-            'response_format': {'type': 'json_object'},
-            'messages': [
-              {
-                'role': 'system',
-                'content': '''
-You are an expert career-curriculum designer.
-
-Generate a lesson syllabus exactly according to the user's supplied
-prompt.
-
-Return ONLY valid JSON.
-Do not return Markdown.
-Do not wrap JSON inside code blocks.
-''',
-              },
-              {'role': 'user', 'content': prompt},
-            ],
-          }),
-        );
-
-        if (aiResponse.statusCode < 200 || aiResponse.statusCode >= 300) {
-          await _sendJson(
-            request,
-            HttpStatus.badGateway,
-            {
-              'success': false,
-              'error': 'AI provider returned an error.',
-              'providerStatus': aiResponse.statusCode,
+  static Future<Map<String, dynamic>> _callAi(
+      String prompt, String systemPrompt) async {
+    final key = (Platform.environment['OPENAI_API_KEY'] ?? '').trim();
+    final http.Response response;
+    try {
+      response = await _client
+          .post(
+            Uri.parse(openAiUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $key'
             },
-          );
-          return;
-        }
-
-        final aiData = jsonDecode(aiResponse.body);
-        final choices = aiData['choices'];
-        if (choices is! List || choices.isEmpty) {
-          throw const FormatException('AI response contains no choices.');
-        }
-        final firstChoice = choices.first;
-        if (firstChoice is! Map) {
-          throw const FormatException('Invalid AI choice format.');
-        }
-        final message = firstChoice['message'];
-        if (message is! Map) {
-          throw const FormatException('AI response contains no message.');
-        }
-        final content = message['content']?.toString().trim();
-        if (content == null || content.isEmpty) {
-          throw const FormatException('AI returned empty lesson list content.');
-        }
-
-        final parsed = jsonDecode(content);
-        if (parsed is! Map) {
-          throw const FormatException('AI lesson list response is not a JSON object.');
-        }
-        lessonListJson = Map<String, dynamic>.from(parsed);
-      }
-
-      await _sendJson(
-        request,
-        HttpStatus.ok,
-        {
-          'success': true,
-          'mock': useMock,
-          'lessonList': lessonListJson,
-        },
-      );
-    } catch (e) {
-      await _sendJson(
-        request,
-        HttpStatus.internalServerError,
-        {'success': false, 'error': e.toString()},
-      );
+            body: jsonEncode({
+              'model': 'gpt-4o-mini',
+              'temperature': 0.7,
+              'response_format': {'type': 'json_object'},
+              'messages': [
+                {'role': 'system', 'content': systemPrompt},
+                {'role': 'user', 'content': prompt}
+              ],
+            }),
+          )
+          .timeout(_timeout);
+    } on TimeoutException {
+      throw const _AiTimeout();
+    } on SocketException {
+      throw const _AiUnavailable();
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300)
+      throw _AiStatus(response.statusCode);
+    try {
+      final outer = jsonDecode(response.body);
+      if (outer is! Map ||
+          outer['choices'] is! List ||
+          (outer['choices'] as List).isEmpty) throw const _BadAiResponse();
+      final choice = (outer['choices'] as List).first;
+      if (choice is! Map || choice['message'] is! Map)
+        throw const _BadAiResponse();
+      final content =
+          (choice['message'] as Map)['content']?.toString().trim() ?? '';
+      final parsed = jsonDecode(content);
+      if (parsed is! Map) throw const _BadAiResponse();
+      return Map<String, dynamic>.from(parsed);
+    } on _BadAiResponse {
+      rethrow;
+    } catch (_) {
+      throw const _BadAiResponse();
     }
   }
 
-  /// Generic, career-agnostic mock syllabus. Uses ONLY the career and
-  /// level titles passed in — no per-career content is written here,
-  /// but every title is phrased as a real, distinct lesson name (never
-  /// a generic category label like "Core Concept" or "Getting
-  /// Started"), so the 10 titles read naturally and stay specific to
-  /// the career + level they belong to.
-  static Map<String, dynamic> _buildMockLessonList(
-    String careerTitle,
-    String levelTitle,
-    int lessonCount,
-  ) {
-    final titleTemplates = <String>[
-      'What Every $careerTitle Professional Should Know About $levelTitle',
-      'Mastering $levelTitle: A $careerTitle Perspective',
-      '$levelTitle in Action: Real $careerTitle Workflows',
-      'Step-by-Step: Applying $levelTitle on the Job',
-      'A $careerTitle Case Study on $levelTitle',
-      'Common Pitfalls When Tackling $levelTitle',
-      'Pro Tips for Succeeding at $levelTitle',
-      'From Theory to Practice: $levelTitle',
-      'Building Confidence with $levelTitle',
-      'Putting It All Together: $levelTitle',
-    ];
-
-    return {
-      'lessons': List.generate(lessonCount, (i) {
-        return {
-          'index': i + 1,
-          'title': titleTemplates[i % titleTemplates.length],
-        };
-      }),
-    };
-  }
-
-  // ============================================================
-  // JSON RESPONSE
-  // ============================================================
-
-  static Future<void> _sendJson(
-    HttpRequest request,
-    int statusCode,
-    Map<String, dynamic> data,
-  ) async {
-    request.response.statusCode = statusCode;
-    request.response.headers.contentType = ContentType.json;
-    request.response.write(jsonEncode(data));
-    await request.response.close();
+  static Future<void> _send(
+      HttpRequest req, int status, Map<String, dynamic> data) async {
+    req.response.statusCode = status;
+    req.response.headers
+      ..contentType = ContentType.json
+      ..set('Cache-Control', 'no-store')
+      ..set('X-Content-Type-Options', 'nosniff');
+    req.response.write(jsonEncode(data));
+    await req.response.close();
   }
 }
 
-// ================================================================
-// SERVER ENTRY POINT
-// ================================================================
+class _Window {
+  _Window(this.start, this.count);
+  final DateTime start;
+  int count;
+}
+
+class _TooLarge implements Exception {
+  const _TooLarge();
+}
+
+class _BadJson implements Exception {
+  const _BadJson(this.message);
+  final String message;
+}
+
+class _AiTimeout implements Exception {
+  const _AiTimeout();
+}
+
+class _AiUnavailable implements Exception {
+  const _AiUnavailable();
+}
+
+class _BadAiResponse implements Exception {
+  const _BadAiResponse();
+}
+
+class _AiStatus implements Exception {
+  _AiStatus(this.status);
+  final int status;
+}
 
 Future<void> main() async {
   await CourseGeneratorApi.start();

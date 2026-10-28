@@ -9,7 +9,7 @@ class WebViewScreen extends StatefulWidget {
     super.key,
     required this.title,
     required this.url,
-  }) ;
+  });
 
   @override
   State<WebViewScreen> createState() => _WebViewScreenState();

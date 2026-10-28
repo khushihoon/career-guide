@@ -121,7 +121,8 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'A calculateTax(income) function that any part of a program can call instead of re-writing the tax formula each time.',
     keyTakeaway:
         'If you find yourself writing the same logic twice, it belongs in a function — this is the "Don\'t Repeat Yourself" principle.',
-    quizQuestion: 'What is the main benefit of putting repeated logic into a function?',
+    quizQuestion:
+        'What is the main benefit of putting repeated logic into a function?',
     quizOptions: [
       'It avoids duplicating code and makes the logic easier to fix in one place',
       'It makes the program run on a different computer',
@@ -181,7 +182,8 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'SELECT name, email FROM users WHERE signup_date > \'2024-01-01\' returns exactly the matching rows.',
     keyTakeaway:
         'Master SELECT, WHERE, JOIN, and GROUP BY first — together they cover the majority of real-world querying needs.',
-    quizQuestion: 'Which SQL clause is used to combine rows from two related tables?',
+    quizQuestion:
+        'Which SQL clause is used to combine rows from two related tables?',
     quizOptions: ['JOIN', 'DELETE', 'PRINT', 'IMPORT'],
     quizExplanation:
         'JOIN combines rows from two or more tables based on a related column between them.',
@@ -216,7 +218,8 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'A Dockerfile that installs Python, copies your code, and runs it — producing an image that behaves identically on your laptop and on a server.',
     keyTakeaway:
         'A Docker IMAGE is a static blueprint; a CONTAINER is a running instance of that image — you can run many containers from one image.',
-    quizQuestion: 'What is the difference between a Docker image and a Docker container?',
+    quizQuestion:
+        'What is the difference between a Docker image and a Docker container?',
     quizOptions: [
       'An image is a static blueprint; a container is a running instance of it',
       'They are identical, just different names for the same thing',
@@ -336,8 +339,14 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'An NLP model that reads a product review and determines whether the sentiment is positive or negative.',
     keyTakeaway:
         'Modern NLP is dominated by transformer-based models that read entire sentences at once rather than word-by-word.',
-    quizQuestion: 'What architecture underlies most modern NLP models like BERT and GPT?',
-    quizOptions: ['Transformers', 'Decision trees', 'Spreadsheets', 'Regular expressions only'],
+    quizQuestion:
+        'What architecture underlies most modern NLP models like BERT and GPT?',
+    quizOptions: [
+      'Transformers',
+      'Decision trees',
+      'Spreadsheets',
+      'Regular expressions only'
+    ],
     quizExplanation:
         'Transformers use an attention mechanism to weigh the relevance of every word in a sentence to every other word.',
     isHandsOn: true,
@@ -411,7 +420,8 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'A login form checking a password, or an app checking a valid session token before letting a request through.',
     keyTakeaway:
         'Authentication ("who are you?") and authorization ("what are you allowed to do?") are different steps — mixing them up is a common security mistake.',
-    quizQuestion: 'What is the difference between authentication and authorization?',
+    quizQuestion:
+        'What is the difference between authentication and authorization?',
     quizOptions: [
       'Authentication verifies identity; authorization decides what that identity is allowed to do',
       'They are the exact same process with two names',
@@ -491,7 +501,8 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'Removing 5 unnecessary fields from a checkout form and watching form completions go up.',
     keyTakeaway:
         'Most UX problems come from asking users to do or decide more than necessary — reducing friction usually beats adding features.',
-    quizQuestion: 'What does Hick\'s Law predict happens when you add more choices?',
+    quizQuestion:
+        'What does Hick\'s Law predict happens when you add more choices?',
     quizOptions: [
       'Decision time increases — more options make choosing slower',
       'Users always decide faster with more options',
@@ -551,7 +562,8 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'A smart contract that automatically releases payment to a seller only once a buyer confirms delivery.',
     keyTakeaway:
         'Smart contracts typically can\'t be changed after deployment — so bugs found after launch are often permanent, making careful review essential.',
-    quizQuestion: 'Why is careful review especially critical before deploying a smart contract?',
+    quizQuestion:
+        'Why is careful review especially critical before deploying a smart contract?',
     quizOptions: [
       'Deployed smart contracts usually can\'t be modified, so bugs can be permanent',
       'Smart contracts automatically fix their own bugs',
@@ -571,7 +583,8 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'A team shipping a small working feature every two weeks and adjusting the plan based on real user feedback.',
     keyTakeaway:
         'The core idea is short feedback loops — the sooner you learn something is wrong, the cheaper it is to fix.',
-    quizQuestion: 'What is the core benefit of Agile\'s short iteration cycles?',
+    quizQuestion:
+        'What is the core benefit of Agile\'s short iteration cycles?',
     quizOptions: [
       'Problems and wrong assumptions get caught and fixed early, when they\'re cheap',
       'It guarantees the project needs no planning at all',
@@ -591,7 +604,8 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'Deciding to split a monolithic app into separate services so different teams can deploy independently without blocking each other.',
     keyTakeaway:
         'Architecture decisions are expensive to reverse — the goal is usually to optimise for the ability to change later, not just to solve today\'s problem.',
-    quizQuestion: 'What should good architecture decisions primarily optimise for?',
+    quizQuestion:
+        'What should good architecture decisions primarily optimise for?',
     quizOptions: [
       'The system\'s ability to evolve and change over time, not just today\'s requirements',
       'Using the newest technology available regardless of fit',
@@ -611,7 +625,8 @@ final Map<String, _TopicKnowledge> _knowledgeBase = {
         'A pull request that automatically runs the full test suite before it\'s allowed to be merged.',
     keyTakeaway:
         'The value of CI comes from frequency — the faster feedback arrives after a change, the cheaper that change is to fix.',
-    quizQuestion: 'Why does Continuous Integration reduce the cost of fixing bugs?',
+    quizQuestion:
+        'Why does Continuous Integration reduce the cost of fixing bugs?',
     quizOptions: [
       'Tests run immediately on every change, so problems are found while the context is still fresh',
       'It removes the need to write tests at all',
@@ -693,7 +708,8 @@ _TopicKnowledge? _lookupKnowledge(String topic) {
   final sortedKeys = _knowledgeBase.keys.toList()
     ..sort((a, b) => b.length.compareTo(a.length));
   for (final key in sortedKeys) {
-    final pattern = RegExp(r'\b' + RegExp.escape(key) + r'\b', caseSensitive: false);
+    final pattern =
+        RegExp(r'\b' + RegExp.escape(key) + r'\b', caseSensitive: false);
     if (pattern.hasMatch(topic)) {
       return _knowledgeBase[key];
     }
@@ -707,65 +723,81 @@ _TopicKnowledge? _lookupKnowledge(String topic) {
 bool _looksHandsOn(String topic) {
   final t = topic.toLowerCase();
   const handsOnHints = [
-    'code', 'algorithm', 'script', 'query', 'syntax', 'function',
-    'method', 'class', 'variable', 'loop', 'array', 'string',
-    'python', 'java', 'sql', 'api', 'build', 'implement',
+    'code',
+    'algorithm',
+    'script',
+    'query',
+    'syntax',
+    'function',
+    'method',
+    'class',
+    'variable',
+    'loop',
+    'array',
+    'string',
+    'python',
+    'java',
+    'sql',
+    'api',
+    'build',
+    'implement',
   ];
   return handsOnHints.any((h) => t.contains(h));
 }
 
-
-  // ============================================================
-  // QUIZ OPTION ORDERING
-  // ============================================================
-  // The correct answer is deliberately NOT kept at index 0.
-  //
-  // This is deterministic rather than random:
-  // - the same course inputs produce the same option order
-  // - no network/API is required
-  // - the answer position cannot be gamed by always tapping option 1
-  // - future app rebuilds do not create unstable quiz content
-  //
-  // A stable hash is used so the ordering is reproducible forever for
-  // the same course/question identity.
+// ============================================================
+// QUIZ OPTION ORDERING
+// ============================================================
+// The correct answer is deliberately NOT kept at index 0.
+//
+// This is deterministic rather than random:
+// - the same course inputs produce the same option order
+// - no network/API is required
+// - the answer position cannot be gamed by always tapping option 1
+// - future app rebuilds do not create unstable quiz content
+//
+// A stable hash is used so the ordering is reproducible forever for
+// the same course/question identity.
 int _stableHash(String value) {
-    var hash = 17;
-    for (final codeUnit in value.codeUnits) {
-      hash = (hash * 31 + codeUnit) & 0x7fffffff;
-    }
-    return hash;
+  var hash = 17;
+  for (final codeUnit in value.codeUnits) {
+    hash = (hash * 31 + codeUnit) & 0x7fffffff;
   }
+  return hash;
+}
 
 QuizQuestion _repositionCorrectOption(
-    QuizQuestion question, {
-    required String seed,
-  }) {
-    final original = List<String>.from(question.options);
-    if (original.length <= 1) {
-      return question;
-    }
-
-    final correctIndex = question.correctIndex.clamp(0, original.length - 1).toInt();
-    // Force a non-zero rotation whenever there is more than one option.
-    // This guarantees the original correct position is not preserved simply
-    // because the hash happened to produce zero.
-    final shift = 1 + (_stableHash(seed) % (original.length - 1));
-
-    final rotated = List<String>.generate(
-      original.length,
-      (newIndex) => original[(newIndex - shift + original.length) % original.length],
-    );
-
-    final newCorrectIndex = (correctIndex + shift) % original.length;
-
-    return QuizQuestion(
-      question: question.question,
-      options: rotated,
-      correctIndex: newCorrectIndex,
-      explanation: question.explanation,
-      xpReward: question.xpReward,
-    );
+  QuizQuestion question, {
+  required String seed,
+}) {
+  final original = List<String>.from(question.options);
+  if (original.length <= 1) {
+    return question;
   }
+
+  final correctIndex =
+      question.correctIndex.clamp(0, original.length - 1).toInt();
+  // Force a non-zero rotation whenever there is more than one option.
+  // This guarantees the original correct position is not preserved simply
+  // because the hash happened to produce zero.
+  final shift = 1 + (_stableHash(seed) % (original.length - 1));
+
+  final rotated = List<String>.generate(
+    original.length,
+    (newIndex) =>
+        original[(newIndex - shift + original.length) % original.length],
+  );
+
+  final newCorrectIndex = (correctIndex + shift) % original.length;
+
+  return QuizQuestion(
+    question: question.question,
+    options: rotated,
+    correctIndex: newCorrectIndex,
+    explanation: question.explanation,
+    xpReward: question.xpReward,
+  );
+}
 
 class AiCourseService {
   // ============================================================
@@ -827,11 +859,14 @@ class AiCourseService {
     // filtering would leave nothing (e.g. the user has mastered every
     // topic in this level already), fall back to the full original list
     // so the level still has real content — framed as a refresher.
-    final masteredLower =
-        (masteredTopics ?? const <String>{}).map((t) => t.toLowerCase()).toSet();
+    final masteredLower = (masteredTopics ?? const <String>{})
+        .map((t) => t.toLowerCase())
+        .toSet();
     final filteredTopics = masteredLower.isEmpty
         ? topics
-        : topics.where((t) => !masteredLower.contains(t.toLowerCase())).toList();
+        : topics
+            .where((t) => !masteredLower.contains(t.toLowerCase()))
+            .toList();
     final isRefresher = masteredLower.isNotEmpty && filteredTopics.isEmpty;
     final effectiveTopics = isRefresher ? topics : filteredTopics;
 

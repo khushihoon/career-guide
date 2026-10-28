@@ -31,18 +31,18 @@ class AchievementScreen extends StatefulWidget {
 }
 
 class _AchievementScreenState extends State<AchievementScreen> {
-  static const _bg      = Color(0xFF0F0F1A);
+  static const _bg = Color(0xFF0F0F1A);
   static const _surface = Color(0xFF1A1A2E);
-  static const _border  = Color(0xFF2A2A40);
+  static const _border = Color(0xFF2A2A40);
   static const _primary = Color(0xFF7C3AED);
-  static const _muted   = Color(0xFF888899);
+  static const _muted = Color(0xFF888899);
 
   final _service = AchievementService();
 
   List<Achievement> _achievements = const [];
-  bool _loading  = true;
-  bool _errored  = false;
-  bool _noUser   = false;
+  bool _loading = true;
+  bool _errored = false;
+  bool _noUser = false;
   AchievementRarity? _filter;
 
   @override
@@ -58,7 +58,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
     setState(() {
       _loading = true;
       _errored = false;
-      _noUser  = uid == null;
+      _noUser = uid == null;
     });
 
     if (uid == null) {
@@ -91,8 +91,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
       ? _achievements
       : _achievements.where((a) => a.rarity == _filter).toList();
 
-  int get _unlockedCount =>
-      _achievements.where((a) => a.isUnlocked).length;
+  int get _unlockedCount => _achievements.where((a) => a.isUnlocked).length;
 
   int get _totalCount => _achievements.length;
 
@@ -238,8 +237,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
                   final width = constraints.crossAxisExtent;
                   final columns = width >= 640 ? 3 : 2;
                   return SliverGrid(
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: columns,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
@@ -249,9 +247,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
                       (_, i) => _AchievementCell(
                         achievement: filtered[i],
                         onTap: () => _openDetails(filtered[i]),
-                      )
-                          .animate()
-                          .fadeIn(delay: (i * 35).ms, duration: 240.ms),
+                      ).animate().fadeIn(delay: (i * 35).ms, duration: 240.ms),
                       childCount: filtered.length,
                     ),
                   );
@@ -330,8 +326,7 @@ class _SummaryCard extends StatelessWidget {
               value: progress.clamp(0.0, 1.0),
               minHeight: 10,
               backgroundColor: const Color(0xFF0F0F20),
-              valueColor:
-                  const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
             ),
           ),
           const SizedBox(height: 10),
@@ -379,8 +374,7 @@ class _FilterRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           ...AchievementRarity.values.map((r) {
-            final colors =
-                r.gradientHex.map((c) => Color(c)).toList();
+            final colors = r.gradientHex.map((c) => Color(c)).toList();
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: _chip(
@@ -406,11 +400,9 @@ class _FilterRow extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          gradient:
-              isSelected ? LinearGradient(colors: colors) : null,
+          gradient: isSelected ? LinearGradient(colors: colors) : null,
           color: isSelected ? null : const Color(0xFF1A1A2E),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -420,8 +412,7 @@ class _FilterRow extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color:
-                isSelected ? Colors.white : const Color(0xFF888899),
+            color: isSelected ? Colors.white : const Color(0xFF888899),
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -446,19 +437,16 @@ class _AchievementCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors =
-        achievement.rarity.gradientHex.map((c) => Color(c)).toList();
+    final colors = achievement.rarity.gradientHex.map((c) => Color(c)).toList();
     final locked = !achievement.isUnlocked;
 
     // UI-side safe progress — never mutate the model.
     final target = achievement.progressTarget;
-    final current = achievement.progressCurrent < 0
-        ? 0
-        : achievement.progressCurrent;
+    final current =
+        achievement.progressCurrent < 0 ? 0 : achievement.progressCurrent;
     final safeTarget = target < 0 ? 0 : target;
-    final safeProgress = achievement.progress.isNaN
-        ? 0.0
-        : achievement.progress.clamp(0.0, 1.0);
+    final safeProgress =
+        achievement.progress.isNaN ? 0.0 : achievement.progress.clamp(0.0, 1.0);
 
     final showNumericProgress = locked && safeTarget > 1;
 
@@ -473,9 +461,8 @@ class _AchievementCell extends StatelessWidget {
                 colors[0].withOpacity(0.20),
                 colors[1].withOpacity(0.08),
               ],
-        borderColor: locked
-            ? const Color(0xFF2A2A40)
-            : colors[0].withOpacity(0.5),
+        borderColor:
+            locked ? const Color(0xFF2A2A40) : colors[0].withOpacity(0.5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -485,8 +472,7 @@ class _AchievementCell extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    gradient:
-                        locked ? null : LinearGradient(colors: colors),
+                    gradient: locked ? null : LinearGradient(colors: colors),
                     color: locked ? const Color(0xFF2A2A40) : null,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -525,9 +511,7 @@ class _AchievementCell extends StatelessWidget {
               child: Text(
                 achievement.description,
                 style: const TextStyle(
-                    color: Color(0xFF888899),
-                    fontSize: 10,
-                    height: 1.3),
+                    color: Color(0xFF888899), fontSize: 10, height: 1.3),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -548,15 +532,15 @@ class _AchievementCell extends StatelessWidget {
                       value: safeProgress,
                       minHeight: 3,
                       backgroundColor: const Color(0xFF2A2A40),
-                      valueColor: const AlwaysStoppedAnimation(
-                          Color(0xFF7C3AED)),
+                      valueColor:
+                          const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
                     ),
                   ),
                   const SizedBox(width: 6),
                   Text(
                     '$current/$safeTarget',
-                    style: const TextStyle(
-                        color: Color(0xFF888899), fontSize: 9),
+                    style:
+                        const TextStyle(color: Color(0xFF888899), fontSize: 9),
                   ),
                 ],
               )
@@ -591,19 +575,15 @@ class _AchievementDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors =
-        achievement.rarity.gradientHex.map((c) => Color(c)).toList();
+    final colors = achievement.rarity.gradientHex.map((c) => Color(c)).toList();
     final locked = !achievement.isUnlocked;
 
-    final target = achievement.progressTarget < 0
-        ? 0
-        : achievement.progressTarget;
-    final current = achievement.progressCurrent < 0
-        ? 0
-        : achievement.progressCurrent;
-    final safeProgress = achievement.progress.isNaN
-        ? 0.0
-        : achievement.progress.clamp(0.0, 1.0);
+    final target =
+        achievement.progressTarget < 0 ? 0 : achievement.progressTarget;
+    final current =
+        achievement.progressCurrent < 0 ? 0 : achievement.progressCurrent;
+    final safeProgress =
+        achievement.progress.isNaN ? 0.0 : achievement.progress.clamp(0.0, 1.0);
 
     return SafeArea(
       child: Padding(
@@ -629,8 +609,7 @@ class _AchievementDetailsSheet extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    gradient:
-                        locked ? null : LinearGradient(colors: colors),
+                    gradient: locked ? null : LinearGradient(colors: colors),
                     color: locked ? const Color(0xFF2A2A40) : null,
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -672,9 +651,8 @@ class _AchievementDetailsSheet extends StatelessWidget {
                         child: Text(
                           achievement.rarity.label,
                           style: TextStyle(
-                              color: locked
-                                  ? const Color(0xFF888899)
-                                  : colors[0],
+                              color:
+                                  locked ? const Color(0xFF888899) : colors[0],
                               fontSize: 10,
                               fontWeight: FontWeight.w700),
                         ),
@@ -691,7 +669,6 @@ class _AchievementDetailsSheet extends StatelessWidget {
                   color: Color(0xFFCCCCDD), fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 18),
-
             if (locked) ...[
               const Text(
                 'CURRENT PROGRESS',
@@ -711,16 +688,15 @@ class _AchievementDetailsSheet extends StatelessWidget {
                         value: safeProgress,
                         minHeight: 6,
                         backgroundColor: const Color(0xFF2A2A40),
-                        valueColor: const AlwaysStoppedAnimation(
-                            Color(0xFF7C3AED)),
+                        valueColor:
+                            const AlwaysStoppedAnimation(Color(0xFF7C3AED)),
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Text(
                     target > 0 ? '$current / $target' : '$current',
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 12),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],
               ),
@@ -738,13 +714,11 @@ class _AchievementDetailsSheet extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: colors[0].withOpacity(0.10),
                   borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: colors[0].withOpacity(0.35)),
+                  border: Border.all(color: colors[0].withOpacity(0.35)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle,
-                        color: colors[0], size: 20),
+                    Icon(Icons.check_circle, color: colors[0], size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -789,7 +763,6 @@ class _AchievementDetailsSheet extends StatelessWidget {
                     fontWeight: FontWeight.w600),
               ),
             ],
-
             const SizedBox(height: 18),
             Center(
               child: TextButton(
@@ -866,15 +839,14 @@ class _CenteredMessage extends StatelessWidget {
                 onPressed: onAction,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF7C3AED),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
                 child: Text(
                   actionLabel!,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 13),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
               ),
             ],

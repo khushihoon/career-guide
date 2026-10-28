@@ -38,7 +38,6 @@ import '../../services/ai_course_service.dart';
 import 'skill_profile_screen.dart';
 import 'course_engine_screen.dart';
 
-
 // UI-only presentation tokens.
 // CopilotController / SkillGap remain the source of truth.
 const _bg = Color(0xFF080B14);
@@ -116,8 +115,7 @@ class SkillGapScreen extends StatelessWidget {
                       color: _violetBright,
                       size: 20,
                     ),
-              onPressed:
-                  state.isLoading ? null : () => ctrl.rerunAnalysis(uid),
+              onPressed: state.isLoading ? null : () => ctrl.rerunAnalysis(uid),
             ),
         ],
       ),
@@ -179,14 +177,12 @@ class SkillGapScreen extends StatelessWidget {
               message:
                   'Your current evidence meets the skill requirements Copilot has checked. Keep growing.',
               buttonLabel: uid == null ? null : 'Re-check my skills',
-              onPressed:
-                  uid == null ? null : () => ctrl.rerunAnalysis(uid),
+              onPressed: uid == null ? null : () => ctrl.rerunAnalysis(uid),
             );
     }
 
     // Real SkillGap data only. The UI does not invent levels, scores or gaps.
-    final sorted = [...gaps]
-      ..sort((a, b) {
+    final sorted = [...gaps]..sort((a, b) {
         final priority = a.priority.compareTo(b.priority);
         if (priority != 0) return priority;
 
@@ -280,7 +276,8 @@ class SkillGapScreen extends StatelessWidget {
                 ctrl: ctrl,
                 uid: uid,
                 title: 'Grow Further',
-                subtitle: 'Future growth opportunities already found in your path.',
+                subtitle:
+                    'Future growth opportunities already found in your path.',
                 icon: Icons.spa_rounded,
                 accent: _mint,
                 gaps: priority3,
@@ -711,11 +708,9 @@ class SkillGapScreen extends StatelessWidget {
                 careerId: careerContext.careerId,
                 careerTitle: careerContext.careerTitle,
                 categoryId: careerContext.categoryId,
-                level: gap.requiredLevel.value < 1
-                    ? 1
-                    : gap.requiredLevel.value,
-                levelTitle:
-                    '${gap.skillName} — ${gap.requiredLevel.label}',
+                level:
+                    gap.requiredLevel.value < 1 ? 1 : gap.requiredLevel.value,
+                levelTitle: '${gap.skillName} — ${gap.requiredLevel.label}',
                 topics: [gap.skillName],
                 difficulty: gap.requiredLevel.label,
               );

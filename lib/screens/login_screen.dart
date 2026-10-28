@@ -416,8 +416,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           suffixIcon: GestureDetector(
                             onTap: () {
                               if (!_isLoading) {
-                                setState(() =>
-                                    _obscurePassword = !_obscurePassword);
+                                setState(
+                                    () => _obscurePassword = !_obscurePassword);
                               }
                             },
                             child: Container(
@@ -514,8 +514,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     },
                               fillColor: MaterialStateProperty.resolveWith(
                                 (states) {
-                                  if (states
-                                      .contains(MaterialState.selected)) {
+                                  if (states.contains(MaterialState.selected)) {
                                     return const Color(0xFF7C3AED);
                                   }
                                   return Colors.transparent;
@@ -605,10 +604,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                    )
-                        .animate()
-                        .fadeIn(duration: 300.ms)
-                        .slideY(begin: -0.1),
+                    ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.1),
 
                   if (_errorMessage != null) const SizedBox(height: 16),
 
@@ -727,9 +723,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ],
-                  )
-                      .animate()
-                      .fadeIn(delay: Duration(milliseconds: 700)),
+                  ).animate().fadeIn(delay: Duration(milliseconds: 700)),
 
                   const SizedBox(height: 20),
 
@@ -740,16 +734,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       _buildSocialButton(
                         label: 'Google',
                         icon: '🔍',
-                        onTap: () =>
-                            _showComingSoonSnackBar('Google login'),
+                        onTap: () => _showComingSoonSnackBar('Google login'),
                         isLoading: _isLoading,
                       ),
                       const SizedBox(width: 12),
                       _buildSocialButton(
                         label: 'GitHub',
                         icon: '💻',
-                        onTap: () =>
-                            _showComingSoonSnackBar('GitHub login'),
+                        onTap: () => _showComingSoonSnackBar('GitHub login'),
                         isLoading: _isLoading,
                       ),
                     ],

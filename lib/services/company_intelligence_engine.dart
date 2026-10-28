@@ -6,8 +6,6 @@ import 'company_skill_extraction_service.dart';
 
 import 'verified_company_data.dart';
 
-
-
 /// Step 6E-4 — Deterministic Company Intelligence engine.
 
 ///
@@ -47,138 +45,75 @@ import 'verified_company_data.dart';
 ///   currency is ambiguous and is never presented as salary.
 
 class CompanyIntelligenceEngine {
-
   final CompanySkillExtractionService skillExtractor;
 
-
-
   const CompanyIntelligenceEngine({
-
     this.skillExtractor = const CompanySkillExtractionService(),
-
   });
-
-
 
   /// Compiled whole-word phrase patterns, built once per phrase.
 
   static final Map<String, RegExp> _phrasePatterns = <String, RegExp>{};
 
-
-
   CompanyIntelligenceSnapshot buildSnapshot({
-
     required String companyId,
-
     required String companyName,
-
     required List<NormalizedJobPosting> postings,
-
     required List<CompanySourceDefinition> sources,
-
     DateTime? generatedAt,
-
   }) {
-
     final now = generatedAt ?? DateTime.now();
-
-
 
     final uniquePostings = _uniquePostings(postings);
 
-
-
     final extraction = skillExtractor.extract(
-
       uniquePostings,
-
       observedAt: now,
-
     );
-
-
 
     final canonicalIdentity = _canonicalCompanyIdentity(
-
       companyId: companyId,
-
       companyName: companyName,
-
     );
 
-
-
     return CompanyIntelligenceSnapshot(
-
       companyId: canonicalIdentity.companyId,
 
       companyName: canonicalIdentity.companyName,
 
       status: uniquePostings.isNotEmpty
-
           ? CompanyIntelligenceDataStatus.live
-
           : CompanyIntelligenceDataStatus.unavailable,
-
-
 
       // These are observed from normalized live postings only.
 
       roles: _roleFamilies(uniquePostings),
 
-
-
       skills: extraction.skills
-
           .map((item) => item.normalizedName)
-
           .toList(growable: false),
-
-
 
       technologies: extraction.technologies
-
           .map((item) => item.normalizedName)
-
           .toList(growable: false),
-
-
 
       engineeringConcepts: extraction.engineeringConcepts
-
           .map((item) => item.normalizedName)
-
           .toList(growable: false),
-
-
 
       compensation: _compensation(uniquePostings),
 
-
-
       liveJobs: List.unmodifiable(uniquePostings),
-
-
 
       sources: List.unmodifiable(sources),
 
-
-
       generatedAt: now,
-
-
 
       oldestEvidenceAt: _oldest(uniquePostings),
 
-
-
       newestEvidenceAt: _newest(uniquePostings),
-
     );
-
   }
-
-
 
   // ---------------------------------------------------------------------------
 
@@ -186,43 +121,25 @@ class CompanyIntelligenceEngine {
 
   // ---------------------------------------------------------------------------
 
-
-
   List<NormalizedJobPosting> _uniquePostings(
-
     List<NormalizedJobPosting> postings,
-
   ) {
-
     final seen = <String>{};
 
     final result = <NormalizedJobPosting>[];
 
-
-
     for (final posting in postings) {
-
       final id = posting.id.trim();
-
-
 
       // A posting without an ID cannot be de-duplicated, so it is kept.
 
       if (id.isEmpty || seen.add(id)) {
-
         result.add(posting);
-
       }
-
     }
 
-
-
     return result;
-
   }
-
-
 
   // ---------------------------------------------------------------------------
 
@@ -262,81 +179,42 @@ class CompanyIntelligenceEngine {
 
   // ---------------------------------------------------------------------------
 
-
-
   _CanonicalCompanyIdentity _canonicalCompanyIdentity({
-
     required String companyId,
-
     required String companyName,
-
   }) {
-
     final byId = VerifiedCompanyData.canonicalIdentity(companyId);
 
-
-
     if (byId != null) {
-
       return _CanonicalCompanyIdentity(
-
         companyId: byId.companyId,
-
         companyName: byId.companyName,
-
       );
-
     }
-
-
 
     final byName = VerifiedCompanyData.canonicalIdentity(companyName);
 
-
-
     if (byName != null) {
-
       return _CanonicalCompanyIdentity(
-
         companyId: byName.companyId,
-
         companyName: byName.companyName,
-
       );
-
     }
-
-
 
     final safeId = companyId.trim();
 
-
-
     if (safeId.isNotEmpty) {
-
       return _CanonicalCompanyIdentity(
-
         companyId: CompanyIntelligenceIds.fromIdOrName(safeId),
-
         companyName: companyName.trim(),
-
       );
-
     }
 
-
-
     return _CanonicalCompanyIdentity(
-
       companyId: CompanyIntelligenceIds.fromCompanyName(companyName),
-
       companyName: companyName.trim(),
-
     );
-
   }
-
-
 
   // ---------------------------------------------------------------------------
 
@@ -356,31 +234,17 @@ class CompanyIntelligenceEngine {
 
   // ---------------------------------------------------------------------------
 
-
-
   List<String> _roleFamilies(
-
     List<NormalizedJobPosting> postings,
-
   ) {
-
     final result = <String>{};
 
-
-
     for (final posting in postings) {
-
       final title = _normalizeText(posting.title);
 
-
-
       if (title.isEmpty) {
-
         continue;
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -388,51 +252,27 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'software engineer',
-
           'software engineering',
-
           'software developer',
-
           'software development engineer',
-
           'application engineer',
-
           'backend engineer',
-
           'back end engineer',
-
           'frontend engineer',
-
           'front end engineer',
-
           'full stack engineer',
-
           'fullstack engineer',
-
           'mobile engineer',
-
           'platform engineer',
-
           'systems engineer',
-
         ],
-
       )) {
-
         result.add('Software Engineer');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -440,37 +280,20 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'machine learning engineer',
-
           'machine learning engineering',
-
           'machine learning scientist',
-
           'machine learning developer',
-
           'ml engineer',
-
           'ml scientist',
-
           'ml developer',
-
         ],
-
       )) {
-
         result.add('ML Engineer');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -478,37 +301,20 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'ai engineer',
-
           'ai engineering',
-
           'ai developer',
-
           'artificial intelligence engineer',
-
           'artificial intelligence developer',
-
           'applied ai engineer',
-
           'applied artificial intelligence',
-
         ],
-
       )) {
-
         result.add('AI Engineer');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -516,39 +322,21 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'llm engineer',
-
           'llm developer',
-
           'large language model engineer',
-
           'large language models engineer',
-
           'generative ai engineer',
-
           'genai engineer',
-
           'generative ai developer',
-
           'foundation model engineer',
-
         ],
-
       )) {
-
         result.add('LLM Engineer');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -556,31 +344,17 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'data scientist',
-
           'data science',
-
           'applied scientist',
-
           'research data scientist',
-
         ],
-
       )) {
-
         result.add('Data Scientist');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -588,31 +362,17 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'data engineer',
-
           'data engineering',
-
           'analytics engineer',
-
           'big data engineer',
-
         ],
-
       )) {
-
         result.add('Data Engineer');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -620,31 +380,17 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'computer vision',
-
           'vision engineer',
-
           'visual perception engineer',
-
           'perception engineer',
-
         ],
-
       )) {
-
         result.add('Computer Vision Engineer');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -652,35 +398,19 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'nlp engineer',
-
           'nlp scientist',
-
           'natural language processing',
-
           'natural language engineer',
-
           'language ai engineer',
-
           'language model engineer',
-
         ],
-
       )) {
-
         result.add('NLP Engineer');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -688,35 +418,19 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'research engineer',
-
           'research scientist',
-
           'ai researcher',
-
           'ai research',
-
           'machine learning research',
-
           'machine learning researcher',
-
         ],
-
       )) {
-
         result.add('AI Researcher');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -724,49 +438,26 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'mlops',
-
           'mlops engineer',
-
           'ml platform engineer',
-
           'machine learning platform',
-
           'machine learning infrastructure',
-
           'ai infrastructure',
-
           'ai infra',
-
           'ai platform',
-
           'ai platform engineer',
-
           'ml infrastructure',
-
           'ml infra',
-
           'ml platform',
-
           'ml infrastructure engineer',
-
         ],
-
       )) {
-
         result.add('MLOps / AI Infrastructure');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -774,35 +465,19 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'robotics engineer',
-
           'robotics software engineer',
-
           'robotics scientist',
-
           'robotics developer',
-
           'autonomous systems engineer',
-
           'robotics perception engineer',
-
         ],
-
       )) {
-
         result.add('Robotics Engineer');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -810,75 +485,39 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'ai product manager',
-
           'ai product management',
-
           'artificial intelligence product manager',
-
           'machine learning product manager',
-
           'ml product manager',
-
           'generative ai product manager',
-
           'llm product manager',
-
         ],
-
       )) {
-
         result.add('AI Product Manager');
-
       } else if (_containsAny(
-
             title,
-
             const [
-
               'product manager',
-
               'product management',
-
             ],
-
           ) &&
-
           _containsAny(
-
             title,
-
             const [
-
               'ai',
-
               'artificial intelligence',
-
               'machine learning',
-
               'ml',
-
               'llm',
-
               'generative',
-
             ],
-
           )) {
-
         result.add('AI Product Manager');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -886,35 +525,19 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'ai security',
-
           'artificial intelligence security',
-
           'machine learning security',
-
           'ml security',
-
           'model security',
-
           'ai safety security',
-
         ],
-
       )) {
-
         result.add('AI Security');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -928,37 +551,20 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'security engineer',
-
           'security engineering',
-
           'cybersecurity engineer',
-
           'cyber security engineer',
-
           'application security engineer',
-
           'product security engineer',
-
           'cloud security engineer',
-
         ],
-
       )) {
-
         result.add('Security Engineer');
-
       }
-
-
 
       // -----------------------------------------------------------------------
 
@@ -966,39 +572,21 @@ class CompanyIntelligenceEngine {
 
       // -----------------------------------------------------------------------
 
-
-
       if (_containsAny(
-
         title,
-
         const [
-
           'prompt engineer',
-
           'prompt engineering',
-
           'ai interaction designer',
-
           'llm prompt',
-
         ],
-
       )) {
-
         result.add('Prompt Engineer');
-
       }
-
     }
 
-
-
     return result.toList(growable: false);
-
   }
-
-
 
   // ---------------------------------------------------------------------------
 
@@ -1006,37 +594,22 @@ class CompanyIntelligenceEngine {
 
   // ---------------------------------------------------------------------------
 
-
-
   List<CompanyCompensation> _compensation(
-
     List<NormalizedJobPosting> postings,
-
   ) {
-
     return List.unmodifiable(
-
       postings
-
           .map((posting) => posting.compensation)
-
           .whereType<CompanyCompensation>()
-
           .where(
-
             (item) =>
                 item.isUsable &&
                 (item.minimum == null ||
                     item.maximum == null ||
                     item.minimum! <= item.maximum!),
-
           ),
-
     );
-
   }
-
-
 
   // ---------------------------------------------------------------------------
 
@@ -1044,75 +617,39 @@ class CompanyIntelligenceEngine {
 
   // ---------------------------------------------------------------------------
 
-
-
   DateTime? _oldest(
-
     List<NormalizedJobPosting> postings,
-
   ) {
-
     final dates = postings
-
         .map((posting) => posting.publishedAt)
-
         .whereType<DateTime>()
-
         .toList();
 
-
-
     if (dates.isEmpty) {
-
       return null;
-
     }
 
-
-
     dates.sort();
-
-
 
     return dates.first;
-
   }
 
-
-
   DateTime? _newest(
-
     List<NormalizedJobPosting> postings,
-
   ) {
-
     final dates = postings
-
         .map((posting) => posting.publishedAt)
-
         .whereType<DateTime>()
-
         .toList();
 
-
-
     if (dates.isEmpty) {
-
       return null;
-
     }
-
-
 
     dates.sort();
 
-
-
     return dates.last;
-
   }
-
-
 
   // ---------------------------------------------------------------------------
 
@@ -1120,73 +657,38 @@ class CompanyIntelligenceEngine {
 
   // ---------------------------------------------------------------------------
 
-
-
   /// True when [value] contains any candidate as a WHOLE WORD / phrase.
 
   /// A trailing plural "s" is accepted ("engineers").
 
   bool _containsAny(
-
     String value,
-
     List<String> candidates,
-
   ) {
-
     for (final candidate in candidates) {
-
       final pattern = _phrasePatterns.putIfAbsent(
-
         candidate,
-
         () => RegExp(
-
-          r'(?<![a-z0-9])' +
-
-              RegExp.escape(candidate) +
-
-              r'(?:s)?(?![a-z0-9])',
-
+          r'(?<![a-z0-9])' + RegExp.escape(candidate) + r'(?:s)?(?![a-z0-9])',
         ),
-
       );
 
-
-
       if (pattern.hasMatch(value)) {
-
         return true;
-
       }
-
     }
 
-
-
     return false;
-
   }
-
-
 
   String _normalizeText(String value) {
-
     return value
-
         .trim()
-
         .toLowerCase()
-
         .replaceAll(RegExp(r'[\\-_\\/]+'), ' ')
-
         .replaceAll(RegExp(r'\s+'), ' ');
-
   }
-
 }
-
-
 
 /// Internal canonical company identity holder.
 
@@ -1197,19 +699,12 @@ class CompanyIntelligenceEngine {
 /// CompanyIntelligenceEngine remains unchanged.
 
 class _CanonicalCompanyIdentity {
-
   final String companyId;
 
   final String companyName;
 
-
-
   const _CanonicalCompanyIdentity({
-
     required this.companyId,
-
     required this.companyName,
-
   });
-
 }

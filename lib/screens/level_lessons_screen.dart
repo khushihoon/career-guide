@@ -58,8 +58,12 @@ class LevelLessonsScreen extends StatefulWidget {
     this.generatedLevel,
     this.multiLesson = false,
   }) : assert(
-          (staticLessons != null && generatedCareer == null && generatedLevel == null) ||
-              (staticLessons == null && generatedCareer != null && generatedLevel != null),
+          (staticLessons != null &&
+                  generatedCareer == null &&
+                  generatedLevel == null) ||
+              (staticLessons == null &&
+                  generatedCareer != null &&
+                  generatedLevel != null),
           'Pass staticLessons OR (generatedCareer + generatedLevel), not both.',
         );
 
@@ -68,15 +72,15 @@ class LevelLessonsScreen extends StatefulWidget {
 }
 
 class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
-  static const _bg       = Color(0xFF0F0F1A);
-  static const _surface  = Color(0xFF1A1A2E);
-  static const _border   = Color(0xFF2A2A40);
-  static const _primary  = Color(0xFF7C3AED);
-  static const _secondary= Color(0xFFA78BFA);
-  static const _muted    = Color(0xFF888899);
-  static const _green    = Color(0xFF4ADE80);
-  static const _amber    = Color(0xFFF59E0B);
-  static const _red      = Color(0xFFEF4444);
+  static const _bg = Color(0xFF0F0F1A);
+  static const _surface = Color(0xFF1A1A2E);
+  static const _border = Color(0xFF2A2A40);
+  static const _primary = Color(0xFF7C3AED);
+  static const _secondary = Color(0xFFA78BFA);
+  static const _muted = Color(0xFF888899);
+  static const _green = Color(0xFF4ADE80);
+  static const _amber = Color(0xFFF59E0B);
+  static const _red = Color(0xFFEF4444);
 
   bool _generating = false;
   bool _cached = false;
@@ -226,7 +230,9 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
       body: SafeArea(
         child: _isStatic
             ? _buildStaticList()
-            : (widget.multiLesson ? _buildMultiLessonList() : _buildGeneratedSingle()),
+            : (widget.multiLesson
+                ? _buildMultiLessonList()
+                : _buildGeneratedSingle()),
       ),
     );
   }
@@ -236,7 +242,8 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
     final lessons = widget.staticLessons!;
     if (lessons.isEmpty) {
       return const Center(
-        child: Text('No lessons in this level.', style: TextStyle(color: _muted)),
+        child:
+            Text('No lessons in this level.', style: TextStyle(color: _muted)),
       );
     }
     return ListView.builder(
@@ -247,7 +254,8 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
         return GestureDetector(
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => CourseEngineScreen(course: lesson)),
+            MaterialPageRoute(
+                builder: (_) => CourseEngineScreen(course: lesson)),
           ),
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -259,12 +267,15 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
             ),
             child: Row(children: [
               Container(
-                width: 44, height: 44,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: _primary.withOpacity(0.13),
                   shape: BoxShape.circle,
                 ),
-                child: Center(child: Text(lesson.emoji, style: const TextStyle(fontSize: 20))),
+                child: Center(
+                    child: Text(lesson.emoji,
+                        style: const TextStyle(fontSize: 20))),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -273,26 +284,34 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
                   children: [
                     Text(lesson.topicTitle,
                         style: const TextStyle(
-                            color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
                     Row(children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
-                          color: _diffColor(lesson.difficulty).withOpacity(0.12),
+                          color:
+                              _diffColor(lesson.difficulty).withOpacity(0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(lesson.difficulty,
-                            style: TextStyle(color: _diffColor(lesson.difficulty), fontSize: 10)),
+                            style: TextStyle(
+                                color: _diffColor(lesson.difficulty),
+                                fontSize: 10)),
                       ),
                       const SizedBox(width: 6),
-                      Text('~${lesson.estimatedMinutes}m · +${lesson.totalXp} XP',
+                      Text(
+                          '~${lesson.estimatedMinutes}m · +${lesson.totalXp} XP',
                           style: const TextStyle(color: _muted, fontSize: 11)),
                     ]),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, color: _muted, size: 16),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  color: _muted, size: 16),
             ]),
           ),
         );
@@ -318,7 +337,9 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
           ),
           child: Row(children: [
             Container(
-              width: 52, height: 52, alignment: Alignment.center,
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: _primary.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(15),
@@ -332,10 +353,14 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
                 children: [
                   Text(lvl.levelTitle,
                       style: const TextStyle(
-                          color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700)),
                   const SizedBox(height: 5),
                   Text(
-                    _cached ? 'Ready — tap to open' : 'Tap to generate this lesson',
+                    _cached
+                        ? 'Ready — tap to open'
+                        : 'Tap to generate this lesson',
                     style: const TextStyle(color: _muted, fontSize: 12),
                   ),
                 ],
@@ -343,8 +368,10 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
             ),
             if (_generating)
               const SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: _secondary),
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: _secondary),
               )
             else if (_cached)
               const Icon(Icons.check_circle, color: _green, size: 20)
@@ -364,7 +391,8 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
     if (_loadingList) {
       return const Center(
         child: SizedBox(
-          width: 28, height: 28,
+          width: 28,
+          height: 28,
           child: CircularProgressIndicator(strokeWidth: 2.5, color: _secondary),
         ),
       );
@@ -385,7 +413,8 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
               const SizedBox(height: 14),
               GestureDetector(
                 onTap: _loadLessonList,
-                child: const Text('Retry', style: TextStyle(color: _secondary, fontSize: 13)),
+                child: const Text('Retry',
+                    style: TextStyle(color: _secondary, fontSize: 13)),
               ),
             ],
           ),
@@ -396,7 +425,8 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
     final stubs = _lessonStubs ?? const [];
     if (stubs.isEmpty) {
       return const Center(
-        child: Text('No lessons in this level.', style: TextStyle(color: _muted)),
+        child:
+            Text('No lessons in this level.', style: TextStyle(color: _muted)),
       );
     }
 
@@ -416,31 +446,40 @@ class _LevelLessonsScreenState extends State<LevelLessonsScreen> {
             decoration: BoxDecoration(
               color: _surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cached ? _green.withOpacity(0.4) : _border),
+              border:
+                  Border.all(color: cached ? _green.withOpacity(0.4) : _border),
             ),
             child: Row(children: [
               Container(
-                width: 40, height: 40,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: _primary.withOpacity(0.13),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text('${stub.index}',
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(stub.title,
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
               ),
               const SizedBox(width: 8),
               if (generating)
                 const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: _secondary),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: _secondary),
                 )
               else if (cached)
                 const Icon(Icons.check_circle, color: _green, size: 18)
