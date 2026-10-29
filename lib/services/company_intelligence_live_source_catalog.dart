@@ -142,6 +142,32 @@ class CompanyIntelligenceLiveSourceCatalog {
       supportsLiveJobs: true,
       supportsCompensation: true,
     ),
+
+    // Batch 2: public Ashby endpoint configured; runtime ingestion still needs
+    // verification against the live provider response.
+    CompanyLiveSourceConfig(
+      companyId: 'replit',
+      companyName: 'Replit',
+      sourceType: CompanySourceType.ashby,
+      sourceUrl: CompanyIntelligenceSourceCatalog.ashbyApiUrl('replit'),
+      sourceLabel: 'Replit Ashby postings API (runtime verification pending)',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
+
+    // Batch 2: public Greenhouse endpoint configured; verify response size and
+    // runtime ingestion before treating this source as live-confirmed.
+    CompanyLiveSourceConfig(
+      companyId: 'google_deepmind',
+      companyName: 'Google DeepMind',
+      sourceType: CompanySourceType.greenhouse,
+      sourceUrl: CompanyIntelligenceSourceCatalog.greenhouseApiUrl('deepmind'),
+      sourceLabel: 'Google DeepMind Greenhouse postings API (runtime verification pending)',
+      isOfficialCompanySource: true,
+      supportsLiveJobs: true,
+      supportsCompensation: true,
+    ),
   ];
 
   List<CompanyLiveSourceConfig> get all =>
