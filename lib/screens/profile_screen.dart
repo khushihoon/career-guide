@@ -60,6 +60,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/models.dart';
 import 'saved_jobs_screen.dart';
 import 'login_screen.dart';
+import '../services/account_deletion_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -1988,44 +1989,86 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _deleteAccount() {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: _surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Account', style: TextStyle(color: _red)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Delete Account',
+          style: TextStyle(color: _red),
+        ),
         content: const Text(
           'This will permanently delete your account and all data. This cannot be undone.',
           style: TextStyle(color: _muted),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: _muted)),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: _muted),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
+              // Close the confirmation dialog before showing progress.
+              Navigator.of(dialogContext).pop();
+
+              if (!mounted) return;
+
+              showDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const AlertDialog(
+                  content: Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Text('Deleting account and associated data...'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+
               try {
-                final user = _auth.currentUser;
-                if (user != null) {
-                  await _firestore.collection('users').doc(user.uid).delete();
-                  await user.delete();
-                }
-                if (mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (_) => false,
-                  );
-                }
-              } catch (e) {
-                if (mounted) Navigator.pop(context);
-                _snack('Re-login required to delete account');
+                await AccountDeletionService.deleteCurrentAccount();
+
+                if (!mounted) return;
+
+                // Close the non-dismissible progress dialog.
+                Navigator.of(context).pop();
+
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (_) => const LoginScreen(),
+                  ),
+                  (_) => false,
+                );
+              } catch (error) {
+                if (!mounted) return;
+
+                // Close the progress dialog and keep the profile screen open.
+                Navigator.of(context).pop();
+
+                _snack(
+                  error.toString().replaceFirst('Bad state: ', ''),
+                );
               }
             },
             style: ElevatedButton.styleFrom(
-                backgroundColor: _red,
-                foregroundColor: Colors.white,
-                elevation: 0),
+              backgroundColor: _red,
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
             child: const Text('Delete'),
           ),
         ],

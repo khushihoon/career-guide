@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'career_roadmap_hub.dart';
+import 'copilot_hub_screen.dart'; // existing Career Copilot screen
 import '../widgets/resource_card.dart'; // ← interactive resource cards
 
 class CareerRoadmapDetail extends StatefulWidget {
@@ -536,34 +537,30 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
 
                 const SizedBox(height: 14),
 
-                // Mark done button
+                // Continue with Copilot — same action on every career roadmap phase.
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: widget.onToggle,
-                    icon: Icon(
-                      widget.isDone
-                          ? Icons.refresh
-                          : Icons.check_circle_outline,
-                      size: 16,
-                    ),
-                    label: Text(widget.isDone
-                        ? 'Continue Learning'
-                        : 'Click On Course Section ✓'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor:
-                          widget.isDone ? _muted : const Color(0xFF4ADE80),
-                      side: BorderSide(
-                        color:
-                            widget.isDone ? _border : const Color(0xFF4ADE80),
-                        width: 1.5,
-                      ),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CopilotHubScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.smart_toy_rounded, size: 18),
+                    label: const Text('Continue with Copilot'),
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: _primary,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
-                ),
+                ),                
               ],
             ),
           ),

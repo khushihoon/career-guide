@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import 'jobdetails_screen.dart';
 import 'career_roadmap_hub.dart'; // multi-career hub
+import 'copilot_hub_screen.dart'; // existing Career Copilot screen
 import '../widgets/resource_card.dart'; // ← interactive resource cards
 
 class RoadmapScreen extends StatefulWidget {
@@ -1350,28 +1351,27 @@ class _PhaseCardState extends State<_PhaseCard> {
 
                   const SizedBox(height: 12),
 
-                  // Mark done button
+                  // Continue with Copilot — opens the existing Copilot hub.
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: widget.onToggle,
-                      icon: Icon(
-                        p.isDone ? Icons.refresh : Icons.check_circle_outline,
-                        size: 16,
-                      ),
-                      label: Text(p.isDone
-                          ? 'And then click on learn'
-                          : 'If you want to learn here, Click On Course Section ✓'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor:
-                            p.isDone ? _muted : const Color(0xFF4ADE80),
-                        side: BorderSide(
-                          color: p.isDone ? _border : const Color(0xFF4ADE80),
-                          width: 1.5,
-                        ),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CopilotHubScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.smart_toy_rounded, size: 18),
+                      label: const Text('Continue with Copilot'),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: _primary,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),

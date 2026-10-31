@@ -1,1 +1,28 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"ai-career-app-a38db","configurations":{"android":"1:108208458576:android:80dc26689dc0dd64e3ba55"}}},"android":{"default":{"projectId":"ai-career-app-a38db","appId":"1:108208458576:android:80dc26689dc0dd64e3ba55","fileOutput":"android/app/google-services.json"}}}}}
+
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "ai-career-app-a38db",
+          "configurations": {
+            "android": "1:108208458576:android:80dc26689dc0dd64e3ba55"
+          }
+        }
+      },
+      "android": {
+        "default": {
+          "projectId": "ai-career-app-a38db",
+          "appId": "1:108208458576:android:80dc26689dc0dd64e3ba55",
+          "fileOutput": "android/app/google-services.json"
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default"
+    }
+  ]
+}

@@ -467,8 +467,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 7),
               const Text(
-                "I'm right here\n"
-                "to guide you.",
+                "Let's build your\n"
+                "AI future.",
                 style: TextStyle(
                   color: _text,
                   fontSize: 29,
