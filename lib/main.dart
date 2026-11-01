@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'screens/main_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'firebase_options.dart';
 import 'services/copilot_provider.dart';
@@ -55,8 +56,7 @@ Future<void> _initializeNotifications(Future<void> startupFuture) async {
     await startupFuture;
     await FirebaseMessaging.instance.requestPermission();
 
-    final token = await FirebaseMessaging.instance.getToken();
-    debugPrint('FCM Token: $token');
+    await FirebaseMessaging.instance.getToken();
   } catch (e, stackTrace) {
     debugPrint('FCM initialization warning: $e');
     debugPrintStack(stackTrace: stackTrace);
@@ -88,6 +88,7 @@ class AICareerApp extends StatelessWidget {
         title: 'AI Career App',
         routes: {
           '/home': (_) => const MainScreen(),
+          '/login': (_) => const LoginScreen(),
         },
         theme: ThemeData(
           useMaterial3: true,
