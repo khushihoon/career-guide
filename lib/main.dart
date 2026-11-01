@@ -56,7 +56,6 @@ Future<void> _initializeNotifications(Future<void> startupFuture) async {
     await startupFuture;
     await FirebaseMessaging.instance.requestPermission();
 
-    await FirebaseMessaging.instance.getToken();
   } catch (e, stackTrace) {
     debugPrint('FCM initialization warning: $e');
     debugPrintStack(stackTrace: stackTrace);
