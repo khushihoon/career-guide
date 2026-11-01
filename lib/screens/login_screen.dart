@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
     await Future.delayed(const Duration(milliseconds: 500));
 
     if (mounted) {
-      final isLoggedIn = false;
+      final isLoggedIn = FirebaseAuthService.isLoggedIn;
       if (isLoggedIn) {
         if (mounted) {
           Navigator.of(context).pushReplacementNamed('/home');
@@ -97,10 +97,10 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
 
+      if (!mounted) return;
+
       // Stop loading
       setState(() => _isLoading = false);
-
-      if (!mounted) return;
 
       if (result['success']) {
         // Show success message
@@ -122,6 +122,8 @@ class _LoginScreenState extends State<LoginScreen> {
         _showErrorSnackBar(result['message']);
       }
     } catch (e) {
+      if (!mounted) return;
+
       // Stop loading
       setState(() => _isLoading = false);
 
