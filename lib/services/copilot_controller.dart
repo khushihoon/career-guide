@@ -187,7 +187,6 @@ class CopilotController extends ChangeNotifier {
   late final RewardService _rewardService = RewardService();
 
   static bool get _hasApiKey => false;
-
   // ── Init ────────────────────────────────────────────────────────────
   Future<void> init(String uid) async {
     if (_currentUid == uid) {

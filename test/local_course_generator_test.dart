@@ -102,6 +102,26 @@ void main() {
           isEmpty);
     });
 
+    test('validator rejects index gaps, zero-based and repeated indices', () {
+      for (final l in <List<Map<String, Object>>>[
+        [
+          {'index': 1, 'title': 'A'},
+          {'index': 3, 'title': 'B'}
+        ],
+        [
+          {'index': 0, 'title': 'A'},
+          {'index': 1, 'title': 'B'}
+        ],
+        [
+          {'index': 1, 'title': 'A'},
+          {'index': 1, 'title': 'B'}
+        ],
+      ]) {
+        expect(
+            CourseJsonValidator.validateLessonList({'lessons': l}), isNotEmpty);
+      }
+    });
+
     test('lessonCount 0 and 51 are rejected', () {
       expect(
           () => LocalCourseGenerator.generateLessonList(
@@ -184,9 +204,13 @@ void main() {
     });
 
     test('quiz answers match the real topic descriptions', () {
-      final describe = RegExp(r'^Which statement best describes "(.+)"\?$');
-      final fromDesc =
-          RegExp(r'^Which topic is described by this sentence: "(.+)"$');
+      // Each question kind has 3 wordings (chosen by the lesson's round).
+      final describe = RegExp(
+          r'^(?:Which statement best describes|Which sentence correctly explains) "(.+)"\?$');
+      final describe3 = RegExp(
+          r'^A teammate asks what "(.+)" means\. Which answer is correct\?$');
+      final fromDesc = RegExp(
+          r'^(?:Which topic is described by this sentence|Which topic does this definition belong to|Name the topic that matches this explanation): "(.+)"$');
       var checked = 0;
       for (final careerId in LocalCurriculum.careerIds) {
         for (final l in _path(careerId).levels) {
@@ -198,7 +222,8 @@ void main() {
               final text = q['question'] as String;
               final opts = (q['options'] as List).cast<String>();
               final ci = q['correctIndex'] as int;
-              final m1 = describe.firstMatch(text);
+              final m1 =
+                  describe.firstMatch(text) ?? describe3.firstMatch(text);
               if (m1 != null) {
                 final t = topics.firstWhere((t) => t.name == m1.group(1));
                 expect(opts[ci], t.desc);

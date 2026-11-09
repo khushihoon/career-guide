@@ -49,4 +49,19 @@ class CourseGeneratorConfig {
   // Lesson-count limits (must match the backend).
   static const int minLessonCount = 1;
   static const int maxLessonCount = 50;
+
+  // ── Cache / content versioning ────────────────────────────────
+  /// Version of the LOCALLY generated content (local_curriculum.dart plus
+  /// the templates in local_course_generator.dart). BUMP THIS NUMBER every
+  /// time you edit either file. Cached local courses and lesson lists made
+  /// with an older number are discarded and rebuilt; backend (real AI)
+  /// content is not affected. Saved progress and XP are never touched.
+  static const int localContentVersion = 1;
+
+  /// Layout version of the cache entries themselves. Bump only if the
+  /// stored metadata format in course_generator_service.dart changes.
+  static const int cacheSchemaVersion = 2;
+
+  /// A backend answer bigger than this is rejected (bytes).
+  static const int maxBackendResponseBytes = 1000000;
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,28 +10,144 @@ import '../data/courses/course_generator_config.dart';
 import '../models/course_content_data.dart';
 import 'local_course_generator.dart';
 
-/// ===============================================================
-/// CourseGeneratorService  (v2 — local-first, free, works offline)
-///
-/// Flutter UI
-///    ↓
-/// CourseGeneratorService
-///    ├─ (optional) your backend, only if you run the app with
-///    │     --dart-define=COURSE_BACKEND_URL=https://your-server
-///    └─ LocalCourseGenerator (built in, free, no API key, no internet)
-///    ↓
-/// Validated JSON  →  TopicCourse  →  SharedPreferences cache  →  UI
-///
-/// RULES
-///  * The built-in generator is the default. The app no longer fails
-///    just because a backend is stopped or unreachable.
-///  * A backend answer is used only if it is real (mock != true) and
-///    passes validation. Otherwise the local generator is used and the
-///    reason is kept in [lastBackendError].
-///  * Locally generated content is marked source="local-template".
-///    It is template-based, NOT live AI output.
-///  * No API key ever lives in the Flutter app.
-/// ===============================================================
+// ═══════════════════════════════════════════════════════════════════
+// Result / status types
+// ═══════════════════════════════════════════════════════════════════
+
+/// Where the CONTENT came from.
+enum GenerationOrigin {
+  /// Real answer from your optional backend (AI).
+  backend,
+
+  /// Built-in free generator, backend not configured.
+  local,
+
+  /// Built-in free generator because the backend was configured but failed.
+  localFallback,
+}
+
+/// Why the optional backend was not used. Safe to show or log: it never
+/// contains server text, URLs or response bodies.
+enum BackendIssue {
+  timeout,
+  network,
+  http,
+  authRejected,
+  tooLarge,
+  invalidResponse,
+  mockMode,
+  identityMismatch,
+}
+
+extension BackendIssueText on BackendIssue {
+  String get message {
+    switch (this) {
+      case BackendIssue.timeout:
+        return 'The course server took too long to answer.';
+      case BackendIssue.network:
+        return 'The course server could not be reached.';
+      case BackendIssue.http:
+        return 'The course server returned an error.';
+      case BackendIssue.authRejected:
+        return 'The course server did not accept the login.';
+      case BackendIssue.tooLarge:
+        return 'The course server answer was too large.';
+      case BackendIssue.invalidResponse:
+        return 'The course server answer was not valid.';
+      case BackendIssue.mockMode:
+        return 'The course server has no AI key, so built-in content is used.';
+      case BackendIssue.identityMismatch:
+        return 'The course server answered for a different lesson.';
+    }
+  }
+}
+
+/// Where a returned course or lesson list came from.
+class GenerationInfo {
+  const GenerationInfo({
+    required this.origin,
+    required this.fromCache,
+    this.backendIssue,
+  });
+
+  /// How the content was ORIGINALLY produced (even when read from cache).
+  final GenerationOrigin origin;
+
+  /// True when this call returned a saved copy instead of generating.
+  final bool fromCache;
+
+  /// Set only when the backend was configured but not used for new content.
+  final BackendIssue? backendIssue;
+
+  String get originLabel {
+    switch (origin) {
+      case GenerationOrigin.backend:
+        return 'backend';
+      case GenerationOrigin.local:
+        return 'local-template';
+      case GenerationOrigin.localFallback:
+        return 'local-fallback';
+    }
+  }
+
+  /// Examples: "backend", "local-template", "local-fallback",
+  /// "cache(local-template)".
+  String get label => fromCache ? 'cache($originLabel)' : originLabel;
+
+  static GenerationOrigin parseOrigin(String? v) {
+    switch (v) {
+      case 'backend':
+        return GenerationOrigin.backend;
+      case 'local-fallback':
+        return GenerationOrigin.localFallback;
+      default:
+        return GenerationOrigin.local;
+    }
+  }
+}
+
+class CourseLoadResult {
+  const CourseLoadResult(this.course, this.info);
+  final TopicCourse course;
+  final GenerationInfo info;
+}
+
+class LessonListResult {
+  const LessonListResult(this.lessons, this.info);
+  final List<LessonStub> lessons;
+  final GenerationInfo info;
+}
+
+/// Error shown to the user. The message is safe: no URLs, no server text,
+/// no file names. Technical detail goes to debugPrint only.
+class CourseGenerationException implements Exception {
+  const CourseGenerationException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CourseGeneratorService  (v3 — local-first, free, works offline)
+//
+// Flutter UI
+//    ↓
+// CourseGeneratorService
+//    ├─ versioned local cache (SharedPreferences)
+//    ├─ (optional) your backend, only if you run the app with
+//    │     --dart-define=COURSE_BACKEND_URL=https://your-server
+//    └─ LocalCourseGenerator (built in, free, no API key, no internet)
+//
+// RULES
+//  * Built-in generator is the default; a stopped/broken backend never
+//    breaks the app.
+//  * A backend answer is used only if it is real (mock != true), under the
+//    size limit, valid, AND is for the exact lesson that was requested.
+//  * Locally generated content is template based, NOT live AI.
+//  * No API key ever lives in the Flutter app. The Firebase ID token (a
+//    short-lived login proof) is sent only over https, or to localhost for
+//    development.
+// ═══════════════════════════════════════════════════════════════════
 class CourseGeneratorService {
   CourseGeneratorService._();
 
@@ -48,48 +165,63 @@ class CourseGeneratorService {
     return b.endsWith('/') ? b.substring(0, b.length - 1) : b;
   }
 
-  /// Kept for older code that reads these. Empty when no backend is set.
+  /// Kept for older code. Empty when no backend is configured.
   static String get backendUrl =>
       backendEnabled ? '$_base/generate-course' : '';
   static String get lessonListBackendUrl =>
       backendEnabled ? '$_base/generate-lesson-list' : '';
 
-  /// Optional: set this from your app start-up to send the Firebase ID
-  /// token to a backend that requires login, for example:
-  ///   CourseGeneratorService.authTokenProvider =
-  ///       () async => FirebaseAuth.instance.currentUser?.getIdToken();
+  /// Supplies the Firebase ID token for a backend that requires login.
+  /// Default: the signed-in Firebase user, if any. Override in tests or
+  /// if you use another login system.
   static Future<String?> Function()? authTokenProvider;
 
-  /// Where the most recent result came from: "backend",
-  /// "local-template" or "local-fallback" (backend failed, local used).
-  static String? lastSource;
+  static Future<String?> _defaultTokenProvider() async {
+    try {
+      return await FirebaseAuth.instance.currentUser?.getIdToken();
+    } catch (_) {
+      return null; // Firebase not ready or nobody signed in
+    }
+  }
 
-  /// Why the optional backend was not used last time (null if it was).
-  static String? lastBackendError;
+  // ── Source tracking ───────────────────────────────────────────
+
+  /// Info about the most recent course call / lesson-list call, and the
+  /// most recent of either. Kept separately so a lesson-list call cannot
+  /// overwrite course info.
+  static GenerationInfo? lastCourseInfo;
+  static GenerationInfo? lastListInfo;
+  static GenerationInfo? lastInfo;
+
+  /// Backward compatible text: "backend", "local-template",
+  /// "local-fallback" or "cache(<origin>)".
+  static String? get lastSource => lastInfo?.label;
+
+  /// Safe explanation of why the backend was not used last time.
+  static String? get lastBackendError => lastInfo?.backendIssue?.message;
+  static BackendIssue? get lastBackendIssue => lastInfo?.backendIssue;
 
   static http.Client _client = http.Client();
 
   @visibleForTesting
   static set httpClient(http.Client c) => _client = c;
 
-  /// Tests only: pretend COURSE_BACKEND_URL was set.
   @visibleForTesting
   static set backendBaseUrlOverride(String? v) => _baseOverride = v;
 
   @visibleForTesting
   static void resetForTest() {
     _client = http.Client();
-    // Do not clear _baseOverride here: test-group setup may configure the
-    // fake backend URL before this reset hook runs. Tests that need the
-    // backend disabled should explicitly set backendBaseUrlOverride = null.
+    _baseOverride = null;
     authTokenProvider = null;
-    lastSource = null;
-    lastBackendError = null;
+    lastCourseInfo = null;
+    lastListInfo = null;
+    lastInfo = null;
   }
 
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
   // PROMPTS (only used when an optional backend / AI is configured)
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
 
   static String buildCoursePrompt({
     required String careerId,
@@ -184,6 +316,7 @@ REQUIREMENTS:
 - Lessons must progress logically (foundational first, applied later).
 - No duplicate or filler lesson titles.
 - Titles should be concise.
+- Use index 1 to $lessonCount with no gaps.
 
 Return ONLY valid JSON, no Markdown:
 
@@ -195,77 +328,127 @@ Return ONLY valid JSON, no Markdown:
 ''';
   }
 
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
   // OPTIONAL BACKEND CALL
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
 
-  /// Returns the decoded JSON object, or null if the backend is off,
-  /// unreachable, slow, returned an error, or returned mock content.
-  /// The reason is stored in [lastBackendError].
-  static Future<Map<String, dynamic>?> _tryBackend(
+  /// The login token is only sent over https, or to a local development
+  /// address, so it can never travel in clear text across the internet.
+  static bool _mayAttachToken(Uri uri) {
+    if (uri.scheme == 'https') return true;
+    return uri.scheme == 'http' &&
+        (uri.host == 'localhost' ||
+            uri.host == '127.0.0.1' ||
+            uri.host == '10.0.2.2');
+  }
+
+  static Future<_BackendOutcome> _tryBackend(
     String url,
     Map<String, dynamic> body,
   ) async {
-    if (!backendEnabled) {
-      lastBackendError = 'Backend disabled: COURSE_BACKEND_URL is empty.';
-      return null;
-    }
     try {
+      final uri = Uri.parse(url);
       final headers = <String, String>{
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       };
-      final provider = authTokenProvider;
-      if (provider != null) {
-        final token = await provider();
+      if (_mayAttachToken(uri)) {
+        final token = await (authTokenProvider ?? _defaultTokenProvider)();
         if (token != null && token.isNotEmpty) {
           headers['Authorization'] = 'Bearer $token';
         }
       }
       final response = await _client
-          .post(Uri.parse(url), headers: headers, body: jsonEncode(body))
+          .post(uri, headers: headers, body: jsonEncode(body))
           .timeout(
               Duration(seconds: CourseGeneratorConfig.backendTimeoutSeconds));
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        lastBackendError = 'Backend returned HTTP ${response.statusCode}.';
-        return null;
+      final code = response.statusCode;
+      if (code == 401 || code == 403) {
+        debugPrint('Course backend rejected login (HTTP $code).');
+        return const _BackendOutcome.fail(BackendIssue.authRejected);
       }
-      if (response.body.trim().isEmpty) {
-        lastBackendError = 'Backend returned an empty response.';
-        return null;
+      if (code < 200 || code >= 300) {
+        debugPrint('Course backend returned HTTP $code.');
+        return const _BackendOutcome.fail(BackendIssue.http);
       }
-      final decoded = jsonDecode(response.body);
+      if (response.bodyBytes.length >
+          CourseGeneratorConfig.maxBackendResponseBytes) {
+        return const _BackendOutcome.fail(BackendIssue.tooLarge);
+      }
+      // Always read the answer as UTF-8. response.body would fall back to
+      // latin1 when the server sends no charset and garble characters.
+      final text = utf8.decode(response.bodyBytes);
+      if (text.trim().isEmpty) {
+        return const _BackendOutcome.fail(BackendIssue.invalidResponse);
+      }
+      final decoded = jsonDecode(text);
       if (decoded is! Map) {
-        lastBackendError = 'Backend response was not a JSON object.';
-        return null;
+        return const _BackendOutcome.fail(BackendIssue.invalidResponse);
       }
       final map = Map<String, dynamic>.from(decoded);
-      if (map['success'] == false) {
-        lastBackendError = 'Backend reported an error: ${map['error']}';
-        return null;
+      if (map['success'] != true) {
+        return const _BackendOutcome.fail(BackendIssue.http);
       }
       if (map['mock'] == true) {
-        lastBackendError =
-            'Backend is in mock mode (no AI key), so local content is used.';
-        return null;
+        return const _BackendOutcome.fail(BackendIssue.mockMode);
       }
-      return map;
+      return _BackendOutcome.ok(map);
     } on TimeoutException {
-      lastBackendError = 'Backend timed out.';
+      return const _BackendOutcome.fail(BackendIssue.timeout);
     } on FormatException {
-      lastBackendError = 'Backend returned invalid JSON.';
+      return const _BackendOutcome.fail(BackendIssue.invalidResponse);
     } catch (e) {
-      // Web: "ClientException: Failed to fetch" (server down or CORS).
-      // Android: SocketException (wrong address / no network).
-      lastBackendError = 'Could not reach backend: $e';
+      // Web: "Failed to fetch" (server down or CORS). Android: no route.
+      debugPrint('Course backend not reachable: ${e.runtimeType}');
+      return const _BackendOutcome.fail(BackendIssue.network);
     }
-    return null;
   }
 
-  // ===============================================================
+  static bool _sameInt(dynamic a, int? b) {
+    if (b == null) return a == null;
+    return a is num && a == b;
+  }
+
+  /// The backend repeats the request it answered in `request`. It must match
+  /// what we asked for, so a mixed-up or replayed answer is never shown.
+  static bool _courseIdentityOk(
+    Map<String, dynamic> envelope,
+    Map<String, dynamic> course, {
+    required String careerId,
+    required String categoryId,
+    required int level,
+    required int? lessonIndex,
+  }) {
+    final req = envelope['request'];
+    if (req is! Map) return false;
+    if (req['careerId'] != careerId) return false;
+    if (req['categoryId'] != categoryId) return false;
+    if (!_sameInt(req['level'], level)) return false;
+    if (!_sameInt(req['lessonIndex'], lessonIndex)) return false;
+    if (course['careerId'] != careerId) return false;
+    if (course['categoryId'] != categoryId) return false;
+    return true;
+  }
+
+  static bool _listIdentityOk(
+    Map<String, dynamic> envelope, {
+    required String careerId,
+    required String categoryId,
+    required int level,
+    required int lessonCount,
+  }) {
+    final req = envelope['request'];
+    if (req is! Map) return false;
+    return req['careerId'] == careerId &&
+        req['categoryId'] == categoryId &&
+        _sameInt(req['level'], level) &&
+        _sameInt(req['lessonCount'], lessonCount);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // GENERATE COURSE
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
 
   static Future<TopicCourse> generateCourse({
     required String careerId,
@@ -300,7 +483,7 @@ Return ONLY valid JSON, no Markdown:
     required String difficulty,
     int? lessonIndex,
   }) async {
-    lastBackendError = null;
+    BackendIssue? issue;
 
     if (backendEnabled) {
       final prompt = buildCoursePrompt(
@@ -312,7 +495,7 @@ Return ONLY valid JSON, no Markdown:
         topics: topics,
         difficulty: difficulty,
       );
-      final resp = await _tryBackend(backendUrl, <String, dynamic>{
+      final out = await _tryBackend(backendUrl, <String, dynamic>{
         'careerId': careerId,
         'careerTitle': careerTitle,
         'categoryId': categoryId,
@@ -323,40 +506,31 @@ Return ONLY valid JSON, no Markdown:
         if (lessonIndex != null) 'lessonIndex': lessonIndex,
         'prompt': prompt,
       });
-      if (resp != null) {
-        final raw = resp['course'] ?? resp;
-        if (raw is Map) {
-          final m = Map<String, dynamic>.from(raw);
-
-          // Backward compatibility: some existing generators produce MCQ
-          // challenges with `question`, while TopicCourse expects `prompt`.
-          // Normalize only the missing field; preserve any supplied prompt.
-          final rawChallenges = m['challenges'];
-          if (rawChallenges is List) {
-            for (final item in rawChallenges) {
-              if (item is Map) {
-                final prompt = item['prompt'];
-                final question = item['question'];
-                if ((prompt is! String || prompt.trim().isEmpty) &&
-                    question is String &&
-                    question.trim().isNotEmpty) {
-                  item['prompt'] = question;
-                }
-              }
-            }
-          }
-
-          final problems = CourseJsonValidator.validate(m);
-          print('COURSE BACKEND VALIDATION PROBLEMS: $problems');
-          if (problems.isEmpty) {
-            final course = courseFromJson(jsonEncode(m));
-            lastSource = 'backend';
-            return _GeneratedCourse(course, 'backend');
-          }
-          lastBackendError =
-              'Backend course was invalid: ${problems.join(' ')}';
+      issue = out.issue;
+      final env = out.body;
+      if (env != null) {
+        final raw = env['course'];
+        if (raw is! Map) {
+          issue = BackendIssue.invalidResponse;
         } else {
-          lastBackendError = 'Backend response had no course object.';
+          final m = Map<String, dynamic>.from(raw);
+          if (CourseJsonValidator.validate(m).isNotEmpty) {
+            issue = BackendIssue.invalidResponse;
+          } else if (!_courseIdentityOk(env, m,
+              careerId: careerId,
+              categoryId: categoryId,
+              level: level,
+              lessonIndex: lessonIndex)) {
+            issue = BackendIssue.identityMismatch;
+          } else {
+            final course = courseFromJson(jsonEncode(m));
+            return _GeneratedCourse(
+              course,
+              'backend',
+              const GenerationInfo(
+                  origin: GenerationOrigin.backend, fromCache: false),
+            );
+          }
         }
       }
     }
@@ -368,21 +542,57 @@ Return ONLY valid JSON, no Markdown:
         lessonIndex: lessonIndex,
       );
       final course = courseFromJson(jsonEncode(json));
-      lastSource =
-          backendEnabled ? 'local-fallback' : LocalCourseGenerator.source;
-      return _GeneratedCourse(course, LocalCourseGenerator.source);
+      final origin = backendEnabled
+          ? GenerationOrigin.localFallback
+          : GenerationOrigin.local;
+      return _GeneratedCourse(
+        course,
+        LocalCourseGenerator.source,
+        GenerationInfo(origin: origin, fromCache: false, backendIssue: issue),
+      );
     } on LocalGenerationException catch (e) {
-      throw Exception('Course generation failed: ${e.message}');
+      debugPrint('Local course generation failed: ${e.message}');
+      throw const CourseGenerationException(
+          'Course generation failed: this lesson is not available yet.');
     } on FormatException catch (e) {
-      throw Exception('Course generation failed: ${e.message}');
+      debugPrint('Local course JSON rejected: ${e.message}');
+      throw const CourseGenerationException(
+          'Course generation failed: the lesson data was not valid.');
     }
   }
 
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
   // GENERATE-OR-LOAD (cache-aware entry point the UI calls)
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
 
   static Future<TopicCourse> generateOrLoadCourse({
+    required String careerId,
+    required String careerTitle,
+    required String categoryId,
+    required int level,
+    required String levelTitle,
+    required List<String> topics,
+    required String difficulty,
+    bool forceRegenerate = false,
+    int? lessonIndex,
+  }) async {
+    final r = await generateOrLoadCourseWithInfo(
+      careerId: careerId,
+      careerTitle: careerTitle,
+      categoryId: categoryId,
+      level: level,
+      levelTitle: levelTitle,
+      topics: topics,
+      difficulty: difficulty,
+      forceRegenerate: forceRegenerate,
+      lessonIndex: lessonIndex,
+    );
+    return r.course;
+  }
+
+  /// Same as [generateOrLoadCourse] but also says where the course came
+  /// from (backend / local / fallback / cache).
+  static Future<CourseLoadResult> generateOrLoadCourseWithInfo({
     required String careerId,
     required String careerTitle,
     required String categoryId,
@@ -396,8 +606,18 @@ Return ONLY valid JSON, no Markdown:
     final cacheKey = _cacheKeyFor(careerId, level, lessonIndex: lessonIndex);
 
     if (!forceRegenerate) {
-      final cached = await _loadFromCache(cacheKey);
-      if (cached != null) return cached;
+      final cached = await _loadFromCache(
+        cacheKey,
+        careerId: careerId,
+        level: level,
+        lessonIndex: lessonIndex,
+      );
+      if (cached != null) {
+        final info = GenerationInfo(origin: cached.origin, fromCache: true);
+        lastCourseInfo = info;
+        lastInfo = info;
+        return CourseLoadResult(cached.course, info);
+      }
     }
 
     final g = await _generateCourse(
@@ -412,8 +632,17 @@ Return ONLY valid JSON, no Markdown:
     );
 
     final normalized = _withDeterministicId(g.course, cacheKey);
-    await _saveToCache(cacheKey, normalized, g.source);
-    return normalized;
+    await _saveToCache(
+      cacheKey,
+      normalized,
+      source: g.source,
+      origin: g.info.origin,
+      level: level,
+      lessonIndex: lessonIndex,
+    );
+    lastCourseInfo = g.info;
+    lastInfo = g.info;
+    return CourseLoadResult(normalized, g.info);
   }
 
   static Future<bool> isCourseCached(
@@ -422,11 +651,15 @@ Return ONLY valid JSON, no Markdown:
     int? lessonIndex,
   }) async {
     final cached = await _loadFromCache(
-        _cacheKeyFor(careerId, level, lessonIndex: lessonIndex));
+      _cacheKeyFor(careerId, level, lessonIndex: lessonIndex),
+      careerId: careerId,
+      level: level,
+      lessonIndex: lessonIndex,
+    );
     return cached != null;
   }
 
-  /// Every generated course cached on this device (not lesson lists).
+  /// Every valid generated course cached on this device (not lesson lists).
   static Future<List<TopicCourse>> getAllCachedCourses() async {
     if (!CourseGeneratorConfig.cacheEnabled) return <TopicCourse>[];
     final prefs = await SharedPreferences.getInstance();
@@ -435,14 +668,15 @@ Return ONLY valid JSON, no Markdown:
     final result = <TopicCourse>[];
     for (final key in index) {
       if (key.endsWith(_lessonListSuffix)) continue;
-      final course = await _loadFromCache(key);
-      if (course != null) result.add(course);
+      final cached = await _loadFromCache(key);
+      if (cached != null) result.add(cached.course);
     }
     return result;
   }
 
   /// Wipes ALL generated content: courses, lesson lists and the index.
-  /// Lesson progress/XP keys (course_done_*, course_xp_*) are untouched.
+  /// Lesson progress/XP keys (course_done_*, course_xp_*, course_evt_*,
+  /// course_pending_*) are untouched.
   static Future<void> clearGeneratedCache() async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs
@@ -455,9 +689,9 @@ Return ONLY valid JSON, no Markdown:
     await prefs.remove(CourseGeneratorConfig.cacheIndexKey);
   }
 
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
   // JSON → TopicCourse  (validated: no silent empty courses)
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
 
   static TopicCourse courseFromJson(String jsonString) {
     final decoded = jsonDecode(jsonString);
@@ -586,9 +820,22 @@ Return ONLY valid JSON, no Markdown:
     return index;
   }
 
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
   // CACHE INTERNALS (SharedPreferences)
-  // ===============================================================
+  //
+  // Course entry  = the course JSON + metadata keys:
+  //   source ("backend" | "local-template"), origin, cacheSchema,
+  //   contentVersion (local content only), level, lessonIndex.
+  // The course keeps the SAME id/key as before, so saved progress and XP
+  // (which are keyed by course id) keep working.
+  //
+  // An entry is DISCARDED (and rebuilt) when:
+  //   * it cannot be parsed or fails validation,
+  //   * its id/careerId/level/lessonIndex do not match what is asked for,
+  //   * it is local content with a missing or old contentVersion,
+  //   * it is an old generic placeholder from the previous mock mode.
+  // Backend (AI) content is kept across contentVersion bumps.
+  // ═══════════════════════════════════════════════════════════════
 
   static const String _lessonListSuffix = '_lessonlist';
 
@@ -616,7 +863,6 @@ Return ONLY valid JSON, no Markdown:
   }
 
   /// Old placeholder courses made by the previous backend mock mode.
-  /// They are generic filler, so they are ignored and regenerated.
   static bool _isLegacyPlaceholder(Map<String, dynamic> j) {
     try {
       final concepts = j['concepts'];
@@ -633,7 +879,18 @@ Return ONLY valid JSON, no Markdown:
     return false;
   }
 
-  static Future<TopicCourse?> _loadFromCache(String key) async {
+  /// True when saved LOCAL content was made by an older generator.
+  static bool _staleLocalContent(Map<String, dynamic> j) {
+    if (j['source'] != LocalCourseGenerator.source) return false;
+    return j['contentVersion'] != CourseGeneratorConfig.localContentVersion;
+  }
+
+  static Future<_CachedCourse?> _loadFromCache(
+    String key, {
+    String? careerId,
+    int? level,
+    int? lessonIndex,
+  }) async {
     if (!CourseGeneratorConfig.cacheEnabled) return null;
     final prefs = await SharedPreferences.getInstance();
     final storageKey = '${CourseGeneratorConfig.cacheKeyPrefix}$key';
@@ -643,13 +900,32 @@ Return ONLY valid JSON, no Markdown:
       final decoded = jsonDecode(raw);
       if (decoded is! Map) throw const FormatException('not an object');
       final map = Map<String, dynamic>.from(decoded);
-      if (_isLegacyPlaceholder(map)) {
-        await prefs.remove(storageKey);
-        return null;
+
+      if (_isLegacyPlaceholder(map)) throw const FormatException('legacy');
+      if (map.containsKey('cacheSchema') &&
+          map['cacheSchema'] != CourseGeneratorConfig.cacheSchemaVersion) {
+        throw const FormatException('schema');
       }
-      return courseFromJson(raw);
+      if (_staleLocalContent(map)) throw const FormatException('stale');
+
+      // Identity: the entry must be for the lesson that is being asked for.
+      if (map['id'] != key) throw const FormatException('id');
+      if (careerId != null && map['careerId'] != careerId) {
+        throw const FormatException('career');
+      }
+      if (level != null && map.containsKey('level')) {
+        if (map['level'] != level) throw const FormatException('level');
+        if (map['lessonIndex'] != lessonIndex) {
+          throw const FormatException('lesson');
+        }
+      }
+
+      final course = courseFromJson(raw); // validates the content
+      final origin = GenerationInfo.parseOrigin(
+          (map['origin'] ?? map['source'])?.toString());
+      return _CachedCourse(course, origin);
     } catch (_) {
-      // Corrupt or invalid entry: remove it so it is regenerated cleanly.
+      // Corrupt, invalid, stale or wrong-lesson entry: remove, rebuild.
       await prefs.remove(storageKey);
       return null;
     }
@@ -664,11 +940,36 @@ Return ONLY valid JSON, no Markdown:
     }
   }
 
+  static String _originText(GenerationOrigin o) {
+    switch (o) {
+      case GenerationOrigin.backend:
+        return 'backend';
+      case GenerationOrigin.local:
+        return 'local-template';
+      case GenerationOrigin.localFallback:
+        return 'local-fallback';
+    }
+  }
+
   static Future<void> _saveToCache(
-      String key, TopicCourse course, String source) async {
+    String key,
+    TopicCourse course, {
+    required String source,
+    required GenerationOrigin origin,
+    required int level,
+    required int? lessonIndex,
+  }) async {
     if (!CourseGeneratorConfig.cacheEnabled) return;
     final prefs = await SharedPreferences.getInstance();
-    final json = _courseToJson(course)..['source'] = source;
+    final json = _courseToJson(course)
+      ..['source'] = source
+      ..['origin'] = _originText(origin)
+      ..['cacheSchema'] = CourseGeneratorConfig.cacheSchemaVersion
+      ..['level'] = level
+      ..['lessonIndex'] = lessonIndex;
+    if (source == LocalCourseGenerator.source) {
+      json['contentVersion'] = CourseGeneratorConfig.localContentVersion;
+    }
     await prefs.setString(
         '${CourseGeneratorConfig.cacheKeyPrefix}$key', jsonEncode(json));
     await _addToIndex(prefs, key);
@@ -721,9 +1022,19 @@ Return ONLY valid JSON, no Markdown:
         },
       };
 
-  // ===============================================================
+  // ═══════════════════════════════════════════════════════════════
   // LESSON LIST — multi-lesson-per-level system
-  // ===============================================================
+  //
+  // Cache entry (one per career + level, key ..._lessonlist):
+  //   { kind, cacheSchema, careerId, level, levelTitle, lessonCount,
+  //     source, origin, contentVersion?, lessons:[{index,title}] }
+  // It is used only if the identity matches, the local content version is
+  // current, the lessons validate (1..N, unique titles) and it holds at
+  // least as many lessons as requested. Asking for FEWER lessons returns
+  // the first N; asking for MORE rebuilds and replaces the entry.
+  // An old-format entry (a bare list) came from the old generic mock mode
+  // and is discarded.
+  // ═══════════════════════════════════════════════════════════════
 
   static Future<List<LessonStub>> generateLessonList({
     required String careerId,
@@ -734,13 +1045,37 @@ Return ONLY valid JSON, no Markdown:
     required String difficulty,
     int lessonCount = CourseGeneratorConfig.lessonsPerDynamicLevel,
   }) async {
+    final r = await _generateLessonList(
+      careerId: careerId,
+      careerTitle: careerTitle,
+      categoryId: categoryId,
+      level: level,
+      levelTitle: levelTitle,
+      difficulty: difficulty,
+      lessonCount: lessonCount,
+    );
+    return r.stubs;
+  }
+
+  static CourseGenerationException _badCount() => CourseGenerationException(
+      'Lesson list generation failed: the number of lessons must be '
+      'between ${CourseGeneratorConfig.minLessonCount} and '
+      '${CourseGeneratorConfig.maxLessonCount}.');
+
+  static Future<_GeneratedList> _generateLessonList({
+    required String careerId,
+    required String careerTitle,
+    required String categoryId,
+    required int level,
+    required String levelTitle,
+    required String difficulty,
+    required int lessonCount,
+  }) async {
     if (lessonCount < CourseGeneratorConfig.minLessonCount ||
         lessonCount > CourseGeneratorConfig.maxLessonCount) {
-      throw Exception('Lesson list generation failed: lessonCount must be '
-          'between ${CourseGeneratorConfig.minLessonCount} and '
-          '${CourseGeneratorConfig.maxLessonCount}.');
+      throw _badCount();
     }
-    lastBackendError = null;
+    BackendIssue? issue;
 
     if (backendEnabled) {
       final prompt = buildLessonListPrompt(
@@ -749,7 +1084,7 @@ Return ONLY valid JSON, no Markdown:
         difficulty: difficulty,
         lessonCount: lessonCount,
       );
-      final resp = await _tryBackend(lessonListBackendUrl, <String, dynamic>{
+      final out = await _tryBackend(lessonListBackendUrl, <String, dynamic>{
         'careerId': careerId,
         'careerTitle': careerTitle,
         'categoryId': categoryId,
@@ -759,18 +1094,32 @@ Return ONLY valid JSON, no Markdown:
         'lessonCount': lessonCount,
         'prompt': prompt,
       });
-      if (resp != null) {
-        final raw = resp['lessonList'] ?? resp;
-        if (raw is Map) {
+      issue = out.issue;
+      final env = out.body;
+      if (env != null) {
+        final raw = env['lessonList'];
+        if (raw is! Map) {
+          issue = BackendIssue.invalidResponse;
+        } else {
           final m = Map<String, dynamic>.from(raw);
-          final problems = CourseJsonValidator.validateLessonList(m,
-              expectedCount: lessonCount);
-          if (problems.isEmpty) {
-            lastSource = 'backend';
-            return lessonListFromJson(jsonEncode(m));
+          if (CourseJsonValidator.validateLessonList(m,
+                  expectedCount: lessonCount)
+              .isNotEmpty) {
+            issue = BackendIssue.invalidResponse;
+          } else if (!_listIdentityOk(env,
+              careerId: careerId,
+              categoryId: categoryId,
+              level: level,
+              lessonCount: lessonCount)) {
+            issue = BackendIssue.identityMismatch;
+          } else {
+            return _GeneratedList(
+              lessonListFromJson(jsonEncode(m)),
+              'backend',
+              const GenerationInfo(
+                  origin: GenerationOrigin.backend, fromCache: false),
+            );
           }
-          lastBackendError =
-              'Backend lesson list was invalid: ${problems.take(3).join(' ')}';
         }
       }
     }
@@ -781,21 +1130,29 @@ Return ONLY valid JSON, no Markdown:
         level: level,
         lessonCount: lessonCount,
       );
-      lastSource =
-          backendEnabled ? 'local-fallback' : LocalCourseGenerator.source;
-      return lessonListFromJson(jsonEncode(json));
+      final origin = backendEnabled
+          ? GenerationOrigin.localFallback
+          : GenerationOrigin.local;
+      return _GeneratedList(
+        lessonListFromJson(jsonEncode(json)),
+        LocalCourseGenerator.source,
+        GenerationInfo(origin: origin, fromCache: false, backendIssue: issue),
+      );
     } on LocalGenerationException catch (e) {
-      throw Exception('Lesson list generation failed: ${e.message}');
+      debugPrint('Local lesson list failed: ${e.message}');
+      throw const CourseGenerationException(
+          'Lesson list generation failed: these lessons are not available yet.');
     } on FormatException catch (e) {
-      throw Exception('Lesson list generation failed: ${e.message}');
+      debugPrint('Local lesson list rejected: ${e.message}');
+      throw const CourseGenerationException(
+          'Lesson list generation failed: the lesson data was not valid.');
     }
   }
 
   static List<LessonStub> lessonListFromJson(String jsonString) {
     final decoded = jsonDecode(jsonString);
     if (decoded is! Map) {
-      throw const FormatException(
-          'Lesson list response must be a JSON object.');
+      throw const FormatException('Lesson list response must be a JSON object.');
     }
     final Map<String, dynamic> data;
     if (decoded['lessonList'] is Map) {
@@ -832,14 +1189,47 @@ Return ONLY valid JSON, no Markdown:
     required String difficulty,
     int lessonCount = CourseGeneratorConfig.lessonsPerDynamicLevel,
   }) async {
+    final r = await generateOrLoadLessonListWithInfo(
+      careerId: careerId,
+      careerTitle: careerTitle,
+      categoryId: categoryId,
+      level: level,
+      levelTitle: levelTitle,
+      difficulty: difficulty,
+      lessonCount: lessonCount,
+    );
+    return r.lessons;
+  }
+
+  static Future<LessonListResult> generateOrLoadLessonListWithInfo({
+    required String careerId,
+    required String careerTitle,
+    required String categoryId,
+    required int level,
+    required String levelTitle,
+    required String difficulty,
+    int lessonCount = CourseGeneratorConfig.lessonsPerDynamicLevel,
+  }) async {
+    if (lessonCount < CourseGeneratorConfig.minLessonCount ||
+        lessonCount > CourseGeneratorConfig.maxLessonCount) {
+      throw _badCount();
+    }
     final cacheKey = '${careerId}_level$level$_lessonListSuffix';
 
-    final cached = await _loadLessonListFromCache(cacheKey);
-    if (cached != null && cached.length >= lessonCount) {
-      return cached.take(lessonCount).toList();
+    final cached = await _loadLessonListFromCache(
+      cacheKey,
+      careerId: careerId,
+      level: level,
+      levelTitle: levelTitle,
+    );
+    if (cached != null && cached.stubs.length >= lessonCount) {
+      final info = GenerationInfo(origin: cached.origin, fromCache: true);
+      lastListInfo = info;
+      lastInfo = info;
+      return LessonListResult(cached.stubs.take(lessonCount).toList(), info);
     }
 
-    final generated = await generateLessonList(
+    final g = await _generateLessonList(
       careerId: careerId,
       careerTitle: careerTitle,
       categoryId: categoryId,
@@ -849,11 +1239,26 @@ Return ONLY valid JSON, no Markdown:
       lessonCount: lessonCount,
     );
 
-    await _saveLessonListToCache(cacheKey, generated);
-    return generated;
+    await _saveLessonListToCache(
+      cacheKey,
+      g.stubs,
+      careerId: careerId,
+      level: level,
+      levelTitle: levelTitle,
+      source: g.source,
+      origin: g.info.origin,
+    );
+    lastListInfo = g.info;
+    lastInfo = g.info;
+    return LessonListResult(g.stubs, g.info);
   }
 
-  static Future<List<LessonStub>?> _loadLessonListFromCache(String key) async {
+  static Future<_CachedList?> _loadLessonListFromCache(
+    String key, {
+    required String careerId,
+    required int level,
+    required String levelTitle,
+  }) async {
     if (!CourseGeneratorConfig.cacheEnabled) return null;
     final prefs = await SharedPreferences.getInstance();
     final storageKey = '${CourseGeneratorConfig.cacheKeyPrefix}$key';
@@ -861,16 +1266,31 @@ Return ONLY valid JSON, no Markdown:
     if (raw == null || raw.trim().isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! List) throw const FormatException('not a list');
-      final stubs = decoded.map((item) {
-        final map = Map<String, dynamic>.from(item as Map);
-        final title = _string(map['title']);
-        if (title.isEmpty) throw const FormatException('empty title');
-        return LessonStub(index: _int(map['index'], fallback: 0), title: title);
-      }).toList()
-        ..sort((a, b) => a.index.compareTo(b.index));
-      if (stubs.isEmpty) throw const FormatException('empty list');
-      return stubs;
+      // Old format (a bare list) came from the old generic mock: discard.
+      if (decoded is! Map) throw const FormatException('legacy');
+      final map = Map<String, dynamic>.from(decoded);
+      if (map['kind'] != 'lessonlist') throw const FormatException('kind');
+      if (map['cacheSchema'] != CourseGeneratorConfig.cacheSchemaVersion) {
+        throw const FormatException('schema');
+      }
+      if (map['careerId'] != careerId) throw const FormatException('career');
+      if (map['level'] != level) throw const FormatException('level');
+      if (map['levelTitle'] != levelTitle) throw const FormatException('title');
+      if (_staleLocalContent(map)) throw const FormatException('stale');
+
+      final lessons = map['lessons'];
+      if (lessons is! List) throw const FormatException('lessons');
+      final problems = CourseJsonValidator.validateLessonList(
+          <String, dynamic>{'lessons': lessons},
+          expectedCount: lessons.length);
+      if (problems.isNotEmpty) throw const FormatException('invalid');
+      if (map['lessonCount'] != lessons.length) {
+        throw const FormatException('count');
+      }
+      final stubs = lessonListFromJson(jsonEncode({'lessons': lessons}));
+      final origin = GenerationInfo.parseOrigin(
+          (map['origin'] ?? map['source'])?.toString());
+      return _CachedList(stubs, origin);
     } catch (_) {
       await prefs.remove(storageKey);
       return null;
@@ -879,23 +1299,69 @@ Return ONLY valid JSON, no Markdown:
 
   static Future<void> _saveLessonListToCache(
     String key,
-    List<LessonStub> stubs,
-  ) async {
+    List<LessonStub> stubs, {
+    required String careerId,
+    required int level,
+    required String levelTitle,
+    required String source,
+    required GenerationOrigin origin,
+  }) async {
     if (!CourseGeneratorConfig.cacheEnabled) return;
     final prefs = await SharedPreferences.getInstance();
+    final entry = <String, dynamic>{
+      'kind': 'lessonlist',
+      'cacheSchema': CourseGeneratorConfig.cacheSchemaVersion,
+      'careerId': careerId,
+      'level': level,
+      'levelTitle': levelTitle,
+      'lessonCount': stubs.length,
+      'source': source,
+      'origin': _originText(origin),
+      'lessons':
+          stubs.map((s) => {'index': s.index, 'title': s.title}).toList(),
+    };
+    if (source == LocalCourseGenerator.source) {
+      entry['contentVersion'] = CourseGeneratorConfig.localContentVersion;
+    }
     await prefs.setString(
-      '${CourseGeneratorConfig.cacheKeyPrefix}$key',
-      jsonEncode(
-          stubs.map((s) => {'index': s.index, 'title': s.title}).toList()),
-    );
+        '${CourseGeneratorConfig.cacheKeyPrefix}$key', jsonEncode(entry));
     await _addToIndex(prefs, key);
   }
 }
 
+// ── private helper types ──────────────────────────────────────────
+
+class _BackendOutcome {
+  const _BackendOutcome.ok(Map<String, dynamic> this.body) : issue = null;
+  const _BackendOutcome.fail(BackendIssue this.issue) : body = null;
+  final Map<String, dynamic>? body;
+  final BackendIssue? issue;
+}
+
 class _GeneratedCourse {
-  const _GeneratedCourse(this.course, this.source);
+  const _GeneratedCourse(this.course, this.source, this.info);
   final TopicCourse course;
+  final String source; // "backend" | "local-template"
+  final GenerationInfo info;
+}
+
+class _GeneratedList {
+  const _GeneratedList(this.stubs, this.source, this.info);
+  final List<LessonStub> stubs;
   final String source;
+  final GenerationInfo info;
+}
+
+class _CachedCourse {
+  const _CachedCourse(this.course, this.origin);
+  final TopicCourse course;
+  final GenerationOrigin origin;
+}
+
+class _CachedList {
+  const _CachedList(this.stubs, this.origin);
+  final List<LessonStub> stubs;
+  final GenerationOrigin origin;
 }
 
 /// One entry in a level's syllabus — just a title until the lesson itself

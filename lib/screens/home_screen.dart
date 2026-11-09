@@ -39,6 +39,10 @@ import 'company_intelligence_screen.dart';
 // then verified, then companies with recorded details, then the rest), so the
 // first cards a person sees carry real information. The order is only a
 // presentation order; it never changes any company's data.
+//
+// CAREERS LAYOUT:
+// Career cards are stacked top to bottom and scroll with the page. Phones use
+// one column; wide screens (tablets, landscape) use two columns.
 // -----------------------------------------------------------------------------
 
 const _bg = Color(0xFF080B14);
@@ -746,6 +750,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Career cards are stacked top to bottom and scroll with the page.
+  /// Phones use one column. Wide screens (tablets, landscape) use two.
   Widget _buildCareerExplorer(
     List<HomeCareer> careers,
   ) {
@@ -757,33 +763,82 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    return SizedBox(
-      height: 184,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: careers.length,
-        separatorBuilder: (_, __) {
-          return const SizedBox(width: 11);
-        },
-        itemBuilder: (context, index) {
-          final career = careers[index];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double gap = 11;
+        final int columns = constraints.maxWidth >= 640 ? 2 : 1;
 
-          return _CareerCard(
-            career: career,
-            onTap: () => _showCareer(career),
-          )
-              .animate()
-              .fadeIn(
-                delay: Duration(
-                  milliseconds: 80 + index * 55,
+        if (columns == 1) {
+          return Column(
+            children: [
+              for (var i = 0; i < careers.length; i++) ...[
+                _careerTile(careers[i], i),
+                if (i != careers.length - 1) const SizedBox(height: gap),
+              ],
+            ],
+          );
+        }
+
+        final rows = <Widget>[];
+
+        for (var start = 0; start < careers.length; start += columns) {
+          final end = math.min(start + columns, careers.length);
+          final cells = <Widget>[];
+
+          for (var index = start; index < start + columns; index++) {
+            if (cells.isNotEmpty) {
+              cells.add(const SizedBox(width: gap));
+            }
+
+            if (index < end) {
+              cells.add(
+                Expanded(
+                  child: _careerTile(careers[index], index),
                 ),
-                duration: 320.ms,
-              )
-              .slideX(begin: 0.035);
-        },
-      ),
+              );
+            } else {
+              cells.add(
+                const Expanded(
+                  child: SizedBox.shrink(),
+                ),
+              );
+            }
+          }
+
+          rows.add(
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: cells,
+              ),
+            ),
+          );
+
+          if (end < careers.length) {
+            rows.add(const SizedBox(height: gap));
+          }
+        }
+
+        return Column(
+          children: rows,
+        );
+      },
     );
+  }
+
+  Widget _careerTile(HomeCareer career, int index) {
+    return _CareerCard(
+      career: career,
+      onTap: () => _showCareer(career),
+    )
+        .animate()
+        .fadeIn(
+          delay: Duration(
+            milliseconds: 80 + (index < 12 ? index : 12) * 55,
+          ),
+          duration: 320.ms,
+        )
+        .slideY(begin: 0.03);
   }
 
   Widget _buildCareerAreas() {
@@ -1182,7 +1237,8 @@ class _CareerCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
         child: Container(
-          width: 225,
+          // Fills the available width of its row or column.
+          width: double.infinity,
           padding: const EdgeInsets.all(17),
           decoration: BoxDecoration(
             color: _surface,
@@ -1199,6 +1255,8 @@ class _CareerCard extends StatelessWidget {
             ],
           ),
           child: Column(
+            // Height follows the content, so the card adapts to text size.
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -1215,7 +1273,7 @@ class _CareerCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(height: 14),
               Text(
                 career.title,
                 maxLines: 1,

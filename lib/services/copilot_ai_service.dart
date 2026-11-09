@@ -1,54 +1,26 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// lib/features/copilot/services/copilot_ai_service.dart
-// Uses the same Claude API key as the existing ClaudeService.
+// lib/services/copilot_ai_service.dart
+// SECURE VERSION: no Anthropic key in the app. All calls go through the
+// authenticated backend (/claude/messages) via ClaudeService.complete().
 // Generates: skill gap analysis, personalized roadmap, daily goals.
+// Public methods and return types are unchanged.
 // ══════════════════════════════════════════════════════════════════════════════
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 import '../models/copilot_models.dart';
+import 'claude_service.dart';
 
 class CopilotAIService {
-  static const _url = 'https://api.anthropic.com/v1/messages';
-  static const _model = 'claude-sonnet-4-20250514';
+  // ── Core request (through secure backend) ──────────────────────────────────
 
-  static String get _key {
-    final k = dotenv.env['ANTHROPIC_API_KEY'];
-    if (k == null || k.isEmpty)
-      throw Exception('ANTHROPIC_API_KEY not set in .env');
-    return k;
-  }
-
-  // ── Core request ───────────────────────────────────────────────────────────
-
-  static Future<String> _ask(String system, String user) async {
-    final res = await http
-        .post(
-          Uri.parse(_url),
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': _key,
-            'anthropic-version': '2023-06-01',
-          },
-          body: jsonEncode({
-            'model': _model,
-            'max_tokens': 2048,
-            'system': system,
-            'messages': [
-              {'role': 'user', 'content': user},
-            ],
-          }),
-        )
-        .timeout(const Duration(seconds: 45));
-
-    if (res.statusCode != 200) {
-      throw Exception('Claude API ${res.statusCode}: ${res.body}');
-    }
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    final content = data['content'] as List<dynamic>;
-    return (content.first as Map<String, dynamic>)['text'] as String;
+  static Future<String> _ask(String system, String user) {
+    return ClaudeService.complete(
+      system: system,
+      messages: <Map<String, String>>[
+        <String, String>{'role': 'user', 'content': user},
+      ],
+      maxTokens: 2048,
+    );
   }
 
   // ── Strip markdown fences so we can jsonDecode cleanly ─────────────────────

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'screens/main_screen.dart';
@@ -12,6 +13,7 @@ import 'screens/splash_screen.dart';
 import 'firebase_options.dart';
 import 'services/copilot_provider.dart';
 import 'services/copilot_controller.dart';
+import 'services/course_generator_service.dart';
 import 'services/notification_service.dart';
 
 Future<void> main() async {
@@ -40,14 +42,20 @@ Future<void> _initializeStartup() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Preserve existing .env configuration. Log a clear error if missing;
-  // the splash remains visible rather than querying services too early.
+  // SECURITY: .env is no longer bundled as an app asset (it would ship inside
+  // the APK). isOptional keeps dotenv initialised (empty) so any existing
+  // dotenv.env reads do not crash. Secrets live ONLY on the backend server.
   try {
-    await dotenv.load(fileName: '.env');
+    await dotenv.load(fileName: '.env', isOptional: true);
   } catch (e, stackTrace) {
     debugPrint('Environment configuration warning: $e');
     debugPrintStack(stackTrace: stackTrace);
   }
+
+  // Lets CourseGeneratorService authenticate to the backend. If the user is
+  // signed out (null token) it simply uses the built-in free local generator.
+  CourseGeneratorService.authTokenProvider =
+      () async => FirebaseAuth.instance.currentUser?.getIdToken();
 }
 
 Future<void> _initializeNotifications(Future<void> startupFuture) async {
@@ -55,8 +63,9 @@ Future<void> _initializeNotifications(Future<void> startupFuture) async {
     await startupFuture;
     await FirebaseMessaging.instance.requestPermission();
 
+    // Never print the FCM token in release logs.
     final token = await FirebaseMessaging.instance.getToken();
-    debugPrint('FCM Token: $token');
+    if (token != null) debugPrint('FCM token obtained.');
   } catch (e, stackTrace) {
     debugPrint('FCM initialization warning: $e');
     debugPrintStack(stackTrace: stackTrace);

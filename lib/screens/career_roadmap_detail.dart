@@ -560,7 +560,7 @@ class _CareerPhaseCardState extends State<_CareerPhaseCard> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
-                ),                
+                ),
               ],
             ),
           ),

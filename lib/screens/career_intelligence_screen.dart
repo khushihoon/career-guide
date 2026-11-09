@@ -177,7 +177,240 @@ class CareerIntelligenceScreen extends StatelessWidget {
       );
 
   Widget _salary() {
+    final title = career.title.trim().toLowerCase();
+
+    final Map<String, Map<String, dynamic>> salaryData = {
+      'software': {
+        'name': 'Software Engineer',
+        'range': '₹4–12 LPA',
+        'rows': [
+          ['Fresher', '₹3–5 LPA'],
+          ['Junior', '₹4–8 LPA'],
+          ['Mid-level', '₹8–15 LPA'],
+          ['Senior', '₹15–25+ LPA'],
+        ],
+      },
+      'ai': {
+        'name': 'AI Engineer',
+        'range': '₹5–50+ LPA',
+        'rows': [
+          ['Fresher', '₹5–8 LPA'],
+          ['Junior', '₹8–12 LPA'],
+          ['Mid-level', '₹12–25 LPA'],
+          ['Senior', '₹25–50+ LPA'],
+        ],
+      },
+      'ml': {
+        'name': 'ML Engineer',
+        'range': '₹4–40+ LPA',
+        'rows': [
+          ['Fresher', '₹4–7 LPA'],
+          ['Junior', '₹7–12 LPA'],
+          ['Mid-level', '₹12–22 LPA'],
+          ['Senior', '₹22–40+ LPA'],
+        ],
+      },
+      'data_scientist': {
+        'name': 'Data Scientist',
+        'range': '₹4–40+ LPA',
+        'rows': [
+          ['Fresher', '₹4–7 LPA'],
+          ['Junior', '₹7–12 LPA'],
+          ['Mid-level', '₹12–22 LPA'],
+          ['Senior', '₹22–40+ LPA'],
+        ],
+      },
+      'nlp': {
+        'name': 'NLP Engineer',
+        'range': '₹4–40+ LPA',
+        'rows': [
+          ['Fresher', '₹4–7 LPA'],
+          ['Junior', '₹7–12 LPA'],
+          ['Mid-level', '₹12–22 LPA'],
+          ['Senior', '₹22–40+ LPA'],
+        ],
+      },
+      'computer_vision': {
+        'name': 'Computer Vision Engineer',
+        'range': '₹4–40+ LPA',
+        'rows': [
+          ['Fresher', '₹4–7 LPA'],
+          ['Junior', '₹7–12 LPA'],
+          ['Mid-level', '₹12–22 LPA'],
+          ['Senior', '₹22–40+ LPA'],
+        ],
+      },
+      'prompt': {
+        'name': 'Prompt Engineer',
+        'range': '₹4–35+ LPA',
+        'rows': [
+          ['Fresher', '₹4–7 LPA'],
+          ['Junior', '₹7–12 LPA'],
+          ['Mid-level', '₹12–20 LPA'],
+          ['Senior', '₹20–35+ LPA'],
+        ],
+      },
+      'ai_researcher': {
+        'name': 'AI Researcher',
+        'range': '₹12–90+ LPA',
+        'rows': [
+          ['Fresher', '₹12–20 LPA'],
+          ['Junior', '₹20–35 LPA'],
+          ['Mid-level', '₹25–45 LPA'],
+          ['Senior', '₹50–90 LPA'],
+        ],
+      },
+      'ai_product_manager': {
+        'name': 'AI Product Manager',
+        'range': '₹6–60+ LPA',
+        'rows': [
+          ['Fresher', '₹6–10 LPA'],
+          ['Junior', '₹10–18 LPA'],
+          ['Mid-level', '₹18–30 LPA'],
+          ['Senior', '₹30–60+ LPA'],
+        ],
+      },
+      'llm_engineer': {
+        'name': 'LLM Engineer',
+        'range': '₹6–55+ LPA',
+        'rows': [
+          ['Fresher', '₹6–10 LPA'],
+          ['Junior', '₹10–18 LPA'],
+          ['Mid-level', '₹18–30 LPA'],
+          ['Senior', '₹30–55+ LPA'],
+        ],
+      },
+      'robotics_engineer': {
+        'name': 'Robotics Engineer',
+        'range': '₹3–35+ LPA',
+        'rows': [
+          ['Fresher', '₹3–6 LPA'],
+          ['Junior', '₹6–10 LPA'],
+          ['Mid-level', '₹10–18 LPA'],
+          ['Senior', '₹18–35+ LPA'],
+        ],
+      },
+      'mlops': {
+        'name': 'MLOps / AI Infrastructure Engineer',
+        'range': '₹5–45+ LPA',
+        'rows': [
+          ['Fresher', '₹5–8 LPA'],
+          ['Junior', '₹8–14 LPA'],
+          ['Mid-level', '₹14–25 LPA'],
+          ['Senior', '₹25–45+ LPA'],
+        ],
+      },
+      'ai_security': {
+        'name': 'AI Security Engineer',
+        'range': '₹5–45+ LPA',
+        'rows': [
+          ['Fresher', '₹5–8 LPA'],
+          ['Junior', '₹8–14 LPA'],
+          ['Mid-level', '₹14–25 LPA'],
+          ['Senior', '₹25–45+ LPA'],
+        ],
+      },
+      'data_engineer': {
+        'name': 'Data Engineer',
+        'range': '₹4–40+ LPA',
+        'rows': [
+          ['Fresher', '₹4–7 LPA'],
+          ['Junior', '₹7–12 LPA'],
+          ['Mid-level', '₹12–22 LPA'],
+          ['Senior', '₹22–40+ LPA'],
+        ],
+      },
+    };
+
+    String? selectedKey;
+
+    // Match specific career names before broader career names.
+    if (title.contains('computer vision')) {
+      selectedKey = 'computer_vision';
+    } else if (title.contains('ai security')) {
+      selectedKey = 'ai_security';
+    } else if (title.contains('ai product manager') ||
+        title.contains('artificial intelligence product manager')) {
+      selectedKey = 'ai_product_manager';
+    } else if (title.contains('ai researcher') ||
+        title.contains('ai research scientist')) {
+      selectedKey = 'ai_researcher';
+    } else if (title.contains('mlops') || title.contains('ai infrastructure')) {
+      selectedKey = 'mlops';
+    } else if (title.contains('data scientist')) {
+      selectedKey = 'data_scientist';
+    } else if (title.contains('data engineer')) {
+      selectedKey = 'data_engineer';
+    } else if (title.contains('llm engineer') ||
+        title.contains('large language model engineer')) {
+      selectedKey = 'llm_engineer';
+    } else if (title.contains('robotics engineer')) {
+      selectedKey = 'robotics_engineer';
+    } else if (title.contains('nlp')) {
+      selectedKey = 'nlp';
+    } else if (title.contains('prompt')) {
+      selectedKey = 'prompt';
+    } else if (title.contains('ml engineer') ||
+        title.contains('machine learning engineer')) {
+      selectedKey = 'ml';
+    } else if (title.contains('software engineer')) {
+      selectedKey = 'software';
+    } else if (title.contains('ai engineer') ||
+        title.contains('artificial intelligence engineer')) {
+      selectedKey = 'ai';
+    }
+
+    final data = selectedKey == null ? null : salaryData[selectedKey];
+
+    if (data != null) {
+      final rows = data['rows'] as List<List<String>>;
+      return _section(
+        'COMPENSATION',
+        'Salary intelligence',
+        amber,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: surface2,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${data['name']} – India',
+                style: const TextStyle(
+                  color: text,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                data['range'] as String,
+                style: const TextStyle(
+                  color: text,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Text(
+                'Indicative annual salary',
+                style: TextStyle(color: muted, fontSize: 11),
+              ),
+              const Divider(color: border, height: 28),
+              ...rows.map((row) => _salaryRow(row[0], row[1])),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Preserve the original salary inputs and fallback for other careers.
     final hasSalary = salaryLabel != null && salaryLabel!.trim().isNotEmpty;
+
     return _section(
       'COMPENSATION',
       'Salary intelligence',
@@ -191,40 +424,79 @@ class CareerIntelligenceScreen extends StatelessWidget {
           border: Border.all(color: border),
         ),
         child: hasSalary
-            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('AVAILABLE SALARY DATA',
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'AVAILABLE SALARY DATA',
                     style: TextStyle(
-                        color: muted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2)),
-                const SizedBox(height: 8),
-                Text(salaryLabel!,
-                    style: const TextStyle(
-                        color: text,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900)),
-                if (salarySourceLabel != null &&
-                    salarySourceLabel!.trim().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(salarySourceLabel!,
-                        style: const TextStyle(
-                            color: muted, fontSize: 11, height: 1.4)),
+                      color: muted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-              ])
+                  const SizedBox(height: 8),
+                  Text(
+                    salaryLabel!,
+                    style: const TextStyle(
+                      color: text,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (salarySourceLabel != null &&
+                      salarySourceLabel!.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        salarySourceLabel!,
+                        style: const TextStyle(
+                          color: muted,
+                          fontSize: 11,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                ],
+              )
             : const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                    Icon(Icons.payments_outlined, color: amber, size: 22),
-                    SizedBox(width: 12),
-                    Expanded(
-                        child: Text(
+                  Icon(Icons.payments_outlined, color: amber, size: 22),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
                       'Salary data is not connected for this career yet. '
                       'A salary value will appear here only after a verified source is connected.',
-                      style: TextStyle(color: muted, fontSize: 12, height: 1.5),
-                    )),
-                  ]),
+                      style: TextStyle(
+                        color: muted,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _salaryRow(String level, String salary) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(level, style: const TextStyle(color: muted)),
+          Text(
+            salary,
+            style: const TextStyle(
+              color: text,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }

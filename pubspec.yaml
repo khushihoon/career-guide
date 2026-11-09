@@ -39,7 +39,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - .env
+    # SECURITY: '.env' intentionally NOT listed — assets are packed into the
+    # APK/AAB and are readable by anyone. Secrets belong on the backend only.
     - assets/images/logo.png
     - assets/images/app_icon.png
 
@@ -47,4 +48,4 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/images/app_icon.png"   
-  min_sdk_android: 21 
+  min_sdk_android: 21

@@ -71,6 +71,16 @@ import '../data/courses/claude_engineer_level7.dart';
 import '../data/courses/claude_engineer_level8.dart';
 import '../data/courses/claude_engineer_level9.dart';
 import '../data/courses/claude_engineer_level10.dart';
+import '../data/courses/cyber_security_level_1.dart';
+import '../data/courses/cyber_security_level_2.dart';
+import '../data/courses/cyber_security_level_3.dart';
+import '../data/courses/cyber_security_level_4.dart';
+import '../data/courses/cyber_security_level_5.dart';
+import '../data/courses/cyber_security_level_6.dart';
+import '../data/courses/cyber_security_level_7.dart';
+import '../data/courses/cyber_security_level_8.dart';
+import '../data/courses/cyber_security_level_9.dart';
+import '../data/courses/cyber_security_level_10.dart';
 
 class QuizQuestion {
   final String question;
@@ -301,6 +311,21 @@ const List<TopicCourse> allTopicCourses = [
   ...claudeEngineerLevel8,
   ...claudeEngineerLevel9,
   ...claudeEngineerLevel10,
+
+  //===================================================================
+  //CYBER SECURITY ALL LEVELS
+  //===================================================================
+
+  ...cyberSecurityLevel1,
+  ...cyberSecurityLevel2,
+  ...cyberSecurityLevel3,
+  ...cyberSecurityLevel4,
+  ...cyberSecurityLevel5,
+  ...cyberSecurityLevel6,
+  ...cyberSecurityLevel7,
+  ...cyberSecurityLevel8,
+  ...cyberSecurityLevel9,
+  ...cyberSecurityLevel10,
 
   // ────────────────────────────────────────────────────────────────────
   // SOFTWARE DEVELOPMENT

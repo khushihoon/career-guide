@@ -1,0 +1,12 @@
+.env
+.env.*
+**/.env
+.git
+build
+android
+ios
+web
+macos
+linux
+windows
+.dart_tool

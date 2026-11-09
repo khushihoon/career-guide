@@ -112,8 +112,7 @@ class LocalCourseGenerator {
     int? lessonIndex,
   }) {
     if (lessonIndex != null &&
-        (lessonIndex < 1 ||
-            lessonIndex > CourseGeneratorConfig.maxLessonCount)) {
+        (lessonIndex < 1 || lessonIndex > CourseGeneratorConfig.maxLessonCount)) {
       throw const LocalGenerationException('lessonIndex is out of range.');
     }
     final c = _resolve(careerId, level, lessonIndex);
@@ -125,13 +124,14 @@ class LocalCourseGenerator {
     final focus = c.topics[focusIdx];
     final title = multi ? _lessonTitle(c.topics, lessonIndex!) : c.levelTitle;
 
-    final concepts = _concepts(c, focusIdx, angle, multi);
+    final concepts = _concepts(c, focusIdx, angle, multi, round);
     final quiz = _questions(
       c: c,
       count: CourseGeneratorConfig.quizQuestionsPerLesson,
       kinds: c.described ? <int>[1, 2, 3, 4, 5] : <int>[3, 4, 5],
       focusIdx: focusIdx,
       tag: 'quiz',
+      rotation: round,
     );
     for (final q in quiz) {
       q['xpReward'] = CourseGeneratorConfig.defaultQuizXp;
@@ -140,15 +140,14 @@ class LocalCourseGenerator {
       c: c,
       count: CourseGeneratorConfig.challengesPerLesson,
       kinds: c.described ? <int>[6] : <int>[7],
-      focusIdx: (focusIdx + 1) % n,
+      focusIdx: (focusIdx + 1 + round) % n,
       tag: 'chal',
+      rotation: round,
     );
     for (final q in challenges) {
-      // Keep the original MCQ field for compatibility with existing readers,
-      // and also expose the challenge text under the field required by the
-      // course JSON validator and challenge consumers.
-      q['prompt'] = q['question'];
       q['xpReward'] = CourseGeneratorConfig.defaultChallengeXp;
+      // The app's MiniChallenge model (and the validator) call this "prompt".
+      q['prompt'] = q.remove('question');
     }
     final project = _project(c, focus, multi);
 
@@ -208,7 +207,8 @@ class LocalCourseGenerator {
       }
     }
     if (lvl == null) {
-      throw LocalGenerationException('Career "$careerId" has no level $level.');
+      throw LocalGenerationException(
+          'Career "$careerId" has no level $level.');
     }
     final topics = _topicsOf(path, lvl);
     if (topics.length < 4) {
@@ -356,10 +356,60 @@ class LocalCourseGenerator {
     }
   }
 
+  static String _applyingDefinition(String angle) {
+    switch (angle) {
+      case 'worked example':
+        return 'A worked example breaks one real task into small steps so you '
+            'can see why each step is done.';
+      case 'hands-on practice':
+        return 'Hands-on practice means doing a small task yourself and then '
+            'comparing your result with a reference.';
+      case 'common mistakes':
+        return 'Learning from mistakes means knowing the usual errors in '
+            'advance and checking for them before you finish.';
+      case 'review and recap':
+        return 'A recap tests what you remember without notes and shows which '
+            'topics need another look.';
+      default:
+        return 'Applying a skill means using it on a real task with a clear '
+            'goal, a method and a way to check the result.';
+    }
+  }
+
   static List<Map<String, dynamic>> _concepts(
-      _Ctx c, int focusIdx, String angle, bool multi) {
+      _Ctx c, int focusIdx, String angle, bool multi, int round) {
     final focus = c.topics[focusIdx];
     final cands = <Map<String, dynamic>>[];
+
+    Map<String, dynamic> related(CTopic o) => _concept(
+          'Related: ${o.name}',
+          _defn(c, o),
+          'In real ${c.career} work, ${o.name} is often used together with '
+              '${focus.name}, so knowing both helps you choose the right step.',
+          'Ask yourself: when would a ${c.career} need ${o.name} while also '
+              'working on ${focus.name}? Write down one situation.',
+          'Use ${o.name} together with ${focus.name} when the task needs both.',
+        );
+    Map<String, dynamic> checklist(CTopic t) => _concept(
+          multi ? 'Checklist: ${t.name} (${angle})' : 'Checklist: ${t.name}',
+          _defn(c, t),
+          'Like a pre-flight checklist, a short list for ${t.name} makes sure '
+              'you do not skip an important step.',
+          'Can you explain ${t.name} in one sentence and give one example '
+              'from "${c.levelTitle}"?',
+          'If you cannot explain ${t.name} simply, review it again.',
+        );
+    final applying = _concept(
+      multi
+          ? 'Applying ${focus.name} as a ${c.career}: $angle'
+          : 'Applying ${focus.name} as a ${c.career}',
+      _applyingDefinition(angle),
+      'Like learning to drive, reading about ${focus.name} is only the '
+          'start; confidence comes from practice.',
+      'Step 1: write the goal. Step 2: apply ${focus.name}. Step 3: check the '
+          'result. Step 4: note what you would change.',
+      'Practise ${focus.name} on a small task and record the result.',
+    );
 
     if (multi) {
       cands.add(_concept(
@@ -372,18 +422,24 @@ class LocalCourseGenerator {
             : 'Remember: ${focus.name} is a core skill of the '
                 '"${c.levelTitle}" level. Know when and why to use it.',
       ));
-      for (var i = 0; i < c.topics.length; i++) {
-        if (i == focusIdx) continue;
-        final o = c.topics[i];
-        cands.add(_concept(
-          'Related: ${o.name}',
-          _defn(c, o),
-          'In real ${c.career} work, ${o.name} is often used together with '
-              '${focus.name}, so knowing both helps you choose the right step.',
-          'Ask yourself: when would a ${c.career} need ${o.name} while also '
-              'working on ${focus.name}? Write down one situation.',
-          'Use ${o.name} together with ${focus.name} when the task needs both.',
-        ));
+      final others = <CTopic>[
+        for (var i = 0; i < c.topics.length; i++)
+          if (i != focusIdx) c.topics[i],
+      ];
+      // Rotate which related topics are shown so lessons of the same level
+      // do not all repeat the same related cards.
+      final rot = others.isEmpty ? 0 : round % others.length;
+      final rotated = <CTopic>[...others.sublist(rot), ...others.sublist(0, rot)];
+      for (final o in rotated.take(2)) {
+        cands.add(related(o));
+      }
+      cands.add(applying);
+      cands.add(checklist(focus));
+      for (final o in rotated.skip(2)) {
+        cands.add(related(o));
+      }
+      for (final o in rotated) {
+        cands.add(checklist(o));
       }
     } else {
       for (final t in c.topics) {
@@ -397,43 +453,36 @@ class LocalCourseGenerator {
               : 'Remember: ${t.name} is a core skill of this level.',
         ));
       }
+      cands.add(applying);
+      for (final t in c.topics) {
+        cands.add(checklist(t));
+      }
     }
-
-    cands.add(_concept(
-      'Applying ${focus.name} as a ${c.career}',
-      'Applying a skill means using it on a real task with a clear goal, a '
-          'method and a way to check the result.',
-      'Like learning to drive, reading about ${focus.name} is only the '
-          'start; confidence comes from practice.',
-      'Step 1: write the goal. Step 2: apply ${focus.name}. Step 3: check the '
-          'result. Step 4: note what you would change.',
-      'Practise ${focus.name} on a small task and record the result.',
-    ));
-    for (final t in c.topics) {
-      cands.add(_concept(
-        'Checklist: ${t.name}',
-        _defn(c, t),
-        'Like a pre-flight checklist, a short list for ${t.name} makes sure '
-            'you do not skip an important step.',
-        'Can you explain ${t.name} in one sentence and give one example from '
-            '"${c.levelTitle}"?',
-        'If you cannot explain ${t.name} simply, review it again.',
-      ));
-    }
-    final want = CourseGeneratorConfig.conceptsPerLesson;
-    return cands.take(want).toList();
+    return cands.take(CourseGeneratorConfig.conceptsPerLesson).toList();
   }
 
   // ── Quiz and challenges ────────────────────────────────────────────
 
+  // Three wordings per question kind. The wording is chosen by the lesson's
+  // round (see _questions) so lessons that revisit a topic do not show the
+  // exact same sentence again.
+  static String _w(int variant, List<String> options) =>
+      options[variant % options.length];
+
   static Map<String, dynamic>? _buildQ(
-      int kind, _Ctx c, CTopic t, String seed) {
+      int kind, _Ctx c, CTopic t, String seed, int variant) {
     final levelNames = c.topics.map((e) => e.name).toList();
+    final lt = c.levelTitle;
+    final cr = c.career;
     switch (kind) {
       case 1: // describe the topic
         if (t.desc.isEmpty) return null;
         return _mcq(
-          question: 'Which statement best describes "${t.name}"?',
+          question: _w(variant, <String>[
+            'Which statement best describes "${t.name}"?',
+            'Which sentence correctly explains "${t.name}"?',
+            'A teammate asks what "${t.name}" means. Which answer is correct?',
+          ]),
           correct: t.desc,
           wrong: c.topics
               .where((e) => e.name != t.name)
@@ -444,8 +493,13 @@ class LocalCourseGenerator {
         );
       case 2: // name the topic from its description
         if (t.desc.isEmpty) return null;
+        final lead = _w(variant, <String>[
+          'Which topic is described by this sentence',
+          'Which topic does this definition belong to',
+          'Name the topic that matches this explanation',
+        ]);
         return _mcq(
-          question: 'Which topic is described by this sentence: "${t.desc}"',
+          question: '$lead: "${t.desc}"',
           correct: t.name,
           wrong: levelNames,
           seed: seed,
@@ -453,28 +507,39 @@ class LocalCourseGenerator {
         );
       case 3: // belongs to this level
         return _mcq(
-          question: 'Which of these topics is covered in the '
-              '"${c.levelTitle}" level of the ${c.career} path?',
+          question: _w(variant, <String>[
+            'Which of these topics is covered in the "$lt" level of the $cr path?',
+            'Which topic would you study in the "$lt" level of the $cr path?',
+            'You are working through "$lt" in the $cr path. Which of these '
+                'topics is part of it?',
+          ]),
           correct: t.name,
           wrong: c.otherNames,
           seed: seed,
-          explanation: '${t.name} is part of the "${c.levelTitle}" level.',
+          explanation: '${t.name} is part of the "$lt" level.',
         );
       case 4: // which level covers the topic
         return _mcq(
-          question: 'Which level of the ${c.career} path covers '
-              '"${t.name}"?',
-          correct: c.levelTitle,
+          question: _w(variant, <String>[
+            'Which level of the $cr path covers "${t.name}"?',
+            'In the $cr path, "${t.name}" is taught in which level?',
+            'Where in the $cr path would you learn "${t.name}"?',
+          ]),
+          correct: lt,
           wrong: c.otherLevelTitles,
           seed: seed,
-          explanation: '${t.name} is taught in the "${c.levelTitle}" level.',
+          explanation: '${t.name} is taught in the "$lt" level.',
         );
       case 5: // which is NOT in this level
         final odd = _pick(c.otherNames, seed, 1);
         if (odd.isEmpty) return null;
         return _mcq(
-          question: 'Which of these topics is NOT covered in the '
-              '"${c.levelTitle}" level?',
+          question: _w(variant, <String>[
+            'Which of these topics is NOT covered in the "$lt" level?',
+            'One of these topics belongs to a different level than "$lt". '
+                'Which one?',
+            'Which of these does NOT belong to the "$lt" level?',
+          ]),
           correct: odd.first,
           wrong: levelNames,
           seed: seed,
@@ -484,8 +549,14 @@ class LocalCourseGenerator {
       case 6: // scenario using the description
         if (t.desc.isEmpty) return null;
         return _mcq(
-          question: 'Scenario: as a ${c.career} in the "${c.levelTitle}" '
-              'level, you need to do this: "${t.desc}" Which topic fits best?',
+          question: _w(variant, <String>[
+            'Scenario: as a $cr in the "$lt" level, you need to do this: '
+                '"${t.desc}" Which topic fits best?',
+            'Scenario: your $cr task in "$lt" is described like this: '
+                '"${t.desc}" Which topic do you use?',
+            'Scenario: a client brief for a $cr says: "${t.desc}" Which topic '
+                'from "$lt" applies?',
+          ]),
           correct: t.name,
           wrong: levelNames,
           seed: seed,
@@ -493,12 +564,18 @@ class LocalCourseGenerator {
         );
       case 7: // scenario without description
         return _mcq(
-          question: 'Scenario: your ${c.career} team is planning work for the '
-              '"${c.levelTitle}" level. Which topic belongs in that plan?',
+          question: _w(variant, <String>[
+            'Scenario: your $cr team is planning work for the "$lt" level. '
+                'Which topic belongs in that plan?',
+            'Scenario: you are preparing a study plan for "$lt" as a $cr. '
+                'Which topic should be on it?',
+            'Scenario: a new $cr asks what "$lt" includes. Which of these '
+                'topics is correct?',
+          ]),
           correct: t.name,
           wrong: c.otherNames,
           seed: seed,
-          explanation: '${t.name} is part of the "${c.levelTitle}" level.',
+          explanation: '${t.name} is part of the "$lt" level.',
         );
     }
     return null;
@@ -510,15 +587,19 @@ class LocalCourseGenerator {
     required List<int> kinds,
     required int focusIdx,
     required String tag,
+    int rotation = 0,
   }) {
+    // [rotation] is the lesson's "round" (which angle it uses). Shifting the
+    // question KIND by the round, but not the topic, makes lessons that share
+    // a focus topic ask different (kind, topic) questions.
     final out = <Map<String, dynamic>>[];
     final seen = <String>{};
     for (var attempt = 0; attempt < 120 && out.length < count; attempt++) {
-      final kind = kinds[attempt % kinds.length];
+      final kind = kinds[(attempt + rotation) % kinds.length];
       final t = c.topics[(focusIdx + attempt) % c.topics.length];
       final seed =
           '${c.careerId}|${c.level}|${c.lessonIndex ?? 0}|$tag|$attempt';
-      final q = _buildQ(kind, c, t, seed);
+      final q = _buildQ(kind, c, t, seed, rotation);
       if (q == null) continue;
       final opts = q['options'] as List<String>;
       final key = '${q['question']}|${opts[q['correctIndex'] as int]}';
@@ -540,9 +621,7 @@ class LocalCourseGenerator {
     final names = <String>[];
     if (multi) {
       final other = c.topics.firstWhere((t) => t.name != focus.name);
-      names
-        ..add(focus.name)
-        ..add(other.name);
+      names..add(focus.name)..add(other.name);
       steps.addAll(<String>[
         'Pick a small, realistic ${c.career} scenario connected to '
             '"${c.levelTitle}" and write the goal in one sentence.',
@@ -736,6 +815,8 @@ class CourseJsonValidator {
   }
 
   /// Validates the lesson list {"lessons":[{index,title}]}.
+  /// Indices must be exactly 1..N with no gaps or repeats, titles must be
+  /// unique, non-empty and a sensible length.
   static List<String> validateLessonList(Map<String, dynamic> j,
       {int? expectedCount}) {
     final e = <String>[];
@@ -743,24 +824,41 @@ class CourseJsonValidator {
     if (l is! List || l.isEmpty) {
       return <String>['"lessons" must be a non-empty list.'];
     }
+    if (l.length > CourseGeneratorConfig.maxLessonCount) {
+      e.add('Too many lessons (${l.length}).');
+    }
     if (expectedCount != null && l.length != expectedCount) {
       e.add('Expected $expectedCount lessons, found ${l.length}.');
     }
     final titles = <String>{};
+    final indices = <int>{};
     for (var i = 0; i < l.length; i++) {
       final m = l[i];
       if (m is! Map) {
         e.add('lessons[$i] must be an object.');
         continue;
       }
-      if (m['index'] is! int || (m['index'] as int) < 1) {
+      final idx = m['index'];
+      if (idx is! int || idx < 1) {
         e.add('lessons[$i].index must be a whole number >= 1.');
+      } else if (!indices.add(idx)) {
+        e.add('lessons[$i].index $idx is repeated.');
       }
       final t = m['title'];
       if (t is! String || t.trim().isEmpty) {
         e.add('lessons[$i].title must be a non-empty string.');
+      } else if (t.length > 160) {
+        e.add('lessons[$i].title is too long.');
       } else if (!titles.add(t.trim().toLowerCase())) {
-        e.add('lessons[$i].title "$t" is a duplicate.');
+        e.add('lessons[$i].title is a duplicate.');
+      }
+    }
+    if (e.isEmpty) {
+      for (var n = 1; n <= l.length; n++) {
+        if (!indices.contains(n)) {
+          e.add('lesson indices must be exactly 1..${l.length}.');
+          break;
+        }
       }
     }
     return e;

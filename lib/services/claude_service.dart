@@ -1,22 +1,43 @@
+import 'dart:async' as async;
 import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
-/// Claude AI Service
-/// Complete integration with Anthropic's Claude API
-/// Features: Message history, streaming, error handling, retry logic
+import '../data/courses/course_generator_config.dart';
+
+/// Claude AI Service (SECURE VERSION)
+///
+/// The Anthropic API key NEVER lives in the Flutter app. This service talks
+/// to your own backend endpoint `POST {COURSE_BACKEND_URL}/claude/messages`
+/// (see backend/course_generator_api.dart). The backend:
+///   * verifies the Firebase ID token,
+///   * rate-limits per user,
+///   * validates the request,
+///   * adds ANTHROPIC_API_KEY from its own environment and calls Anthropic.
+///
+/// Public API is unchanged: sendMessage, createUserMessage,
+/// createAssistantMessage, clearHistory, getHistorySummary, getQuickQuestions,
+/// validateApiKey (now: "is the secure backend configured?"), isValidMessage,
+/// getErrorMessage, formatResponse, ... and the SocketException /
+/// TimeoutException classes used by MentorScreen.
 class ClaudeService {
   // ────────────────────────────────────────────────────────────
   // CONSTANTS
   // ────────────────────────────────────────────────────────────
 
-  static const String _baseUrl = 'https://api.anthropic.com/v1/messages';
-  static const String _model = 'claude-sonnet-4-20250514';
   static const int _maxRetries = 3;
-  static const Duration _timeout = Duration(seconds: 30);
 
-  // System prompt for AI Career Mentor
+  /// Backend allows up to 45s for Anthropic; give it a little more.
+  /// (Free hosts may also need a cold-start wake-up.)
+  static const Duration _timeout = Duration(seconds: 60);
+
+  /// Backend accepts max 40 messages; stay safely below.
+  static const int _maxHistoryMessages = 30;
+  static const int _maxContentChars = 20000;
+
+  // System prompt for AI Career Mentor (not a secret; safe in the client)
   static const String _systemPrompt = '''
 You are an expert AI career mentor inside a mobile app called "AI Career App" for students and professionals in India. Your name is Aria, and you're powered by Claude AI.
 
@@ -61,36 +82,68 @@ Topics you can help with:
 ''';
 
   // ────────────────────────────────────────────────────────────
-  // STATIC PROPERTIES
+  // BACKEND CONFIGURATION
   // ────────────────────────────────────────────────────────────
 
-  static String get _apiKey {
-    final key = dotenv.env['ANTHROPIC_API_KEY'];
-    if (key == null || key.isEmpty) {
-      throw Exception(
-        'ANTHROPIC_API_KEY not found in .env file. '
-        'Please add your API key to .env: ANTHROPIC_API_KEY=sk-ant-...',
-      );
+  static http.Client _client = http.Client();
+  static String? _baseOverride;
+
+  /// Delay unit between retries (tests set this to Duration.zero).
+  @visibleForTesting
+  static Duration retryBaseDelay = const Duration(seconds: 2);
+
+  @visibleForTesting
+  static set httpClient(http.Client c) => _client = c;
+
+  @visibleForTesting
+  static set backendBaseUrlOverride(String? v) => _baseOverride = v;
+
+  /// Supplies the Firebase ID token. Default: current Firebase user.
+  /// Tests can replace it. [forceRefresh] is used once after a 401.
+  @visibleForTesting
+  static Future<String?> Function({bool forceRefresh}) tokenProvider =
+      _defaultTokenProvider;
+
+  static Future<String?> _defaultTokenProvider({
+    bool forceRefresh = false,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    return user.getIdToken(forceRefresh);
+  }
+
+  static String get _base {
+    var b = (_baseOverride ?? CourseGeneratorConfig.backendBaseUrl).trim();
+    while (b.endsWith('/')) {
+      b = b.substring(0, b.length - 1);
     }
-    return key;
+    return b;
+  }
+
+  static bool _isLocalHost(String host) =>
+      host == 'localhost' || host == '127.0.0.1' || host == '10.0.2.2';
+
+  /// True when a usable, SECURE backend URL is configured.
+  /// HTTPS is mandatory; plain HTTP is accepted only in debug builds against
+  /// localhost / the Android emulator host.
+  static bool get isBackendConfigured {
+    final b = _base;
+    if (b.isEmpty) return false;
+    final uri = Uri.tryParse(b);
+    if (uri == null || uri.host.isEmpty) return false;
+    if (uri.scheme == 'https') return true;
+    return kDebugMode && uri.scheme == 'http' && _isLocalHost(uri.host);
   }
 
   // ────────────────────────────────────────────────────────────
-  // MAIN METHOD: Send Message to Claude
+  // MAIN METHOD: Send Message to Claude (via backend)
   // ────────────────────────────────────────────────────────────
 
-  /// Send a message to Claude and get a response
+  /// Send a message and get Claude's response.
   ///
-  /// Parameters:
-  ///   - [message] The user's message
-  ///   - [history] Conversation history (list of {role, content} maps)
-  ///   - [onTokenReceived] Optional callback for streaming tokens
-  ///   - [temperature] Model temperature (0-1, default 0.7)
-  ///   - [maxTokens] Maximum tokens in response (default 1024)
-  ///
-  /// Returns: String with Claude's response
-  ///
-  /// Throws: Exception if API call fails
+  /// [history] may already contain the current user message (MentorScreen
+  /// does this); it is not duplicated.
+  /// [onTokenReceived] is kept for API compatibility (no streaming).
   static Future<String> sendMessage({
     required String message,
     required List<Map<String, String>> history,
@@ -99,198 +152,224 @@ Topics you can help with:
     int maxTokens = 1024,
   }) async {
     try {
-      // Validate inputs
       if (message.trim().isEmpty) {
         throw Exception('Message cannot be empty');
       }
-
       if (temperature < 0 || temperature > 1) {
         throw Exception('Temperature must be between 0 and 1');
       }
-
       if (maxTokens < 100 || maxTokens > 4096) {
         throw Exception('Max tokens must be between 100 and 4096');
       }
 
-      // Log request (in debug mode)
-      _logDebug('Sending message to Claude: "$message"');
+      _logDebug('Sending message to AI backend');
 
-      // Make API call with retry logic
-      final response = await _makeApiCall(
-        message: message,
-        history: history,
-        temperature: temperature,
+      final response = await complete(
+        system: _systemPrompt,
+        messages: _composeMessages(message, history),
         maxTokens: maxTokens,
+        temperature: temperature,
       );
 
-      // Log success
-      _logDebug('Received response from Claude');
-
+      _logDebug('Received response from AI backend');
       return response;
     } catch (e) {
-      // Handle and log error
-      final errorMsg = _handleError(e);
-      _logError('Failed to get response from Claude: $errorMsg');
+      _logError('Failed to get AI response: ${_handleError(e)}');
       rethrow;
     }
   }
 
+  /// Generic secure completion used by MentorScreen (through sendMessage)
+  /// and CopilotAIService. Always goes through the authenticated backend.
+  static Future<String> complete({
+    required String system,
+    required List<Map<String, String>> messages,
+    int maxTokens = 1024,
+    double? temperature,
+  }) async {
+    if (!isBackendConfigured) {
+      throw Exception(
+        'AI service is not available right now. '
+        'The app is missing a secure backend URL (COURSE_BACKEND_URL).',
+      );
+    }
+    if (messages.isEmpty) {
+      throw Exception('At least one message is required');
+    }
+
+    final body = <String, dynamic>{
+      'system': system,
+      'messages': messages,
+      'max_tokens': maxTokens,
+      if (temperature != null) 'temperature': temperature,
+    };
+
+    return _postWithRetry(body);
+  }
+
   // ────────────────────────────────────────────────────────────
-  // API CALL WITH RETRY LOGIC
+  // HTTP WITH RETRY
   // ────────────────────────────────────────────────────────────
 
-  static Future<String> _makeApiCall({
-    required String message,
-    required List<Map<String, String>> history,
-    required double temperature,
-    required int maxTokens,
-  }) async {
-    int attempt = 0;
+  static Future<String> _postWithRetry(Map<String, dynamic> body) async {
+    final uri = Uri.parse('$_base/claude/messages');
+    final encoded = jsonEncode(body);
+
+    var attempt = 0;
+    var refreshedToken = false;
+    Object? lastError;
 
     while (attempt < _maxRetries) {
+      final token = await tokenProvider(forceRefresh: refreshedToken);
+      if (token == null || token.isEmpty) {
+        throw Exception('Please sign in to use the AI mentor.');
+      }
+
+      attempt++;
+      _logDebug('API attempt $attempt of $_maxRetries');
+
       try {
-        attempt++;
-        _logDebug('API attempt $attempt of $_maxRetries');
-
-        // Prepare request body
-        final requestBody = _buildRequestBody(
-          message: message,
-          history: history,
-          temperature: temperature,
-          maxTokens: maxTokens,
-        );
-
-        // Make HTTP POST request
-        final response = await http
+        final response = await _client
             .post(
-              Uri.parse(_baseUrl),
-              headers: _buildHeaders(),
-              body: jsonEncode(requestBody),
+              uri,
+              headers: <String, String>{
+                'Content-Type': 'application/json; charset=utf-8',
+                'Accept': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: encoded,
             )
             .timeout(_timeout);
 
-        // Handle response
-        return _handleResponse(response);
-      } on SocketException catch (e) {
-        _logError('Network error on attempt $attempt: ${e.message}');
-        if (attempt >= _maxRetries) {
-          throw Exception(
-              'Network error: Please check your internet connection');
+        _logDebug('Response status: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          return _parseSuccess(response.body);
         }
-        // Wait before retry
-        await Future.delayed(Duration(seconds: 2 * attempt));
-      } on TimeoutException catch (_) {
+
+        // Expired token: refresh once, without consuming a retry.
+        if (response.statusCode == 401 && !refreshedToken) {
+          refreshedToken = true;
+          attempt--;
+          continue;
+        }
+
+        // Retry only transient server-side problems.
+        final transient = response.statusCode == 500 ||
+            response.statusCode == 502 ||
+            response.statusCode == 503 ||
+            response.statusCode == 504;
+        if (transient && attempt < _maxRetries) {
+          lastError = Exception(getErrorMessage(response.statusCode));
+          await Future<void>.delayed(retryBaseDelay * attempt);
+          continue;
+        }
+
+        throw Exception(_messageForStatus(response.statusCode, response.body));
+      } on async.TimeoutException {
         _logError('Timeout on attempt $attempt');
-        if (attempt >= _maxRetries) {
-          throw Exception('Request timeout: Please try again');
-        }
-        await Future.delayed(Duration(seconds: 2 * attempt));
+        lastError = TimeoutException(_timeout);
+        if (attempt >= _maxRetries) break;
+        await Future<void>.delayed(retryBaseDelay * attempt);
       } on http.ClientException catch (e) {
-        _logError('Client error on attempt $attempt: ${e.message}');
-        if (attempt >= _maxRetries) {
-          throw Exception('Connection error: ${e.message}');
-        }
-        await Future.delayed(Duration(seconds: 2 * attempt));
+        _logError('Network error on attempt $attempt');
+        lastError = SocketException(e.message);
+        if (attempt >= _maxRetries) break;
+        await Future<void>.delayed(retryBaseDelay * attempt);
       }
     }
 
+    if (lastError is TimeoutException) {
+      throw TimeoutException(_timeout,
+          message: 'Request timeout: Please try again');
+    }
+    if (lastError is SocketException) {
+      throw SocketException(
+          'Network error: Please check your internet connection');
+    }
+    if (lastError is Exception) throw lastError;
     throw Exception('Failed to get response after $_maxRetries attempts');
+  }
+
+  static String _parseSuccess(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map &&
+          decoded['success'] == true &&
+          decoded['content'] is String &&
+          (decoded['content'] as String).isNotEmpty) {
+        return decoded['content'] as String;
+      }
+    } catch (_) {
+      // fall through
+    }
+    throw Exception('Invalid response format from AI service');
+  }
+
+  /// Maps backend status codes to user-safe messages. Never echoes the
+  /// response body to the UI (it may contain provider details).
+  static String _messageForStatus(int status, String body) {
+    switch (status) {
+      case 400:
+        // Backend 400s carry short, safe validation messages.
+        try {
+          final decoded = jsonDecode(body);
+          final err = decoded is Map ? decoded['error']?.toString() : null;
+          if (err != null && err.isNotEmpty && err.length < 200) {
+            return err;
+          }
+        } catch (_) {}
+        return getErrorMessage(400);
+      case 401:
+        return 'Your session has expired. Please sign in again.';
+      case 429:
+        return 'Rate limit exceeded: Too many requests. '
+            'Please wait a moment and try again.';
+      case 503:
+        return 'AI service is busy or not configured. Please try again later.';
+      default:
+        return getErrorMessage(status);
+    }
   }
 
   // ────────────────────────────────────────────────────────────
   // REQUEST BUILDING
   // ────────────────────────────────────────────────────────────
 
-  static Map<String, dynamic> _buildRequestBody({
-    required String message,
-    required List<Map<String, String>> history,
-    required double temperature,
-    required int maxTokens,
-  }) {
-    // Add current message to history for request
-    final messages = [
-      ...history,
-      {'role': 'user', 'content': message}
-    ];
-
-    return {
-      'model': _model,
-      'max_tokens': maxTokens,
-      'system': _systemPrompt,
-      'messages': messages,
-      'temperature': temperature,
-    };
-  }
-
-  static Map<String, String> _buildHeaders() {
-    return {
-      'Content-Type': 'application/json; charset=utf-8',
-      'x-api-key': _apiKey,
-      'anthropic-version': '2023-06-01',
-      'User-Agent': 'AI-Career-App/1.0',
-    };
-  }
-
-  // ────────────────────────────────────────────────────────────
-  // RESPONSE HANDLING
-  // ────────────────────────────────────────────────────────────
-
-  static String _handleResponse(http.Response response) {
-    _logDebug('Response status: ${response.statusCode}');
-
-    // Success response
-    if (response.statusCode == 200) {
-      try {
-        final jsonData = jsonDecode(response.body);
-        final content = jsonData['content'] as List?;
-
-        if (content != null && content.isNotEmpty) {
-          final text = content[0]['text'] as String?;
-          if (text != null && text.isNotEmpty) {
-            return text;
-          }
-        }
-
-        throw Exception('Invalid response format from Claude');
-      } catch (e) {
-        _logError('Failed to parse response: $e');
-        throw Exception('Failed to parse Claude response: ${e.toString()}');
+  static List<Map<String, String>> _composeMessages(
+    String message,
+    List<Map<String, String>> history,
+  ) {
+    final msgs = <Map<String, String>>[];
+    for (final m in history) {
+      final role = m['role'] == 'assistant' ? 'assistant' : 'user';
+      var content = (m['content'] ?? '').trim();
+      if (content.isEmpty) continue;
+      if (content.length > _maxContentChars) {
+        content = content.substring(0, _maxContentChars);
       }
+      msgs.add(<String, String>{'role': role, 'content': content});
     }
 
-    // Authentication error
-    if (response.statusCode == 401) {
-      _logError('API key is invalid');
-      throw Exception(
-        'Authentication failed: Invalid API key. '
-        'Please check your ANTHROPIC_API_KEY in .env file.',
-      );
+    var current = message.trim();
+    if (current.length > _maxContentChars) {
+      current = current.substring(0, _maxContentChars);
     }
 
-    // Rate limit error
-    if (response.statusCode == 429) {
-      _logError('Rate limited');
-      throw Exception(
-        'Rate limit exceeded: Too many requests. '
-        'Please wait a moment and try again.',
-      );
+    // MentorScreen already adds the user message to history; do not
+    // send it twice.
+    final last = msgs.isEmpty ? null : msgs.last;
+    if (last == null || last['role'] != 'user' || last['content'] != current) {
+      msgs.add(<String, String>{'role': 'user', 'content': current});
     }
 
-    // Server error
-    if (response.statusCode >= 500) {
-      _logError('Server error: ${response.statusCode}');
-      throw Exception(
-        'Claude API server error (${response.statusCode}). '
-        'Please try again later.',
-      );
+    while (msgs.length > _maxHistoryMessages) {
+      msgs.removeAt(0);
     }
-
-    // Other errors
-    _logError('API error: ${response.statusCode} - ${response.body}');
-    throw Exception(
-      'API error (${response.statusCode}): '
-      'Failed to get response from Claude. Please try again.',
-    );
+    while (msgs.isNotEmpty && msgs.first['role'] != 'user') {
+      msgs.removeAt(0);
+    }
+    return msgs;
   }
 
   // ────────────────────────────────────────────────────────────
@@ -315,29 +394,19 @@ Topics you can help with:
   // CONVERSATION MANAGEMENT
   // ────────────────────────────────────────────────────────────
 
-  /// Create a new conversation message
   static Map<String, String> createUserMessage(String content) {
-    return {
-      'role': 'user',
-      'content': content.trim(),
-    };
+    return {'role': 'user', 'content': content.trim()};
   }
 
-  /// Create an assistant response message
   static Map<String, String> createAssistantMessage(String content) {
-    return {
-      'role': 'assistant',
-      'content': content.trim(),
-    };
+    return {'role': 'assistant', 'content': content.trim()};
   }
 
-  /// Clear conversation history
   static List<Map<String, String>> clearHistory() {
     _logDebug('Conversation history cleared');
     return [];
   }
 
-  /// Get conversation summary
   static String getHistorySummary(List<Map<String, String>> history) {
     final userMessages = history
         .where((msg) => msg['role'] == 'user')
@@ -350,7 +419,6 @@ Topics you can help with:
   // QUICK QUESTIONS
   // ────────────────────────────────────────────────────────────
 
-  /// Get predefined quick questions for AI career mentoring
   static List<String> getQuickQuestions() {
     return [
       'Best AI career in 2025?',
@@ -370,34 +438,30 @@ Topics you can help with:
   // VALIDATION
   // ────────────────────────────────────────────────────────────
 
-  /// Validate API key is set
-  static bool validateApiKey() {
-    try {
-      final key = _apiKey;
-      return key.isNotEmpty && key.startsWith('sk-ant-');
-    } catch (_) {
-      return false;
-    }
-  }
+  /// Kept for backward compatibility with MentorScreen.
+  /// There is no API key in the app any more; this returns true when the
+  /// secure backend URL is configured.
+  static bool validateApiKey() => isBackendConfigured;
 
-  /// Check if message is valid for sending
   static bool isValidMessage(String message) {
     return message.trim().isNotEmpty && message.length < 4000;
   }
 
-  /// Get error message based on status code
   static String getErrorMessage(int statusCode) {
     switch (statusCode) {
       case 400:
         return 'Bad request: Invalid input provided';
       case 401:
-        return 'Authentication failed: Check your API key';
+        return 'Authentication failed: Please sign in again';
       case 403:
         return 'Forbidden: Access denied';
       case 429:
         return 'Rate limited: Too many requests, please wait';
       case 500:
-        return 'Server error: Claude API is having issues';
+        return 'Server error: AI service is having issues';
+      case 502:
+      case 504:
+        return 'AI service is temporarily unavailable. Please try again later.';
       case 503:
         return 'Service unavailable: Please try again later';
       default:
@@ -406,7 +470,7 @@ Topics you can help with:
   }
 
   // ────────────────────────────────────────────────────────────
-  // LOGGING & DEBUG
+  // LOGGING & DEBUG (never logs message content, tokens or keys)
   // ────────────────────────────────────────────────────────────
 
   static void _logDebug(String message) {
@@ -425,18 +489,14 @@ Topics you can help with:
   // FORMATTING HELPERS
   // ────────────────────────────────────────────────────────────
 
-  /// Format response for display in UI
   static String formatResponse(String response) {
-    // Remove extra whitespace
     return response.trim().replaceAll(RegExp(r'\n\s*\n'), '\n\n');
   }
 
-  /// Get response length
   static int getResponseLength(String response) {
     return response.length;
   }
 
-  /// Check if response is too short (likely incomplete)
   static bool isResponseIncomplete(String response) {
     return response.length < 20;
   }
@@ -445,47 +505,39 @@ Topics you can help with:
   // ADVANCED FEATURES
   // ────────────────────────────────────────────────────────────
 
-  /// Calculate message complexity score
   static int getComplexityScore(String message) {
     final words = message.split(' ').length;
-    final sentences = message.split(RegExp(r'[.!?]')).length;
-
     if (words > 50) return 3; // Complex
     if (words > 20) return 2; // Medium
     return 1; // Simple
   }
 
-  /// Get recommended temperature based on message type
   static double getRecommendedTemperature(String message) {
     if (message.contains('?')) {
-      return 0.7; // Standard for questions
+      return 0.7;
     }
     if (message.contains('creative') || message.contains('idea')) {
-      return 0.9; // More creative
+      return 0.9;
     }
     if (message.contains('resume') || message.contains('interview')) {
-      return 0.5; // More focused
+      return 0.5;
     }
-    return 0.7; // Default
+    return 0.7;
   }
 
-  /// Estimate token count (rough estimation)
   static int estimateTokenCount(String text) {
-    // Approximate: 4 chars = 1 token
     return (text.length / 4).ceil();
   }
 
-  /// Check if response should have follow-up suggestions
   static bool shouldAddFollowUp(String response) {
     return response.length > 100 && response.length < 500;
   }
 }
 
 // ────────────────────────────────────────────────────────────
-// SOCKET EXCEPTION EXTENSION
+// EXCEPTION TYPES (kept: MentorScreen catches these by name)
 // ────────────────────────────────────────────────────────────
 
-// For socket exception handling
 class SocketException implements Exception {
   final String message;
 
@@ -495,11 +547,6 @@ class SocketException implements Exception {
   String toString() => 'SocketException: $message';
 }
 
-// ────────────────────────────────────────────────────────────
-// TIMEOUT EXCEPTION EXTENSION
-// ────────────────────────────────────────────────────────────
-
-// For timeout exception handling
 class TimeoutException implements Exception {
   final String message;
   final Duration timeout;

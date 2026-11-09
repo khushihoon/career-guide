@@ -50,7 +50,7 @@ const List<TopicCourse> claudeEngineerLevel3 = [
         keyTakeaway:
             'This pattern — reading secrets from environment variables rather than hard-coding them — is a foundational software engineering practice you will use for every credential, not just Claude API keys, throughout your career.',
         codeSnippet:
-            '// Conceptual pattern (syntax varies by language)\n// BAD:  const apiKey = "sk-ant-actual-secret-key-here";\n// GOOD: const apiKey = process.env.ANTHROPIC_API_KEY;',
+            '// Conceptual pattern (syntax varies by language)\n// BAD:  const apiKey = "<YOUR_API_KEY_PLACEHOLDER";\n// GOOD: const apiKey = process.env.ANTHROPIC_API_KEY;',
       ),
       ConceptLesson(
         title: 'Server-Side vs Client-Side API Calls',
