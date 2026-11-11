@@ -22,12 +22,15 @@ exports.deleteMyAccount = onCall(
     }
 
     // Recursive deletion includes every nested Copilot/reward subcollection.
+    // analytics/{uid} is included in case a trusted writer created it
+    // (recursiveDelete on a missing document is a no-op).
     for (const path of [
       `users/${uid}`,
       `ai_memory/${uid}`,
       `quests/${uid}`,
       `achievements/${uid}`,
       `rewards/${uid}`,
+      `analytics/${uid}`,
     ]) {
       await db.recursiveDelete(db.doc(path));
     }
@@ -39,10 +42,15 @@ exports.deleteMyAccount = onCall(
       db.collection("applications").where("userId", "==", uid)
     );
 
-    // Leaderboard data is stored outside users/{uid}.
-    const leaderboardParents = await db.collection("leaderboard").get();
-    for (const parent of leaderboardParents.docs) {
-      await db.recursiveDelete(parent.ref.collection("entries").doc(uid));
+    // Leaderboard entries live at leaderboard/{board}/entries/{uid}, and the
+    // {board} parent documents (global, weekly_*) are never created by the
+    // app. collection().get() only returns EXISTING documents and would
+    // therefore skip them and leave the user's public entry behind.
+    // listDocuments() also returns such "missing" parents that only have
+    // subcollections, so every board is covered.
+    const boardRefs = await db.collection("leaderboard").listDocuments();
+    for (const boardRef of boardRefs) {
+      await db.recursiveDelete(boardRef.collection("entries").doc(uid));
     }
 
     // Storage cleanup is intentionally omitted until real UID-based upload

@@ -1,0 +1,316 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════
+// AI Career App — Firestore Security Rules (production hardening, Phase 1)
+//
+// Collections covered (all inventoried from the app source):
+//   users/{uid}  (+ copilot* subcollections)   rewards/{uid}(+history)
+//   quests/{uid}  achievements/{uid}  ai_memory/{uid}(+careers)
+//   leaderboard/{board}/entries/{uid}  saved_jobs/{id}  applications/{id}
+// Everything else: DEFAULT DENY.
+//
+// WHAT THESE RULES DO
+//   * UID ownership on every user-owned path.
+//   * XP ledgers (copilot_goal_events, copilot_job_offer_events,
+//     copilot_learning_progress/*/events, rewards/*/history) are CREATE-ONLY,
+//     so evidence/idempotency anchors cannot be deleted or rewritten.
+//   * users.totalXp can only grow, by a bounded amount per write.
+//     users.totalGoalsCompleted can only grow by 1 per write.
+//   * Claim lists (claimedQuestIds, claimedMilestoneIds, achievements.unlocked)
+//     can only grow — re-claim by shrinking them is blocked.
+//   * Leaderboard XP can never exceed the user's own users.totalXp.
+//
+// WHAT RULES CANNOT DO (needs a trusted backend — Phase 2)
+//   * Rules cannot inspect the contents of quest/achievement arrays, and
+//     cannot stop a modified client from creating many goal docs or looping
+//     small XP increments. Caps only make casual tampering fail; they do not
+//     make XP authoritative. Server-issued XP (Cloud Functions) does.
+//
+// TUNABLE LIMITS are the maxXxx() functions below. Raise them if a real
+// reward in your catalogs exceeds them.
+// ═══════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Auth helpers ──────────────────────────────────────────────────
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // ── Tunable limits ────────────────────────────────────────────────
+    // Largest legit single write to users.totalXp: all achievements at once
+    // sum to 2700; quest/milestone rewards max 1000.
+    function maxXpPerWrite() { return 3000; }
+    // Per course/goal evidence event (quiz 10, challenge 15, project ~100;
+    // weekly/monthly goals up to 400).
+    function maxEventXp() { return 500; }
+    function maxGoalXp() { return 500; }
+    function maxHistoryXp() { return 1000; }
+
+    // ── Generic helpers ───────────────────────────────────────────────
+    // True when the list field did not exist or only grew (update only).
+    function listOnlyGrows(field) {
+      return !(field in resource.data)
+        || (field in request.resource.data
+            && request.resource.data[field] is list
+            && request.resource.data[field].hasAll(resource.data[field]));
+    }
+
+    function listSizeOk(d, field, n) {
+      return !(field in d) || (d[field] is list && d[field].size() <= n);
+    }
+
+    // ── users.totalXp / totalGoalsCompleted ───────────────────────────
+    function xpDeltaOk() {
+      let before = resource.data.get('totalXp', 0);
+      let after = request.resource.data.get('totalXp', 0);
+      return before is number && after is number
+        && after >= before
+        && after - before <= maxXpPerWrite();
+    }
+
+    function goalsDeltaOk() {
+      let before = resource.data.get('totalGoalsCompleted', 0);
+      let after = request.resource.data.get('totalGoalsCompleted', 0);
+      return before is number && after is number
+        && after >= before
+        && after - before <= 1;
+    }
+
+    function userCreateOk() {
+      let d = request.resource.data;
+      let xp = d.get('totalXp', 0);
+      let goals = d.get('totalGoalsCompleted', 0);
+      return xp is number && xp >= 0 && xp <= maxXpPerWrite()
+        && goals is number && goals >= 0 && goals <= 1;
+    }
+
+    // ── Ledger / goal validation ──────────────────────────────────────
+    function ledgerXpOk() {
+      let x = request.resource.data.get('xp', 0);
+      return x is number && x >= 0 && x <= maxEventXp();
+    }
+
+    function goalDocOk() {
+      let x = request.resource.data.get('xpReward', 0);
+      return x is number && x >= 0 && x <= maxGoalXp();
+    }
+
+    // ── rewards/{uid} ─────────────────────────────────────────────────
+    function rewardsFieldsOk() {
+      let d = request.resource.data;
+      let shields = d.get('streakShieldCount', 0);
+      let mult = d.get('xpMultiplierValue', 1.0);
+      let exp = d.get('xpMultiplierExpiresAt', 0);
+      return shields is number && shields >= 0 && shields <= 100
+        && mult is number && mult <= 3.0
+        && exp is number
+        && exp <= request.time.toMillis() + 604800000;   // now + 7 days
+    }
+
+    function rewardsDeltaOk() {
+      let before = resource.data.get('streakShieldCount', 0);
+      let after = request.resource.data.get('streakShieldCount', 0);
+      return after <= before + 2
+        && listOnlyGrows('claimedMilestoneIds');
+    }
+
+    function historyXpOk() {
+      let x = request.resource.data.get('xpAmount', 0);
+      return x is number && x >= 0 && x <= maxHistoryXp();
+    }
+
+    // ── leaderboard ───────────────────────────────────────────────────
+    function validBoard(board) {
+      return board == 'global'
+        || board.matches('weekly_[0-9]{4}_[0-9]{1,2}_[0-9]{1,2}');
+    }
+
+    function leaderboardEntryOk(uid) {
+      let d = request.resource.data;
+      let ownXp = get(/databases/$(database)/documents/users/$(uid)).data.get('totalXp', 0);
+      return d.displayName is string && d.displayName.size() <= 60
+        && d.totalXp is number && d.totalXp >= 0 && d.totalXp <= ownXp
+        && d.get('weeklyXp', 0) is number
+        && d.get('weeklyXp', 0) >= 0
+        && d.get('weeklyXp', 0) <= d.totalXp
+        && d.get('level', 1) is number
+        && d.get('level', 1) >= 1 && d.get('level', 1) <= 100
+        && (!('photoUrl' in d) || (d.photoUrl is string && d.photoUrl.size() <= 2048));
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // USERS  users/{uid}
+    // ══════════════════════════════════════════════════════════════════
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && userCreateOk();
+      allow update: if isOwner(uid) && xpDeltaOk() && goalsDeltaOk();
+      allow delete: if false;      // account deletion runs in Cloud Function
+
+      // ── XP ledgers: create-only ────────────────────────────────────
+      match /copilot_goal_events/{eventId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && ledgerXpOk();
+        allow update, delete: if false;
+      }
+
+      match /copilot_job_offer_events/{eventId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && ledgerXpOk();
+        allow update, delete: if false;
+      }
+
+      // Aggregate doc stays writable (arrayUnion / careerTotalXp mirror);
+      // only its immutable event ledger is locked down.
+      match /copilot_learning_progress/{careerId} {
+        allow read, write: if isOwner(uid);
+
+        match /events/{eventId} {
+          allow read: if isOwner(uid);
+          allow create: if isOwner(uid) && ledgerXpOk();
+          allow update, delete: if false;
+        }
+      }
+
+      // Daily goals: owner-managed, but the reward a goal can carry is capped.
+      match /copilot_daily_goals/{goalId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && goalDocOk();
+      }
+
+      // All other user subcollections (copilot/, copilot_progress/,
+      // copilot_skill_gaps/, copilot_next_actions/, copilot_recommendations/,
+      // copilot_skill_gap_history/ and any not seen in the audited source)
+      // keep the previous owner-only behaviour. The explicitly protected
+      // subcollections above are excluded so OR-ing of rules cannot
+      // re-open them.
+      match /{sub}/{docPath=**} {
+        allow read, write: if isOwner(uid)
+          && !(sub in [
+            'copilot_goal_events',
+            'copilot_job_offer_events',
+            'copilot_learning_progress',
+            'copilot_daily_goals'
+          ]);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // REWARDS  rewards/{uid}  (+ history, create-only)
+    // ══════════════════════════════════════════════════════════════════
+    match /rewards/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && rewardsFieldsOk();
+      allow update: if isOwner(uid) && rewardsFieldsOk() && rewardsDeltaOk();
+      allow delete: if false;
+
+      match /history/{historyId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && historyXpOk();
+        allow update, delete: if false;
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // QUESTS  quests/{uid}
+    // ══════════════════════════════════════════════════════════════════
+    match /quests/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && listSizeOk(request.resource.data, 'daily', 20)
+        && listSizeOk(request.resource.data, 'weekly', 20)
+        && listSizeOk(request.resource.data, 'monthly', 20);
+      allow update: if isOwner(uid)
+        && listOnlyGrows('claimedQuestIds')
+        && listSizeOk(request.resource.data, 'daily', 20)
+        && listSizeOk(request.resource.data, 'weekly', 20)
+        && listSizeOk(request.resource.data, 'monthly', 20);
+      allow delete: if false;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // ACHIEVEMENTS  achievements/{uid}
+    // ══════════════════════════════════════════════════════════════════
+    match /achievements/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && listSizeOk(request.resource.data, 'unlocked', 50)
+        && listSizeOk(request.resource.data, 'inProgress', 50);
+      allow update: if isOwner(uid)
+        && listOnlyGrows('unlocked')
+        && listSizeOk(request.resource.data, 'unlocked', 50)
+        && listSizeOk(request.resource.data, 'inProgress', 50);
+      allow delete: if false;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // AI MEMORY  ai_memory/{uid}  (non-authoritative summary; unchanged)
+    // ══════════════════════════════════════════════════════════════════
+    match /ai_memory/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /{document=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // LEADERBOARD  leaderboard/{board}/entries/{uid}
+    //   board = 'global' | 'weekly_YYYY_M_D'
+    // ══════════════════════════════════════════════════════════════════
+    match /leaderboard/{board}/entries/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isOwner(uid)
+        && validBoard(board)
+        && leaderboardEntryOk(uid);
+      allow delete: if isOwner(uid);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // SAVED JOBS  saved_jobs/{uid_jobId}
+    //   A get() of a NON-EXISTENT doc has resource == null; the previous
+    //   rule dereferenced resource.data and was therefore denied. The
+    //   'uid_' prefix check makes the existence probe safe.
+    // ══════════════════════════════════════════════════════════════════
+    match /saved_jobs/{savedJobId} {
+      allow get: if signedIn() && (
+        (resource == null && savedJobId.matches('^' + request.auth.uid + '_.*'))
+        || (resource != null && resource.data.userId == request.auth.uid));
+      allow list: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // APPLICATIONS  applications/{uid_jobId}   (contains PII)
+    // ══════════════════════════════════════════════════════════════════
+    match /applications/{applicationId} {
+      allow get: if signedIn() && (
+        (resource == null && applicationId.matches('^' + request.auth.uid + '_.*'))
+        || (resource != null && resource.data.userId == request.auth.uid));
+      allow list: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.get('coverLetter', '') is string
+        && request.resource.data.get('coverLetter', '').size() <= 10000;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // DEFAULT DENY
+    // ══════════════════════════════════════════════════════════════════
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
