@@ -1,112 +1,88 @@
 import 'dart:async';
-
 import 'dart:convert';
-
 import 'dart:io';
 
 import '../lib/services/company_intelligence_models.dart';
-
 import '../lib/services/company_intelligence_live_source_catalog.dart';
-
 import '../lib/services/company_source_adapters.dart';
+import 'api_security_guard.dart';
 
 /// Step 6E-4 — Company Intelligence ingestion backend.
-
 ///
-
 /// This file is a pure-Dart HTTP server.
-
 /// It deliberately does NOT import Flutter.
-
 ///
-
 /// Responsibilities:
-
 /// - expose a local HTTP ingestion API;
-
 /// - fetch a configured public source URL when requested;
-
 /// - normalize provider JSON through CompanySourceAdapter;
-
 /// - return normalized job evidence and a truthful CompanyIntelligenceSnapshot;
-
 /// - keep reference / observed / live information distinguishable.
-
 ///
-
 /// Development server:
-
-///   dart run backend/company_intelligence_ingestion_server.dart
-
+///   CAREER_GUIDE_ENV=development dart run backend/company_intelligence_ingestion_server.dart
 ///
-
 /// Default:
-
 ///   http://localhost:8091
-
 ///
-
-/// Endpoints:
-
+/// Endpoints (response contracts UNCHANGED):
 ///   GET  /health
-
 ///   POST /ingest
-
 ///   POST /ingest/source
-
 ///
-
 /// POST /ingest accepts:
-
 /// {
-
 ///   "companyId": "openai",
-
 ///   "companyName": "OpenAI",
-
 ///   "sourceType": "ashby",
-
 ///   "sourceUrl": "https://...",
-
 ///   "payload": "{...}"
-
 /// }
-
 ///
-
 /// POST /ingest/source accepts the same fields except payload.
-
 /// The backend fetches sourceUrl itself.
-
 ///
-
-/// IMPORTANT:
-
-/// - This development server only consumes URLs explicitly supplied by the
-
-///   caller.
-
-/// - It does not scrape HTML pages.
-
-/// - It does not invent skills, roles, salary, or hiring information.
-
-/// - Skills/roles/technology fields are derived only from normalized job
-
-///   evidence using the deterministic keyword extraction below.
-
-/// - A company with zero live jobs is not presented as currently hiring.
-
+/// PHASE 2 SECURITY HARDENING
+///  * Authentication and App Check are verified by the shared
+///    [ApiSecurityGuard] (reusing FirebaseTokenVerifier and
+///    FirebaseAppCheckVerifier). Invalid credentials -> 401, verification
+///    outage -> 503, limits -> 429. This file no longer has its own token
+///    check.
+///  * CAREER_GUIDE_ENV must be production | staging | development.
+///    Production ALWAYS enforces Firebase Auth + App Check and refuses to
+///    start on an invalid security configuration. A non-loopback bind address
+///    requires authentication.
+///  * Per-IP and per-user limits, all bounded in memory. X-Forwarded-For is
+///    used only with TRUST_PROXY=true (see TRUSTED_PROXY_HOPS).
+///  * Upstream fetches are bounded: at most INGESTION_MAX_IN_FLIGHT at once
+///    (one per user), one shared fetch per source (single-flight), a 45 s
+///    overall deadline, and a short in-memory cache
+///    (INGESTION_CACHE_TTL_SECONDS, default 10 min) so users do not trigger
+///    repeated provider calls. The response keeps the ORIGINAL fetch time in
+///    `fetchedAt`, so the client's freshness check stays truthful.
+///  * Route matching happens BEFORE authentication (unknown paths cost no
+///    Firebase lookup) and the 404 body no longer lists endpoints in
+///    staging/production.
+///  * Errors caused by provider data are generic (no provider text leaks).
+///  * Health stays public and minimal.
+///  * The trusted source allow-list and the redirect protection are
+///    UNCHANGED:
+///  * This development server only consumes URLs explicitly supplied by the
+///    caller.
+///  * It does not scrape HTML pages.
+///  * It does not invent skills, roles, salary, or hiring information.
+///  * Skills/roles/technology fields are derived only from normalized job
+///    evidence using the deterministic keyword extraction below.
+///  * A company with zero live jobs is not presented as currently hiring.
+///
+/// Limitation: limits, quotas and the cache are in this process's memory.
+/// They reset on restart and are not shared between instances.
 class CompanyIntelligenceIngestionServer {
-  static int get port =>
-      int.tryParse(Platform.environment['PORT'] ?? '') ?? 8091;
-
   static const int _maxRequestBytes = 64 * 1024;
 
   static const int _maxUpstreamBytes = 20 * 1024 * 1024;
 
   static const int _maxResponseBytes = 6 * 1024 * 1024;
-
-  static const int _maxRequestsPerMinute = 30;
 
   static const CompanySourceAdapterRegistry _adapterRegistry =
       CompanySourceAdapterRegistry();
@@ -114,51 +90,102 @@ class CompanyIntelligenceIngestionServer {
   static const CompanyIntelligenceLiveSourceCatalog _sourceCatalog =
       CompanyIntelligenceLiveSourceCatalog();
 
-  static final Map<String, List<DateTime>> _requestTimes =
-      <String, List<DateTime>>{};
+  static Map<String, String> _env = Platform.environment;
+  static SecurityConfig? _config;
+  static ApiSecurityGuard? _guard;
 
-  static bool get _productionMode =>
-      (Platform.environment['CAREER_GUIDE_ENV'] ?? '').toLowerCase() ==
-      'production';
+  /// Shared cache of the (compacted, shape-validated) provider payload per
+  /// trusted source, together with the time it was really fetched.
+  static final BoundedTtlCache<_CachedPayload> _payloadCache =
+      BoundedTtlCache<_CachedPayload>(
+    maxEntries: 24,
+    maxTotalBytes: 64 * 1024 * 1024,
+    sizeOf: (_CachedPayload value) => value.payload.length,
+  );
+  static final SingleFlight<_CachedPayload> _flights =
+      SingleFlight<_CachedPayload>();
+  static ConcurrencyGate _fetchGate =
+      ConcurrencyGate(maxInFlight: 4, perKeyInFlight: 1);
 
-  static bool get _authRequired =>
-      _productionMode ||
-      (Platform.environment['CAREER_GUIDE_REQUIRE_AUTH'] ?? '').toLowerCase() ==
-          'true';
+  // ── Environment ───────────────────────────────────────────────
 
-  static Future<void> start() async {
-    final bindAddress =
-        (Platform.environment['CAREER_GUIDE_BIND_ADDRESS'] ?? '127.0.0.1')
-            .trim();
+  static String _envStr(String key) => (_env[key] ?? '').trim();
 
-    if (_authRequired &&
-        (Platform.environment['FIREBASE_WEB_API_KEY'] ?? '').trim().isEmpty) {
-      throw StateError(
-          'FIREBASE_WEB_API_KEY is required when backend authentication is enabled.');
+  static int _envInt(String key, int fallback, int min, int max) {
+    final parsed = int.tryParse(_envStr(key));
+    return parsed == null ? fallback : parsed.clamp(min, max).toInt();
+  }
+
+  static int get port => int.tryParse(_envStr('PORT')) ?? 8091;
+
+  static int get _userPerMinute =>
+      _envInt('INGESTION_USER_PER_MINUTE', 20, 1, 600);
+
+  static Duration get _cacheTtl => Duration(
+      seconds: _envInt('INGESTION_CACHE_TTL_SECONDS', 600, 30, 3600));
+
+  // ── Start / serve ─────────────────────────────────────────────
+
+  /// Validates configuration (fail closed) and binds the server. Parameters
+  /// exist so tests can inject an environment, guard and an ephemeral port.
+  static Future<HttpServer> bind({
+    Map<String, String>? environment,
+    ApiSecurityGuard? guard,
+    int? port,
+    DateTime Function()? clock,
+  }) async {
+    _env = environment ?? Platform.environment;
+
+    final SecurityConfig config;
+    try {
+      config = SecurityConfig.fromEnvironment(_env, clock: clock);
+    } on SecurityConfigException catch (e) {
+      throw StateError(e.message);
     }
 
-    final server =
-        await HttpServer.bind(InternetAddress(bindAddress), port, shared: true);
+    _config = config;
+    _guard =
+        guard ?? ApiSecurityGuard(config: config, log: (m) => stderr.writeln(m));
+    _payloadCache.clear();
+    _fetchGate = ConcurrencyGate(
+      maxInFlight: _envInt('INGESTION_MAX_IN_FLIGHT', 4, 1, 32),
+      perKeyInFlight: 1,
+    );
+
+    final address = InternetAddress.tryParse(config.bindAddress);
+    if (address == null) {
+      throw StateError('CAREER_GUIDE_BIND_ADDRESS must be an IP address.');
+    }
+    final server = await HttpServer.bind(
+        address, port ?? CompanyIntelligenceIngestionServer.port,
+        shared: true);
+    server.idleTimeout = const Duration(seconds: 15);
+    return server;
+  }
+
+  static Future<void> start() async {
+    final server = await bind();
 
     stdout.writeln(
-        'Company Intelligence ingestion backend running on ${server.address.address}:$port');
+        'Company Intelligence ingestion backend running on ${server.address.address}:${server.port}');
+    stdout.writeln('Health: http://localhost:${server.port}/health');
+    stdout.writeln('Security: ${_config!.summary()}');
 
-    stdout.writeln('Health: http://localhost:$port/health');
+    await serve(server);
+  }
 
-    stdout.writeln(
-        'Mode: ${_productionMode ? 'production' : 'local development ingestion'}');
-
-    stdout.writeln(
-        'Firebase ID-token verification: ${_authRequired ? 'required' : 'disabled (local development only)'}');
-
+  static Future<void> serve(HttpServer server) async {
     await for (final request in server) {
       // Do not let one slow provider request block health checks or other users.
-
       unawaited(_handleRequest(request));
     }
   }
 
+  // ── Request handling ──────────────────────────────────────────
+
   static Future<void> _handleRequest(HttpRequest request) async {
+    final guard = _guard!;
+    final config = _config!;
     final originAllowed = _applyCors(request);
 
     if (!originAllowed) {
@@ -180,67 +207,106 @@ class CompanyIntelligenceIngestionServer {
     }
 
     try {
-      if (!_checkRateLimit(request)) {
-        request.response.headers.set('Retry-After', '60');
+      final ip = resolveClientIp(
+        remoteAddress: request.connectionInfo?.remoteAddress.address ?? '',
+        forwardedFor: request.headers.value('x-forwarded-for'),
+        trustProxy: config.trustProxy,
+        hops: config.trustedProxyHops,
+      );
+      final path = request.uri.path;
 
+      if (request.method == 'GET' && path == '/health') {
+        final health = guard.checkHealth(ip);
+        if (!health.allowed) {
+          request.response.headers
+              .set('Retry-After', '${health.retryAfterSeconds}');
+          await _writeJson(
+              request.response, HttpStatus.tooManyRequests, <String, dynamic>{
+            'success': false,
+            'error': rateLimitMessage,
+          });
+          return;
+        }
+        // Minimal and safe. `status: running` is what the Flutter client
+        // checks. Mode/port are shown in development only.
         await _writeJson(
-            request.response, HttpStatus.tooManyRequests, <String, dynamic>{
-          'success': false,
-          'error': 'Too many requests. Please try again shortly.'
-        });
-
+            request.response,
+            HttpStatus.ok,
+            config.isStrict
+                ? <String, dynamic>{'success': true, 'status': 'running'}
+                : <String, dynamic>{
+                    'success': true,
+                    'service': 'company_intelligence_ingestion',
+                    'port': port,
+                    'status': 'running',
+                    'mode': 'local_development',
+                  });
         return;
       }
 
-      if (request.method == 'POST' &&
-          _authRequired &&
-          !await _isFirebaseUserAuthenticated(request)) {
+      final isIngest = request.method == 'POST' && path == '/ingest';
+      final isSource = request.method == 'POST' && path == '/ingest/source';
+      if (!isIngest && !isSource) {
+        // Route matching happens BEFORE authentication: unknown paths must
+        // not cost a Firebase lookup.
         await _writeJson(
-            request.response, HttpStatus.unauthorized, <String, dynamic>{
+            request.response, HttpStatus.notFound, <String, dynamic>{
           'success': false,
-          'error': 'A valid Firebase sign-in is required.'
+          'error': 'Unknown ingestion endpoint.',
+          if (!config.isStrict)
+            'availableEndpoints': <String>[
+              'GET /health',
+              'POST /ingest',
+              'POST /ingest/source'
+            ],
         });
-
         return;
       }
 
-      if (request.method == 'GET' && request.uri.path == '/health') {
-        await _writeJson(request.response, HttpStatus.ok, <String, dynamic>{
-          'success': true,
-          'service': 'company_intelligence_ingestion',
-          'port': port,
-          'status': 'running',
-          'mode': _productionMode ? 'production' : 'local_development',
+      // Per-IP limit -> Firebase Auth -> App Check -> per-user limit.
+      final decision = await guard.authorize(
+        clientIp: ip,
+        authorizationHeader:
+            request.headers.value(HttpHeaders.authorizationHeader),
+        appCheckHeader: request.headers.value('x-firebase-appcheck'),
+        bucket: 'ingest',
+        userPerMinute: _userPerMinute,
+      );
+      if (!decision.allowed) {
+        if (decision.retryAfterSeconds > 0) {
+          request.response.headers
+              .set('Retry-After', '${decision.retryAfterSeconds}');
+        }
+        await _writeJson(request.response, decision.status, <String, dynamic>{
+          'success': false,
+          'error': decision.error,
         });
-
         return;
       }
 
-      if (request.method == 'POST' && request.uri.path == '/ingest') {
+      if (isIngest) {
         await _handleIngest(request);
-
-        return;
+      } else {
+        await _handleSourceIngest(request, decision.rateKey);
       }
-
-      if (request.method == 'POST' && request.uri.path == '/ingest/source') {
-        await _handleSourceIngest(request);
-
-        return;
-      }
-
-      await _writeJson(request.response, HttpStatus.notFound, <String, dynamic>{
-        'success': false,
-        'error': 'Unknown ingestion endpoint.',
-        'availableEndpoints': <String>[
-          'GET /health',
-          'POST /ingest',
-          'POST /ingest/source'
-        ],
-      });
     } on _RequestTooLargeException {
       await _writeJson(request.response, 413, <String, dynamic>{
         'success': false,
         'error': 'Request body exceeds the allowed size.'
+      });
+    } on _BodyTimeout {
+      await _writeJson(request.response, HttpStatus.requestTimeout,
+          <String, dynamic>{
+        'success': false,
+        'error': 'Request body timed out.'
+      });
+    } on _Denied catch (e) {
+      if (e.retryAfterSeconds > 0) {
+        request.response.headers.set('Retry-After', '${e.retryAfterSeconds}');
+      }
+      await _writeJson(request.response, e.status, <String, dynamic>{
+        'success': false,
+        'error': e.error,
       });
     } on _UpstreamTooLargeException {
       await _writeJson(
@@ -248,7 +314,15 @@ class CompanyIntelligenceIngestionServer {
         'success': false,
         'error': 'The trusted source response exceeded the allowed size.'
       });
+    } on _UpstreamInvalid {
+      // Never forward provider text or parser messages to the caller.
+      await _writeJson(
+          request.response, HttpStatus.badGateway, <String, dynamic>{
+        'success': false,
+        'error': 'The trusted source returned an unexpected response.'
+      });
     } on FormatException catch (error) {
+      // Request validation messages (our own wording) for the caller's input.
       await _writeJson(request.response, HttpStatus.badRequest,
           <String, dynamic>{'success': false, 'error': error.message});
     } on TimeoutException {
@@ -259,11 +333,10 @@ class CompanyIntelligenceIngestionServer {
       });
     } catch (error, stackTrace) {
       // Avoid logging payloads, tokens, provider response bodies, or raw URLs.
-
       stderr.writeln(
           'Company Intelligence ingestion failure (${error.runtimeType}).');
 
-      if (!_productionMode) stderr.writeln(stackTrace);
+      if (_config?.isStrict != true) stderr.writeln(stackTrace);
 
       await _writeJson(
           request.response, HttpStatus.badGateway, <String, dynamic>{
@@ -293,17 +366,67 @@ class CompanyIntelligenceIngestionServer {
     );
   }
 
-  static Future<void> _handleSourceIngest(HttpRequest request) async {
+  static Future<void> _handleSourceIngest(
+      HttpRequest request, String userKey) async {
     final body = await _readJsonObject(request);
     final requestData = _parseIngestionRequest(body, requirePayload: false);
-    final upstreamPayload = await _fetchSource(requestData.sourceUrl);
-    // Ashby feeds include long descriptions/HTML. Compact server-side so the
-    // existing Flutter client contract remains <= 2 MiB while preserving the
-    // actual provider compensation object and useful job evidence.
-    final payload = requestData.sourceType == CompanySourceType.ashby
-        ? _compactAshbyPayload(upstreamPayload)
-        : upstreamPayload;
-    final result = _parsePayload(requestData: requestData, payload: payload);
+
+    final cacheKey = '${requestData.sourceType.name}|${requestData.sourceUrl}';
+    _CachedPayload? entry = _payloadCache.get(cacheKey);
+
+    if (entry == null) {
+      // Only the request that actually starts the upstream fetch takes an
+      // in-flight slot; concurrent requests for the same source share it.
+      GateTicket? ticket;
+      if (!_flights.isRunning(cacheKey)) {
+        ticket = _fetchGate.tryAcquire(userKey);
+        if (!ticket.granted) {
+          if (ticket.denial == GateDenial.perKey) {
+            throw const _Denied(429,
+                'Another refresh is still running. Please wait for it to finish.', 3);
+          }
+          throw const _Denied(
+              503, 'The ingestion service is busy. Please try again shortly.', 5);
+        }
+      }
+      try {
+        entry = await _flights.run(cacheKey, () async {
+          final upstreamPayload = await _fetchSource(requestData.sourceUrl)
+              .timeout(const Duration(seconds: 45));
+          // Ashby feeds include long descriptions/HTML. Compact server-side
+          // so the existing Flutter client contract remains <= 2 MiB while
+          // preserving the actual provider compensation object and useful
+          // job evidence.
+          final payload = requestData.sourceType == CompanySourceType.ashby
+              ? _compactAshbyPayload(upstreamPayload)
+              : upstreamPayload;
+          // Reject wrong-shape provider data BEFORE it can be cached.
+          _validateProviderPayloadShape(
+            sourceType: requestData.sourceType,
+            payload: payload,
+          );
+          final fresh = _CachedPayload(payload, DateTime.now().toUtc());
+          _payloadCache.put(cacheKey, fresh, _cacheTtl);
+          return fresh;
+        });
+      } on FormatException {
+        throw const _UpstreamInvalid();
+      } finally {
+        ticket?.release();
+      }
+    }
+
+    final resolved = entry!;
+    final Map<String, dynamic> result;
+    try {
+      result = _parsePayload(
+        requestData: requestData,
+        payload: resolved.payload,
+        fetchedAt: resolved.fetchedAt,
+      );
+    } on FormatException {
+      throw const _UpstreamInvalid();
+    }
     await _writeJson(request.response, HttpStatus.ok, result);
   }
 
@@ -364,27 +487,45 @@ class CompanyIntelligenceIngestionServer {
 
   static Future<Map<String, dynamic>> _readJsonObject(
       HttpRequest request) async {
-    if (request.contentLength > _maxRequestBytes)
+    if (request.contentLength > _maxRequestBytes) {
       throw const _RequestTooLargeException();
+    }
 
     final bytes = BytesBuilder(copy: false);
+    final watch = Stopwatch()..start();
 
-    await for (final chunk in request) {
-      if (bytes.length + chunk.length > _maxRequestBytes)
-        throw const _RequestTooLargeException();
-
-      bytes.add(chunk);
+    try {
+      // Per-chunk idle timeout plus an overall deadline against slow-body
+      // (slowloris) clients.
+      await for (final chunk in request.timeout(const Duration(seconds: 10))) {
+        if (bytes.length + chunk.length > _maxRequestBytes) {
+          throw const _RequestTooLargeException();
+        }
+        bytes.add(chunk);
+        if (watch.elapsed > const Duration(seconds: 15)) {
+          throw const _BodyTimeout();
+        }
+      }
+    } on TimeoutException {
+      throw const _BodyTimeout();
     }
 
     final body = utf8.decode(bytes.takeBytes());
 
-    if (body.trim().isEmpty)
+    if (body.trim().isEmpty) {
       throw const FormatException('Request body is empty.');
+    }
 
-    final decoded = jsonDecode(body);
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(body);
+    } on FormatException {
+      throw const FormatException('Request body must be valid JSON.');
+    }
 
-    if (decoded is! Map)
+    if (decoded is! Map) {
       throw const FormatException('Request body must be a JSON object.');
+    }
 
     return Map<String, dynamic>.from(decoded);
   }
@@ -445,6 +586,7 @@ class CompanyIntelligenceIngestionServer {
   static Map<String, dynamic> _parsePayload({
     required _IngestionRequest requestData,
     required String payload,
+    DateTime? fetchedAt,
   }) {
     final adapter = _adapterRegistry.forType(
       requestData.sourceType,
@@ -461,14 +603,16 @@ class CompanyIntelligenceIngestionServer {
       payload: payload,
     );
 
-    final fetchedAt = DateTime.now().toUtc();
+    // For cached source payloads this is the time the provider was REALLY
+    // queried, so the client's freshness check stays truthful.
+    final fetchedAtUtc = fetchedAt ?? DateTime.now().toUtc();
 
     final jobs = adapter.parse(
       companyId: requestData.companyId,
       companyName: requestData.companyName,
       sourceUrl: requestData.sourceUrl,
       payload: payload,
-      fetchedAt: fetchedAt,
+      fetchedAt: fetchedAtUtc,
     );
 
     final snapshot = _buildSnapshot(
@@ -477,38 +621,27 @@ class CompanyIntelligenceIngestionServer {
       sourceType: requestData.sourceType,
       sourceUrl: requestData.sourceUrl,
       jobs: jobs,
-      generatedAt: fetchedAt,
+      generatedAt: fetchedAtUtc,
     );
 
     return <String, dynamic>{
       'success': true,
-
       'companyId': requestData.companyId,
-
       'companyName': requestData.companyName,
-
       'sourceType': requestData.sourceType.name,
-
       'sourceUrl': requestData.sourceUrl,
-
-      'fetchedAt': fetchedAt.toIso8601String(),
+      'fetchedAt': fetchedAtUtc.toIso8601String(),
 
       // Raw source payload is consumed by Flutter's canonical adapter pipeline.
-
       'payload': payload,
-
       'jobCount': jobs.length,
-
       'jobs': jobs.map(_jobToJson).toList(growable: false),
-
       'snapshot': _snapshotToJson(snapshot),
     };
   }
 
   /// Reject malformed/wrong-shape provider data instead of treating it as a
-
   /// valid feed with zero jobs. A correctly shaped empty array is valid.
-
   static void _validateProviderPayloadShape({
     required CompanySourceType sourceType,
     required String payload,
@@ -688,7 +821,6 @@ class CompanyIntelligenceIngestionServer {
           await client.getUrl(uri).timeout(const Duration(seconds: 5));
 
       // Redirects are deliberately disabled: a trusted ATS URL cannot redirect
-
       // the server to an untrusted/private network destination.
 
       request.followRedirects = false;
@@ -751,83 +883,6 @@ class CompanyIntelligenceIngestionServer {
         !config.supportsLiveJobs) {
       throw const FormatException(
           'Requested company/source is not present in the trusted live-source allowlist.');
-    }
-  }
-
-  static bool _checkRateLimit(HttpRequest request) {
-    final key = request.connectionInfo?.remoteAddress.address ?? 'unknown';
-
-    final now = DateTime.now().toUtc();
-
-    final cutoff = now.subtract(const Duration(minutes: 1));
-
-    final recent = (_requestTimes[key] ?? <DateTime>[])
-        .where((time) => time.isAfter(cutoff))
-        .toList();
-
-    if (recent.length >= _maxRequestsPerMinute) {
-      _requestTimes[key] = recent;
-
-      return false;
-    }
-
-    recent.add(now);
-
-    _requestTimes[key] = recent;
-
-    return true;
-  }
-
-  static Future<bool> _isFirebaseUserAuthenticated(HttpRequest request) async {
-    final authorization =
-        request.headers.value(HttpHeaders.authorizationHeader);
-
-    if (authorization == null || !authorization.startsWith('Bearer '))
-      return false;
-
-    final idToken = authorization.substring('Bearer '.length).trim();
-
-    if (idToken.isEmpty || idToken.length > 8192) return false;
-
-    final apiKey = (Platform.environment['FIREBASE_WEB_API_KEY'] ?? '').trim();
-
-    if (apiKey.isEmpty) return false;
-
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
-
-    try {
-      final uri = Uri.https('identitytoolkit.googleapis.com',
-          '/v1/accounts:lookup', <String, String>{'key': apiKey});
-
-      final outgoing =
-          await client.postUrl(uri).timeout(const Duration(seconds: 5));
-
-      outgoing.headers.contentType = ContentType.json;
-
-      outgoing.write(jsonEncode(<String, String>{'idToken': idToken}));
-
-      final response =
-          await outgoing.close().timeout(const Duration(seconds: 5));
-
-      if (response.statusCode != HttpStatus.ok) return false;
-
-      final bytes = BytesBuilder(copy: false);
-
-      await for (final chunk in response.timeout(const Duration(seconds: 20))) {
-        if (bytes.length + chunk.length > 32 * 1024) return false;
-
-        bytes.add(chunk);
-      }
-
-      final decoded = jsonDecode(utf8.decode(bytes.takeBytes()));
-
-      return decoded is Map &&
-          decoded['users'] is List &&
-          (decoded['users'] as List).isNotEmpty;
-    } catch (_) {
-      return false;
-    } finally {
-      client.close(force: true);
     }
   }
 
@@ -1179,22 +1234,24 @@ class CompanyIntelligenceIngestionServer {
     };
   }
 
+  /// Staging/production need an explicit origin list; development allows
+  /// http://localhost and http://127.0.0.1 browser origins. Native apps send
+  /// no Origin header. X-Firebase-AppCheck is allowed for browser clients.
   static bool _applyCors(HttpRequest request) {
     final response = request.response;
 
     final origin = request.headers.value('origin');
 
-    final configuredOrigins =
-        (Platform.environment['CAREER_GUIDE_ALLOWED_ORIGINS'] ?? '')
-            .split(',')
-            .map((value) => value.trim())
-            .where((value) => value.isNotEmpty)
-            .toSet();
+    final configuredOrigins = _envStr('CAREER_GUIDE_ALLOWED_ORIGINS')
+        .split(',')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
 
     var allowed = origin == null;
 
     if (origin != null) {
-      if (_productionMode) {
+      if (_config?.isStrict == true) {
         allowed = configuredOrigins.contains(origin);
       } else {
         final uri = Uri.tryParse(origin);
@@ -1210,12 +1267,14 @@ class CompanyIntelligenceIngestionServer {
       ..set('Vary', 'Origin')
       ..set('X-Content-Type-Options', 'nosniff')
       ..set('Cache-Control', 'no-store')
-      ..set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+      ..set('Access-Control-Allow-Headers',
+          'Content-Type, Authorization, X-Firebase-AppCheck')
       ..set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
       ..contentType = ContentType.json;
 
-    if (origin != null && allowed)
+    if (origin != null && allowed) {
       response.headers.set('Access-Control-Allow-Origin', origin);
+    }
 
     return allowed;
   }
@@ -1242,6 +1301,10 @@ class CompanyIntelligenceIngestionServer {
 
     response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
 
+    if (_config?.isStrict == true) {
+      response.headers.set('Strict-Transport-Security', 'max-age=31536000');
+    }
+
     response.write(encoded);
 
     await response.close();
@@ -1260,6 +1323,34 @@ class _RetryableUpstreamException implements Exception {
   final int statusCode;
 
   const _RetryableUpstreamException(this.statusCode);
+}
+
+class _BodyTimeout implements Exception {
+  const _BodyTimeout();
+}
+
+/// Provider data that could not be used (wrong shape / unparsable). The
+/// caller only ever sees a generic message.
+class _UpstreamInvalid implements Exception {
+  const _UpstreamInvalid();
+}
+
+/// A request refused by an in-flight limit.
+class _Denied implements Exception {
+  const _Denied(this.status, this.error, this.retryAfterSeconds);
+  final int status;
+  final String error;
+  final int retryAfterSeconds;
+}
+
+class _CachedPayload {
+  const _CachedPayload(this.payload, this.fetchedAt);
+
+  /// The (compacted, shape-validated) provider payload.
+  final String payload;
+
+  /// When the provider was really queried.
+  final DateTime fetchedAt;
 }
 
 class _IngestionRequest {
@@ -1283,7 +1374,12 @@ class _IngestionRequest {
 }
 
 /// Dart executable entry point.
-
 Future<void> main() async {
-  await CompanyIntelligenceIngestionServer.start();
+  try {
+    await CompanyIntelligenceIngestionServer.start();
+  } on StateError catch (e) {
+    // Fail closed with a clear, secret-free message.
+    stderr.writeln('Company Intelligence ingestion cannot start: ${e.message}');
+    exit(78);
+  }
 }

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/courses/course_generator_config.dart';
 import '../models/course_content_data.dart';
 import 'local_course_generator.dart';
+import 'backend_auth_headers.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // Result / status types
@@ -33,6 +34,7 @@ enum BackendIssue {
   network,
   http,
   authRejected,
+  temporaryRefusal,
   tooLarge,
   invalidResponse,
   mockMode,
@@ -50,6 +52,8 @@ extension BackendIssueText on BackendIssue {
         return 'The course server returned an error.';
       case BackendIssue.authRejected:
         return 'The course server did not accept the login.';
+      case BackendIssue.temporaryRefusal:
+        return 'The course server is temporarily limiting or refusing requests.';
       case BackendIssue.tooLarge:
         return 'The course server answer was too large.';
       case BackendIssue.invalidResponse:
@@ -176,6 +180,10 @@ class CourseGeneratorService {
   /// if you use another login system.
   static Future<String?> Function()? authTokenProvider;
 
+  /// Optional App Check token provider. Null uses FirebaseAppCheck directly.
+  /// Tests can inject a deterministic provider without initializing Firebase.
+  static Future<String?> Function()? appCheckTokenProvider;
+
   static Future<String?> _defaultTokenProvider() async {
     try {
       return await FirebaseAuth.instance.currentUser?.getIdToken();
@@ -214,6 +222,7 @@ class CourseGeneratorService {
     _client = http.Client();
     _baseOverride = null;
     authTokenProvider = null;
+    appCheckTokenProvider = null;
     lastCourseInfo = null;
     lastListInfo = null;
     lastInfo = null;
@@ -353,10 +362,11 @@ Return ONLY valid JSON, no Markdown:
         'Accept': 'application/json',
       };
       if (_mayAttachToken(uri)) {
-        final token = await (authTokenProvider ?? _defaultTokenProvider)();
-        if (token != null && token.isNotEmpty) {
-          headers['Authorization'] = 'Bearer $token';
-        }
+        final securityHeaders = await BackendAuthHeaders.build(
+          idTokenProvider: authTokenProvider ?? _defaultTokenProvider,
+          appCheckProvider: appCheckTokenProvider,
+        );
+        headers.addAll(securityHeaders);
       }
       final response = await _client
           .post(uri, headers: headers, body: jsonEncode(body))
@@ -365,8 +375,12 @@ Return ONLY valid JSON, no Markdown:
 
       final code = response.statusCode;
       if (code == 401 || code == 403) {
-        debugPrint('Course backend rejected login (HTTP $code).');
+        debugPrint('Course backend rejected security credentials (HTTP $code).');
         return const _BackendOutcome.fail(BackendIssue.authRejected);
+      }
+      if (code == 429 || code == 503) {
+        debugPrint('Course backend temporarily refused the request (HTTP $code).');
+        return const _BackendOutcome.fail(BackendIssue.temporaryRefusal);
       }
       if (code < 200 || code >= 300) {
         debugPrint('Course backend returned HTTP $code.');
@@ -632,14 +646,16 @@ Return ONLY valid JSON, no Markdown:
     );
 
     final normalized = _withDeterministicId(g.course, cacheKey);
-    await _saveToCache(
-      cacheKey,
-      normalized,
-      source: g.source,
-      origin: g.info.origin,
-      level: level,
-      lessonIndex: lessonIndex,
-    );
+    if (!_mustAvoidFallbackCache(g.info)) {
+      await _saveToCache(
+        cacheKey,
+        normalized,
+        source: g.source,
+        origin: g.info.origin,
+        level: level,
+        lessonIndex: lessonIndex,
+      );
+    }
     lastCourseInfo = g.info;
     lastInfo = g.info;
     return CourseLoadResult(normalized, g.info);
@@ -838,6 +854,13 @@ Return ONLY valid JSON, no Markdown:
   // ═══════════════════════════════════════════════════════════════
 
   static const String _lessonListSuffix = '_lessonlist';
+
+  /// Authentication failures and temporary backend refusals must not become
+  /// durable local fallbacks; retry the backend on the next open instead.
+  static bool _mustAvoidFallbackCache(GenerationInfo info) =>
+      info.origin == GenerationOrigin.localFallback &&
+      (info.backendIssue == BackendIssue.authRejected ||
+          info.backendIssue == BackendIssue.temporaryRefusal);
 
   static String _cacheKeyFor(String careerId, int level, {int? lessonIndex}) =>
       lessonIndex == null
@@ -1239,15 +1262,17 @@ Return ONLY valid JSON, no Markdown:
       lessonCount: lessonCount,
     );
 
-    await _saveLessonListToCache(
-      cacheKey,
-      g.stubs,
-      careerId: careerId,
-      level: level,
-      levelTitle: levelTitle,
-      source: g.source,
-      origin: g.info.origin,
-    );
+    if (!_mustAvoidFallbackCache(g.info)) {
+      await _saveLessonListToCache(
+        cacheKey,
+        g.stubs,
+        careerId: careerId,
+        level: level,
+        levelTitle: levelTitle,
+        source: g.source,
+        origin: g.info.origin,
+      );
+    }
     lastListInfo = g.info;
     lastInfo = g.info;
     return LessonListResult(g.stubs, g.info);

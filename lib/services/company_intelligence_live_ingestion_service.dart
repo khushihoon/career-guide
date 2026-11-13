@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import 'backend_auth_headers.dart';
 import 'company_intelligence_live_source_catalog.dart';
 import 'company_intelligence_models.dart';
 import 'company_intelligence_service.dart';
@@ -12,6 +13,15 @@ import 'company_intelligence_service.dart';
 ///
 /// Phase 1 enforces the server/client contract and fails closed when identity,
 /// source, payload, or freshness metadata cannot be validated.
+///
+/// PHASE 2: every ingestion request carries
+///   Authorization: Bearer <Firebase ID token>
+///   X-Firebase-AppCheck: <App Check token>
+/// when those tokens are available. A missing token is never faked: the
+/// header is omitted and an enforcing (production) backend answers 401, which
+/// surfaces as the usual StateError. The backend URL rules below guarantee the
+/// tokens only travel over HTTPS (or to a local/private-LAN debug server in a
+/// debug build). Request and response JSON are unchanged.
 class CompanyIntelligenceLiveIngestionService {
   final CompanyIntelligenceService intelligenceService;
   final CompanyIntelligenceLiveSourceCatalog sourceCatalog;
@@ -32,6 +42,39 @@ class CompanyIntelligenceLiveIngestionService {
   static const Duration maxPayloadAge = Duration(hours: 6);
   static const Duration allowedFutureSkew = Duration(minutes: 5);
 
+  // ── Test hooks (default: the real Firebase SDKs / a real HTTP client) ──
+
+  /// Supplies the Firebase ID token. Default (null): the signed-in Firebase
+  /// user, or no token when nobody is signed in.
+  @visibleForTesting
+  static Future<String?> Function()? idTokenProvider;
+
+  /// Supplies the App Check token. Default (null): the App Check SDK, which
+  /// yields no token (never throws) when App Check is unavailable.
+  @visibleForTesting
+  static Future<String?> Function()? appCheckTokenProvider;
+
+  /// Creates the HTTP client. Default (null): a real [http.Client].
+  @visibleForTesting
+  static http.Client Function()? clientFactory;
+
+  @visibleForTesting
+  static void resetForTest() {
+    idTokenProvider = null;
+    appCheckTokenProvider = null;
+    clientFactory = null;
+  }
+
+  static Future<String?> _defaultIdToken() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return null;
+      return await user.getIdToken();
+    } catch (_) {
+      return null; // Firebase not ready: treat as signed out
+    }
+  }
+
   Future<CompanyIntelligenceSnapshot?> refreshCompany(
     String companyName, {
     String backendBaseUrl = developmentBackendBaseUrl,
@@ -41,20 +84,22 @@ class CompanyIntelligenceLiveIngestionService {
 
     final baseUrl = _validatedBackendBaseUrl(backendBaseUrl);
     final endpoint = Uri.parse('$baseUrl/ingest/source');
-    final client = http.Client();
+    final createClient = clientFactory;
+    final client = createClient == null ? http.Client() : createClient();
 
     try {
-      // Production backend verifies Firebase ID tokens server-side. No static
-      // API secret is embedded in the app. Local development remains usable
-      // without sign-in while backend auth is disabled in local mode.
-      final user = FirebaseAuth.instance.currentUser;
-      final idToken = user == null ? null : await user.getIdToken();
+      // The backend verifies the Firebase ID token and the App Check token
+      // server-side. No static API secret is embedded in the app. Missing or
+      // failing tokens are simply omitted (never faked); the backend decides.
+      // A local development backend may run with relaxed checks.
       final headers = <String, String>{
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        if (idToken != null && idToken.isNotEmpty)
-          'Authorization': 'Bearer $idToken',
       };
+      headers.addAll(await BackendAuthHeaders.build(
+        idTokenProvider: idTokenProvider ?? _defaultIdToken,
+        appCheckProvider: appCheckTokenProvider,
+      ));
       final response = await client
           .post(
             endpoint,
@@ -161,8 +206,10 @@ class CompanyIntelligenceLiveIngestionService {
     String backendBaseUrl = developmentBackendBaseUrl,
   }) async {
     final baseUrl = _validatedBackendBaseUrl(backendBaseUrl);
-    final client = http.Client();
+    final createClient = clientFactory;
+    final client = createClient == null ? http.Client() : createClient();
     try {
+      // /health is public: no tokens are sent.
       final response = await client.get(
         Uri.parse('$baseUrl/health'),
         headers: const <String, String>{'Accept': 'application/json'},

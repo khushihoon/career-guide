@@ -6,16 +6,23 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../data/courses/course_generator_config.dart';
+import 'backend_auth_headers.dart';
 
 /// Claude AI Service (SECURE VERSION)
 ///
 /// The Anthropic API key NEVER lives in the Flutter app. This service talks
 /// to your own backend endpoint `POST {COURSE_BACKEND_URL}/claude/messages`
 /// (see backend/course_generator_api.dart). The backend:
-///   * verifies the Firebase ID token,
-///   * rate-limits per user,
+///   * verifies the Firebase ID token AND the Firebase App Check token,
+///   * rate-limits per user and applies daily quotas / a global cap,
 ///   * validates the request,
 ///   * adds ANTHROPIC_API_KEY from its own environment and calls Anthropic.
+///
+/// PHASE 2: every request now carries
+///   Authorization: Bearer <Firebase ID token>
+///   X-Firebase-AppCheck: <App Check token>
+/// A missing App Check token is never faked: the header is simply omitted and
+/// an enforcing (production) backend rejects the request.
 ///
 /// Public API is unchanged: sendMessage, createUserMessage,
 /// createAssistantMessage, clearHistory, getHistorySummary, getQuickQuestions,
@@ -36,6 +43,16 @@ class ClaudeService {
   /// Backend accepts max 40 messages; stay safely below.
   static const int _maxHistoryMessages = 30;
   static const int _maxContentChars = 20000;
+
+  /// The backend rejects requests whose system prompt plus all messages
+  /// exceed CLAUDE_MAX_TOTAL_CHARS (default 60000). Stay below it so a long
+  /// conversation is trimmed here instead of failing with "Request is too
+  /// long".
+  static const int _maxTotalChars = 58000;
+
+  /// A 503 that asks the client to wait longer than this is not transient
+  /// (for example the daily global AI cap): do not retry it.
+  static const int _maxRetryAfterSeconds = 30;
 
   // System prompt for AI Career Mentor (not a secret; safe in the client)
   static const String _systemPrompt = '''
@@ -104,6 +121,13 @@ Topics you can help with:
   static Future<String?> Function({bool forceRefresh}) tokenProvider =
       _defaultTokenProvider;
 
+  /// Supplies the Firebase App Check token. Default: the App Check SDK; it
+  /// returns null (never throws) when App Check is unavailable. Tests can
+  /// replace it. [forceRefresh] is used once after a 401.
+  @visibleForTesting
+  static Future<String?> Function({bool forceRefresh}) appCheckTokenProvider =
+      BackendAuthHeaders.defaultAppCheckToken;
+
   static Future<String?> _defaultTokenProvider({
     bool forceRefresh = false,
   }) async {
@@ -125,7 +149,8 @@ Topics you can help with:
 
   /// True when a usable, SECURE backend URL is configured.
   /// HTTPS is mandatory; plain HTTP is accepted only in debug builds against
-  /// localhost / the Android emulator host.
+  /// localhost / the Android emulator host. Tokens are therefore only ever
+  /// sent over https or to a local development server.
   static bool get isBackendConfigured {
     final b = _base;
     if (b.isEmpty) return false;
@@ -199,7 +224,7 @@ Topics you can help with:
 
     final body = <String, dynamic>{
       'system': system,
-      'messages': messages,
+      'messages': _fitToBudget(system, messages),
       'max_tokens': maxTokens,
       if (temperature != null) 'temperature': temperature,
     };
@@ -225,6 +250,10 @@ Topics you can help with:
         throw Exception('Please sign in to use the AI mentor.');
       }
 
+      // App Check token: never throws; null means "omit the header" and an
+      // enforcing backend will reject the request (fail closed).
+      final appCheckToken = await _appCheckTokenSafe(refreshedToken);
+
       attempt++;
       _logDebug('API attempt $attempt of $_maxRetries');
 
@@ -236,6 +265,8 @@ Topics you can help with:
                 'Content-Type': 'application/json; charset=utf-8',
                 'Accept': 'application/json',
                 'Authorization': 'Bearer $token',
+                if (appCheckToken != null)
+                  BackendAuthHeaders.appCheckHeaderName: appCheckToken,
               },
               body: encoded,
             )
@@ -247,7 +278,8 @@ Topics you can help with:
           return _parseSuccess(response.body);
         }
 
-        // Expired token: refresh once, without consuming a retry.
+        // Expired token (ID token and/or App Check token): refresh both once,
+        // without consuming a retry.
         if (response.statusCode == 401 && !refreshedToken) {
           refreshedToken = true;
           attempt--;
@@ -260,6 +292,14 @@ Topics you can help with:
             response.statusCode == 503 ||
             response.statusCode == 504;
         if (transient && attempt < _maxRetries) {
+          // A long Retry-After (for example the daily global AI cap) is not
+          // transient: fail fast instead of burning the per-minute limit.
+          final retryAfter =
+              int.tryParse(response.headers['retry-after'] ?? '');
+          if (retryAfter != null && retryAfter > _maxRetryAfterSeconds) {
+            throw Exception(
+                _messageForStatus(response.statusCode, response.body));
+          }
           lastError = Exception(getErrorMessage(response.statusCode));
           await Future<void>.delayed(retryBaseDelay * attempt);
           continue;
@@ -291,6 +331,18 @@ Topics you can help with:
     throw Exception('Failed to get response after $_maxRetries attempts');
   }
 
+  /// Fetches the App Check token without ever throwing or hanging.
+  static Future<String?> _appCheckTokenSafe(bool forceRefresh) async {
+    try {
+      final token = await appCheckTokenProvider(forceRefresh: forceRefresh)
+          .timeout(BackendAuthHeaders.tokenTimeout);
+      if (token == null || token.isEmpty) return null;
+      return token;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static String _parseSuccess(String body) {
     try {
       final decoded = jsonDecode(body);
@@ -306,23 +358,34 @@ Topics you can help with:
     throw Exception('Invalid response format from AI service');
   }
 
+  /// The short `error` text from a backend JSON error body, or null.
+  static String? _serverError(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      final err = decoded is Map ? decoded['error']?.toString() : null;
+      if (err != null && err.isNotEmpty && err.length < 200) return err;
+    } catch (_) {}
+    return null;
+  }
+
   /// Maps backend status codes to user-safe messages. Never echoes the
   /// response body to the UI (it may contain provider details).
   static String _messageForStatus(int status, String body) {
     switch (status) {
       case 400:
         // Backend 400s carry short, safe validation messages.
-        try {
-          final decoded = jsonDecode(body);
-          final err = decoded is Map ? decoded['error']?.toString() : null;
-          if (err != null && err.isNotEmpty && err.length < 200) {
-            return err;
-          }
-        } catch (_) {}
+        final err = _serverError(body);
+        if (err != null) return err;
         return getErrorMessage(400);
       case 401:
-        return 'Your session has expired. Please sign in again.';
+        return 'Your session or app verification has expired. '
+            'Please sign in again or update the app.';
       case 429:
+        // The backend's own daily-quota text is short and safe to show.
+        final err = _serverError(body);
+        if (err != null && err.startsWith('Daily AI request limit')) {
+          return err;
+        }
         return 'Rate limit exceeded: Too many requests. '
             'Please wait a moment and try again.';
       case 503:
@@ -370,6 +433,43 @@ Topics you can help with:
       msgs.removeAt(0);
     }
     return msgs;
+  }
+
+  /// Keeps the NEWEST messages that fit the backend's total-size limit
+  /// (system prompt + all messages). Older messages are dropped first; the
+  /// newest message is truncated if it alone is too long. The result always
+  /// starts with a user message.
+  static List<Map<String, String>> _fitToBudget(
+    String system,
+    List<Map<String, String>> messages,
+  ) {
+    var budget = _maxTotalChars - system.length;
+    if (budget < 1000) budget = 1000;
+
+    final kept = <Map<String, String>>[];
+    var used = 0;
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final role = messages[i]['role'] == 'assistant' ? 'assistant' : 'user';
+      var content = messages[i]['content'] ?? '';
+      if (kept.isEmpty && content.length > budget) {
+        content = content.substring(0, budget);
+      }
+      if (used + content.length > budget) break;
+      kept.insert(0, <String, String>{'role': role, 'content': content});
+      used += content.length;
+    }
+    while (kept.isNotEmpty && kept.first['role'] != 'user') {
+      kept.removeAt(0);
+    }
+    if (kept.isNotEmpty) return kept;
+
+    // Nothing fit (should not happen): send only the newest message, cut to
+    // the budget, as a user message.
+    var fallback = messages.last['content'] ?? '';
+    if (fallback.length > budget) fallback = fallback.substring(0, budget);
+    return <Map<String, String>>[
+      <String, String>{'role': 'user', 'content': fallback},
+    ];
   }
 
   // ────────────────────────────────────────────────────────────

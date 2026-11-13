@@ -21,6 +21,12 @@ dependencies:
   firebase_core: ^4.9.0
   email_validator: ^3.0.0
   firebase_auth: ^6.5.1
+  # PHASE 2: Firebase App Check (Android: Play Integrity in release, Debug
+  # provider in debug; Chrome localhost: Web Debug provider).
+  # If `flutter pub get` reports a version conflict with firebase_core, run
+  # `flutter pub add firebase_app_check` to let pub choose the compatible
+  # 0.4.x release, then confirm WebDebugProvider exists in that release.
+  firebase_app_check: ^0.4.9
   cloud_firestore: ^6.4.1
   firebase_storage: ^13.0.0
   file_picker: ^10.1.9
@@ -28,6 +34,10 @@ dependencies:
   firebase_messaging: ^16.3.0
   cloud_functions: ^6.0.0
   cached_network_image: ^3.3.1
+  # PHASE 2: RSA signature primitive used ONLY by backend/
+  # firebase_app_check_verifier.dart (and its tests). It is not imported by
+  # anything under lib/, so it is not linked into the Flutter app.
+  pointycastle: ^3.9.1
 
 
 dev_dependencies:

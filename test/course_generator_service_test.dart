@@ -4,6 +4,11 @@
 //
 // No internet and no real backend are used. Network answers are faked with
 // http's MockClient. SharedPreferences is faked in memory.
+//
+// PHASE 2 additions (end of file, group "Phase 2"): App Check header, token
+// safety over http, signed-out offline generation, and the rule that a
+// TEMPORARY backend refusal (401/403/429/503) is never saved as a local
+// fallback. Every pre-existing test is unchanged.
 
 import 'dart:convert';
 
@@ -863,6 +868,218 @@ void main() {
           jsonDecode((await _prefs()).getString(_listKey)!) as Map<String, dynamic>;
       expect(map['source'], 'local-template');
       expect(map['origin'], 'local-fallback');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // PHASE 2: App Check header, signed-out offline generation, and
+  // temporary refusals that must never be pinned in the cache.
+  // ═══════════════════════════════════════════════════════════════
+  group('Phase 2: App Check header and signed-out offline', () {
+    setUp(() {
+      CourseGeneratorService.backendBaseUrlOverride = 'https://backend.test';
+    });
+
+    /// Sends one backend request to [base] and returns what the fake server
+    /// received (null when no request was made).
+    Future<http.Request?> requestTo(String base) async {
+      CourseGeneratorService.backendBaseUrlOverride = base;
+      http.Request? seen;
+      CourseGeneratorService.httpClient = MockClient((r) async {
+        seen = r;
+        return http.Response('{}', 500);
+      });
+      await _courseInfo(lesson: 4, force: true);
+      return seen;
+    }
+
+    test('login token and App Check token are both sent over https', () async {
+      CourseGeneratorService.authTokenProvider = () async => 'tok';
+      CourseGeneratorService.appCheckTokenProvider = () async => 'ac123';
+      final seen = await requestTo('https://backend.test');
+      expect(seen, isNotNull);
+      expect(seen!.headers['Authorization'], 'Bearer tok');
+      expect(seen.headers['X-Firebase-AppCheck'], 'ac123');
+    });
+
+    test('App Check token is sent over https and localhost only', () async {
+      CourseGeneratorService.authTokenProvider = () async => 'tok';
+      CourseGeneratorService.appCheckTokenProvider = () async => 'ac123';
+
+      Future<String?> appCheckFor(String base) async =>
+          (await requestTo(base))!.headers['X-Firebase-AppCheck'];
+
+      expect(await appCheckFor('https://backend.test'), 'ac123');
+      expect(await appCheckFor('http://localhost:8080'), 'ac123');
+      expect(await appCheckFor('http://10.0.2.2:8080'), 'ac123');
+      expect(await appCheckFor('http://backend.test'), isNull);
+      expect(await appCheckFor('http://192.168.1.20:8080'), isNull);
+    });
+
+    test('a missing App Check token is omitted, never faked; request is sent',
+        () async {
+      CourseGeneratorService.authTokenProvider = () async => 'tok';
+      CourseGeneratorService.appCheckTokenProvider = () async => null;
+      final seen = await requestTo('https://backend.test');
+      expect(seen, isNotNull); // production backend decides, not the client
+      expect(seen!.headers['Authorization'], 'Bearer tok');
+      expect(seen.headers.containsKey('X-Firebase-AppCheck'), isFalse);
+    });
+
+    test('an App Check provider that throws does not break the request',
+        () async {
+      CourseGeneratorService.authTokenProvider = () async => 'tok';
+      CourseGeneratorService.appCheckTokenProvider = () async {
+        throw StateError('boom');
+      };
+      final seen = await requestTo('https://backend.test');
+      expect(seen, isNotNull);
+      expect(seen!.headers['Authorization'], 'Bearer tok');
+      expect(seen.headers.containsKey('X-Firebase-AppCheck'), isFalse);
+    });
+
+    test('no providers and no Firebase app: no security headers, no crash',
+        () async {
+      final seen = await requestTo('https://backend.test');
+      expect(seen, isNotNull);
+      expect(seen!.headers.containsKey('Authorization'), isFalse);
+      expect(seen.headers.containsKey('X-Firebase-AppCheck'), isFalse);
+    });
+
+    test('resetForTest clears the App Check provider', () async {
+      CourseGeneratorService.appCheckTokenProvider = () async => 'stale';
+      CourseGeneratorService.resetForTest();
+      final seen = await requestTo('https://backend.test');
+      expect(seen, isNotNull);
+      expect(seen!.headers.containsKey('X-Firebase-AppCheck'), isFalse);
+    });
+
+    test(
+        'signed-out user + enforcing backend (401): free offline course and '
+        'lesson list still work', () async {
+      CourseGeneratorService.authTokenProvider = () async => null;
+      CourseGeneratorService.appCheckTokenProvider = () async => null;
+      http.Request? seen;
+      CourseGeneratorService.httpClient = MockClient((r) async {
+        seen = r;
+        return http.Response(
+            '{"success":false,"error":"A valid Firebase ID token is required."}',
+            401,
+            headers: _utf8Json);
+      });
+
+      final course = await _courseInfo();
+      expect(seen!.headers.containsKey('Authorization'), isFalse);
+      expect(course.info.origin, GenerationOrigin.localFallback);
+      expect(course.info.backendIssue, BackendIssue.authRejected);
+      expect(course.course.topicTitle, startsWith('SQL injection'));
+      expect(course.course.concepts.length,
+          CourseGeneratorConfig.conceptsPerLesson);
+      expect(course.course.quiz.length,
+          CourseGeneratorConfig.quizQuestionsPerLesson);
+
+      final list = await _lessonsInfo();
+      expect(list.lessons.length, 10);
+      expect(list.info.origin, GenerationOrigin.localFallback);
+      expect(list.info.backendIssue, BackendIssue.authRejected);
+    });
+
+    test('signed-out user and backend unreachable: offline content works',
+        () async {
+      CourseGeneratorService.authTokenProvider = () async => null;
+      CourseGeneratorService.httpClient = MockClient(
+          (r) async => throw http.ClientException('Failed to fetch', r.url));
+      final course = await _courseInfo();
+      expect(course.info.backendIssue, BackendIssue.network);
+      expect(course.course.concepts, isNotEmpty);
+      expect((await _lessons()).length, 10);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  group('Phase 2: temporary refusals are not pinned in the cache', () {
+    setUp(() {
+      CourseGeneratorService.backendBaseUrlOverride = 'https://backend.test';
+    });
+
+    test('course: 401/403/429/503 give local content but are NOT saved, and '
+        'the backend is used once it recovers', () async {
+      for (final code in <int>[401, 403, 429, 503]) {
+        await CourseGeneratorService.clearGeneratedCache();
+
+        CourseGeneratorService.httpClient = _answer('{}', code);
+        final refused = await _courseInfo();
+        expect(refused.info.origin, GenerationOrigin.localFallback,
+            reason: 'HTTP $code');
+        expect(refused.course.concepts, isNotEmpty, reason: 'HTTP $code');
+        expect((await _prefs()).containsKey(_courseKey), isFalse,
+            reason: 'HTTP $code must not be saved');
+        expect(
+            await CourseGeneratorService.isCourseCached(_career, 3,
+                lessonIndex: 2),
+            isFalse,
+            reason: 'HTTP $code');
+
+        // Problem is over: the very next open uses the backend (AI) content.
+        CourseGeneratorService.httpClient = _answer(_courseEnvelope());
+        final recovered = await _courseInfo();
+        expect(recovered.info.fromCache, isFalse, reason: 'HTTP $code');
+        expect(recovered.info.origin, GenerationOrigin.backend,
+            reason: 'HTTP $code');
+        expect(recovered.course.topicTitle, 'From the backend',
+            reason: 'HTTP $code');
+      }
+    });
+
+    test('lesson list: 401/403/429/503 are NOT saved, backend used on recovery',
+        () async {
+      for (final code in <int>[401, 403, 429, 503]) {
+        await CourseGeneratorService.clearGeneratedCache();
+
+        CourseGeneratorService.httpClient = _answer('{}', code);
+        final refused = await _lessonsInfo();
+        expect(refused.info.origin, GenerationOrigin.localFallback,
+            reason: 'HTTP $code');
+        expect(refused.lessons.length, 10, reason: 'HTTP $code');
+        expect((await _prefs()).containsKey(_listKey), isFalse,
+            reason: 'HTTP $code must not be saved');
+
+        CourseGeneratorService.httpClient = _answer(_listEnvelope());
+        final recovered = await _lessonsInfo();
+        expect(recovered.info.fromCache, isFalse, reason: 'HTTP $code');
+        expect(recovered.info.origin, GenerationOrigin.backend,
+            reason: 'HTTP $code');
+      }
+    });
+
+    test('other backend failures are still saved as local-fallback (unchanged)',
+        () async {
+      for (final code in <int>[404, 500, 502]) {
+        await CourseGeneratorService.clearGeneratedCache();
+        CourseGeneratorService.httpClient = _answer('{}', code);
+        final first = await _courseInfo();
+        expect(first.info.backendIssue, BackendIssue.http, reason: 'HTTP $code');
+        expect(
+            await CourseGeneratorService.isCourseCached(_career, 3,
+                lessonIndex: 2),
+            isTrue,
+            reason: 'HTTP $code');
+        final second = await _courseInfo();
+        expect(second.info.label, 'cache(local-fallback)',
+            reason: 'HTTP $code');
+      }
+    });
+
+    test('identity mismatch is still saved as local-fallback (unchanged)',
+        () async {
+      CourseGeneratorService.httpClient = _answer(_courseEnvelope(
+          tweak: (env, course) => (env['request'] as Map)['level'] = 4));
+      final r = await _courseInfo();
+      expect(r.info.backendIssue, BackendIssue.identityMismatch);
+      expect(
+          await CourseGeneratorService.isCourseCached(_career, 3,
+              lessonIndex: 2),
+          isTrue);
     });
   });
 }
