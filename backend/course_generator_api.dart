@@ -17,7 +17,9 @@ import 'xp_gateway_core.dart';
 ///   POST /generate-course      -> {success, mock, request, course}
 ///   POST /generate-lesson-list -> {success, mock, request, lessonList}
 ///   POST /claude/messages      -> {success, content, stopReason, usage}
-///   errors                     -> {success:false, error}
+///   POST /xp/course-event      -> {success, result} (verified UID only)
+///   POST /xp/complete-goal     -> {success, result} (verified UID only)
+///   errors                     -> {success:false, error[, code]}
 ///
 /// PHASE 2 SECURITY HARDENING
 ///  * Authentication and App Check are verified by the shared
@@ -64,7 +66,9 @@ import 'xp_gateway_core.dart';
 ///   COURSE_AI_DAILY_LIMIT, AI_GLOBAL_DAILY_LIMIT, AI_MAX_IN_FLIGHT,
 ///   AI_USER_MAX_IN_FLIGHT, COURSE_CACHE_TTL_SECONDS,
 ///   OPENAI_MAX_OUTPUT_TOKENS_COURSE, OPENAI_MAX_OUTPUT_TOKENS_LESSON_LIST,
-///   CLAUDE_MAX_OUTPUT_TOKENS, CLAUDE_MAX_TOTAL_CHARS.
+///   CLAUDE_MAX_OUTPUT_TOKENS, CLAUDE_MAX_TOTAL_CHARS,
+///   XP_GATEWAY_ENABLED, XP_USER_PER_MINUTE, XP_FIRESTORE_CREDENTIALS,
+///   GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_JSON_B64.
 class CourseGeneratorApi {
   static const String openAiUrl = 'https://api.openai.com/v1/chat/completions';
   static const String anthropicUrl = 'https://api.anthropic.com/v1/messages';
@@ -76,7 +80,8 @@ class CourseGeneratorApi {
   static ApiSecurityGuard? _guard;
   static XpGateway? _xpGateway;
 
-  static bool get _xpEnabled => _envStr('XP_GATEWAY_ENABLED').toLowerCase() == 'true';
+  static bool get _xpEnabled =>
+      _envStr('XP_GATEWAY_ENABLED').toLowerCase() == 'true';
   static int get _xpPerMinute => _envInt('XP_USER_PER_MINUTE', 60, 1, 600);
 
   /// Shared cache of generated (validated) course / lesson-list JSON, keyed by
@@ -277,7 +282,9 @@ class CourseGeneratorApi {
         authorizationHeader: req.headers.value(HttpHeaders.authorizationHeader),
         appCheckHeader: req.headers.value('x-firebase-appcheck'),
         bucket: xp ? 'xp' : (claude ? 'claude' : 'general'),
-        userPerMinute: xp ? _xpPerMinute : (claude ? _claudePerMinute : _coursePerMinute),
+        userPerMinute: xp
+            ? _xpPerMinute
+            : (claude ? _claudePerMinute : _coursePerMinute),
         forceAuth: claude || xp,
       );
       if (!decision.allowed) {
@@ -298,7 +305,8 @@ class CourseGeneratorApi {
         });
         return;
       }
-      final data = await _readBody(req, claude ? _claudeMaxBody : _courseMaxBody);
+      final data = await _readBody(
+          req, claude ? _claudeMaxBody : _courseMaxBody);
       if (xp) {
         final uid = decision.uid;
         if (uid == null || uid.isEmpty) {
@@ -310,7 +318,8 @@ class CourseGeneratorApi {
         }
         final gateway = _xpGateway!;
         final result = xpCourse
-            ? await gateway.recordCourseEvent(uid, CourseEventRequest.fromJson(data))
+            ? await gateway.recordCourseEvent(
+                uid, CourseEventRequest.fromJson(data))
             : await gateway.completeGoal(uid, GoalRequest.fromJson(data));
         await _send(req, 200, {'success': true, 'result': result.toJson()});
       } else if (course) {
