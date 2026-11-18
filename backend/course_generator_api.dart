@@ -7,6 +7,9 @@ import 'package:http/http.dart' as http;
 import '../lib/data/courses/course_generator_config.dart';
 import '../lib/services/local_course_generator.dart';
 import 'api_security_guard.dart';
+import 'firestore_rest_store.dart';
+import 'xp_gateway_core.dart';
+import 'xp_gateway_http_routes.dart';
 
 /// Course Generator API + secure Claude proxy.
 ///
@@ -72,6 +75,7 @@ class CourseGeneratorApi {
   static Map<String, String> _env = Platform.environment;
   static SecurityConfig? _config;
   static ApiSecurityGuard? _guard;
+  static XpGatewayHttpRoutes? _xpRoutes;
 
   /// Shared cache of generated (validated) course / lesson-list JSON, keyed by
   /// the validated request identity. Content does not depend on the user.
@@ -163,6 +167,22 @@ class CourseGeneratorApi {
         guard ?? ApiSecurityGuard(config: config, log: (m) => stderr.writeln(m));
     _contentCache.clear();
 
+    // XP writes are disabled unless explicitly enabled on the server.
+    // The UID passed to the gateway is taken only from ApiSecurityGuard after
+    // Firebase ID-token verification. Never read a UID from request JSON.
+    _xpRoutes = null;
+    if (_envStr('XP_GATEWAY_ENABLED').toLowerCase() == 'true') {
+      _xpRoutes = XpGatewayHttpRoutes(
+        XpGateway(
+          store: FirestoreRestStore.fromEnvironment(_env),
+          config: const XpGatewayConfig(
+            projectPolicy: ProjectXpPolicy.disabled,
+          ),
+          clock: clock,
+        ),
+      );
+    }
+
     final address = InternetAddress.tryParse(config.bindAddress);
     if (address == null) {
       throw StateError('CAREER_GUIDE_BIND_ADDRESS must be an IP address.');
@@ -239,7 +259,10 @@ class CourseGeneratorApi {
       final lessons =
           req.method == 'POST' && req.uri.path == '/generate-lesson-list';
       final claude = req.method == 'POST' && req.uri.path == '/claude/messages';
-      if (!course && !lessons && !claude) {
+      final xp = req.method == 'POST' &&
+          (req.uri.path == '/xp/course-event' ||
+              req.uri.path == '/xp/complete-goal');
+      if (!course && !lessons && !claude && !xp) {
         await _send(
             req, 404, {'success': false, 'error': 'Endpoint not found.'});
         return;
@@ -251,9 +274,9 @@ class CourseGeneratorApi {
         clientIp: ip,
         authorizationHeader: req.headers.value(HttpHeaders.authorizationHeader),
         appCheckHeader: req.headers.value('x-firebase-appcheck'),
-        bucket: claude ? 'claude' : 'general',
+        bucket: claude ? 'claude' : (xp ? 'xp' : 'general'),
         userPerMinute: claude ? _claudePerMinute : _coursePerMinute,
-        forceAuth: claude,
+        forceAuth: claude || xp,
       );
       if (!decision.allowed) {
         if (decision.retryAfterSeconds > 0) {
@@ -262,6 +285,25 @@ class CourseGeneratorApi {
         }
         await _send(req, decision.status,
             {'success': false, 'error': decision.error});
+        return;
+      }
+
+      // The XP adapter owns its bounded JSON-body read. Do not consume the
+      // request stream here before handing it over to the adapter.
+      if (xp) {
+        final routes = _xpRoutes;
+        if (routes == null) {
+          await _send(req, 503, {
+            'success': false,
+            'error': 'XP service is not enabled on this server.',
+          });
+          return;
+        }
+        await routes.handle(
+          req,
+          verifiedUid: decision.uid,
+          maxBodyBytes: _courseMaxBody,
+        );
         return;
       }
 

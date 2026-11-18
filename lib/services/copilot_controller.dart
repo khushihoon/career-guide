@@ -460,14 +460,17 @@ class CopilotController extends ChangeNotifier {
   //     `goal.isCompleted` and never from `!g.isCompleted`.
   //   • syncTodayProgress() is fed the same authoritative todayGoals.
   //   • Surprise-reward logic runs only when `becameCompleted == true`.
-  //   • Exactly-once XP/idempotency inside CopilotFirestoreService is
-  //     preserved unchanged.
+  //   • XP award/idempotency is enforced by the XP Gateway through
+  //     CopilotFirestoreService; the Controller never awards goal XP.
   Future<void> toggleGoal(String uid, DailyGoal goal) async {
     try {
+      // Resolve once so completion and progress sync use the same career.
+      final activeCareerId =
+          _resolveActiveCareerId(fallbackToProfile: false);
       final result = await CopilotFirestoreService.toggleGoalCompletion(
         uid,
         goal,
-        careerId: _resolveActiveCareerId(fallbackToProfile: false),
+        careerId: activeCareerId,
       );
 
       // Authoritative resulting state for THIS goal — never derived from
@@ -497,7 +500,7 @@ class CopilotController extends ChangeNotifier {
       await CopilotFirestoreService.syncTodayProgress(
         uid,
         updated,
-        careerId: _resolveActiveCareerId(fallbackToProfile: false),
+        careerId: activeCareerId,
       );
 
       // Reconcile authoritative XP before intelligence refresh so any

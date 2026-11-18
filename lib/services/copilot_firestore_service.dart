@@ -40,14 +40,11 @@
 //     {careerId}__goal_{goalId}
 //
 // This prevents the same authored goal id from consuming another career's
-// completion/XP. The original goal:{goalId} document remains the legacy
-// compatibility path when no real careerId is available.
+// completion/XP. XP Gateway completion is intentionally restricted to
+// verified career-scoped daily goals; a missing careerId is rejected.
 //
-// This canonical record is the authoritative idempotency identity for
-// BOTH the goal XP award AND the lifetime totalGoalsCompleted counter.
-// It is the SAME record regardless of careerId availability, so the
-// no-career path has exactly the same persistent, retry-safe,
-// concurrency-safe idempotency as the career path.
+// The Gateway uses this canonical record together with its template/day
+// idempotency record to protect both the XP award and lifetime counter.
 //
 // When a real careerId is ALSO available, the existing structured
 // career-event layer is written as a parallel evidence record at:
@@ -159,6 +156,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/copilot_models.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'xp_gateway_goal_client.dart';
 
 /// Event types supported by the structured career-evidence subcollection.
 class CopilotEventType {
@@ -692,51 +690,17 @@ class CopilotFirestoreService {
     });
   }
 
-  /// Toggles a goal's completion state and, on the genuine false → true
-  /// transition, awards goal XP and increments the lifetime counter,
-  /// atomically, in a single Firestore transaction.
+  /// Toggles a daily goal using Firestore as the state source and the XP
+  /// Gateway as the sole authority for completion rewards.
   ///
-  /// STATE AUTHORITY
-  ///   • The current completion state is READ from the Firestore goal
-  ///     document — NOT from the caller's UI object.
-  ///   • The requested next state is the inverse of the authoritative
-  ///     value, so stale UI, duplicate taps, and mis-ordered retries
-  ///     cannot corrupt the goal's state.
-  ///
-  /// COMPLETION IDENTITY (career-agnostic)
-  ///   • One canonical user-level record per goal id:
-  ///       users/{uid}/copilot_goal_events/goal:{goalId}
-  ///     This record is the SINGLE authoritative idempotency identity for
-  ///     both the XP award and the lifetime totalGoalsCompleted increment,
-  ///     and it exists independently of careerId availability.
-  ///
-  /// STRUCTURED CAREER EVIDENCE (career-scoped, optional)
-  ///   • When a real careerId is available, a parallel evidence record is
-  ///     written to the existing structured career-event layer at:
-  ///       users/{uid}/copilot_learning_progress/{careerId}/events/goal:{goalId}
-  ///     The path and schema are unchanged; no fake/synthetic career
-  ///     bucket is ever created.
-  ///
-  /// EXACTLY-ONCE
-  ///   • XP: awarded only when the canonical goal-completion record does
-  ///     not already exist.
-  ///   • totalGoalsCompleted: incremented only under the same condition.
-  ///   • Canonical record: written only under the same condition.
-  ///   • Career-side structured event: written only under the same
-  ///     condition AND only when a real careerId exists.
-  ///
-  /// true → false
-  ///   • Flips the goal's state only.
-  ///   • Never decrements the lifetime counter, never removes historical
-  ///     XP, and never deletes or rewrites the canonical record or the
-  ///     career-side structured event. History is preserved.
-  ///
-  /// RESULT
-  ///   • Returns a [GoalToggleResult] carrying the final authoritative
-  ///     goal state and a flag that is true only for a genuine first-time
-  ///     false → true completion.
-  ///
-  /// Every transaction read happens before every transaction write.
+  ///   • A false → true completion is sent to the authenticated Gateway.
+  ///     The server validates the trusted daily template and atomically
+  ///     writes the goal state, XP, lifetime count and evidence records.
+  ///   • A true → false action only changes the goal state in a Firestore
+  ///     transaction. Historical XP and evidence are never reversed.
+  ///   • The caller's [DailyGoal.isCompleted] value is advisory only.
+  ///   • [GoalToggleResult.becameCompleted] is true only when the Gateway
+  ///     confirms that THIS request awarded XP for the first time.
   static Future<GoalToggleResult> toggleGoalCompletion(
     String uid,
     DailyGoal goal, {
@@ -746,155 +710,75 @@ class CopilotFirestoreService {
       return GoalToggleResult.notToggled;
     }
 
+    final resolvedCareerId =
+        careerId == null || careerId.trim().isEmpty ? '' : _safeId(careerId);
+    if (resolvedCareerId.isEmpty) {
+      throw const XpGatewayGoalException(
+        'Select a career before completing a daily goal.',
+      );
+    }
+
     final goalRef =
         _userDoc(uid).collection('copilot_daily_goals').doc(goal.id);
-    final userRef = _userDoc(uid);
 
-    // Career-scoped completions use career-scoped idempotency so the same
-    // authored goal id can be completed independently in different careers.
-    final resolvedCareerId =
-        (careerId != null && careerId.isNotEmpty) ? _safeId(careerId) : null;
-    final hasCareer = resolvedCareerId != null && resolvedCareerId.isNotEmpty;
-    final safeGoalId = _safeId(goal.id);
-    final canonicalEventId =
-        hasCareer ? 'goal:${resolvedCareerId}:$safeGoalId' : 'goal:$safeGoalId';
-    final canonicalRef = hasCareer
-        ? _careerGoalEventDoc(uid, resolvedCareerId!, safeGoalId)
-        : _goalEventDoc(uid, canonicalEventId);
+    // Read the persisted goal, never trust the caller's possibly stale model.
+    final initialSnap = await goalRef.get();
+    if (!initialSnap.exists || initialSnap.data() == null) {
+      return GoalToggleResult.notToggled;
+    }
 
-    final careerEventRef =
-        hasCareer ? _eventDoc(uid, resolvedCareerId, 'goal:$safeGoalId') : null;
+    final initialData = initialSnap.data()!;
+    if (initialData['uid'] != uid ||
+        _safeId(initialData['careerId'] as String? ?? '') !=
+            resolvedCareerId) {
+      throw const XpGatewayGoalException(
+        'This goal does not belong to the selected career or account.',
+      );
+    }
 
-    return _db.runTransaction<GoalToggleResult>((tx) async {
-      // ── READ PHASE ─────────────────────────────────────────────────
-      final goalSnap = await tx.get(goalRef);
-      if (!goalSnap.exists || goalSnap.data() == null) {
-        return GoalToggleResult.notToggled;
-      }
+    final isAlreadyCompleted = initialData['isCompleted'] == true;
 
-      // Canonical completion record — the idempotency identity.
-      final canonicalSnap = await tx.get(canonicalRef);
+    // Uncompletion is deliberately non-awarding. The Gateway completion
+    // endpoint is one-way and must never be used to reverse historical XP.
+    if (isAlreadyCompleted) {
+      return _db.runTransaction<GoalToggleResult>((tx) async {
+        final snap = await tx.get(goalRef);
+        if (!snap.exists || snap.data() == null) {
+          return GoalToggleResult.notToggled;
+        }
 
-      // Career-side structured event (when a real careerId exists).
-      final careerSnap =
-          careerEventRef != null ? await tx.get(careerEventRef) : null;
-      final careerEventExists = careerSnap != null && careerSnap.exists;
-      final alreadyCompleted =
-          (canonicalSnap.exists && canonicalSnap.data() != null) ||
-              careerEventExists;
-
-      // ── COMPUTE PHASE ──────────────────────────────────────────────
-      final data = goalSnap.data()!;
-      final currentCompleted =
-          data['isCompleted'] is bool ? data['isCompleted'] as bool : false;
-
-      // Firestore is the authoritative source of the goal's state.
-      final requestedNewState = !currentCompleted;
-      if (currentCompleted == requestedNewState) {
-        // Not reachable in practice because requestedNewState is defined
-        // as the inverse of currentCompleted — kept as a defensive guard.
-        return GoalToggleResult(
-          isCompleted: currentCompleted,
-          becameCompleted: false,
-        );
-      }
-
-      final isCompleting = !currentCompleted && requestedNewState;
-      final reward =
-          data['xpReward'] is num ? (data['xpReward'] as num).toInt() : 0;
-
-      // XP / lifetime counter / canonical record: awarded only on a
-      // genuine completion whose canonical record does not already exist.
-      // This makes them all exactly-once across retries, concurrent
-      // calls, and true → false → true cycles.
-      final shouldAwardCompletion = isCompleting && !alreadyCompleted;
-      final shouldAwardXp = shouldAwardCompletion && reward > 0;
-
-      // Career-side structured event: written only under the same
-      // condition AND only when a real careerId exists.
-      final shouldWriteCareerEvent =
-          shouldAwardCompletion && careerEventRef != null && !careerEventExists;
-
-      // ── WRITE PHASE ────────────────────────────────────────────────
-      tx.update(goalRef, {'isCompleted': requestedNewState});
-
-      if (shouldAwardXp) {
-        tx.set(
-          userRef,
-          {'totalXp': FieldValue.increment(reward)},
-          SetOptions(merge: true),
-        );
-        if (hasCareer) {
-          tx.set(
-            _learningProgressDoc(uid, resolvedCareerId!),
-            {
-              'careerId': resolvedCareerId,
-              'careerTotalXp': FieldValue.increment(reward),
-              'updatedAt': DateTime.now().toIso8601String(),
-            },
-            SetOptions(merge: true),
+        final data = snap.data()!;
+        if (data['uid'] != uid ||
+            _safeId(data['careerId'] as String? ?? '') !=
+                resolvedCareerId) {
+          throw const XpGatewayGoalException(
+            'This goal does not belong to the selected career or account.',
           );
         }
-      }
 
-      if (shouldAwardCompletion) {
-        // Lifetime counter — increments exactly once per canonical
-        // completion record, independent of careerId availability.
-        tx.set(
-          userRef,
-          {'totalGoalsCompleted': FieldValue.increment(1)},
-          SetOptions(merge: true),
+        final currentCompleted = data['isCompleted'] == true;
+        if (currentCompleted) {
+          tx.update(goalRef, {'isCompleted': false});
+        }
+
+        return GoalToggleResult(
+          isCompleted: false,
+          becameCompleted: false,
         );
+      });
+    }
 
-        // Canonical completion record — career-scoped when a real career is
-        // active; legacy global identity only for the no-career path.
-        tx.set(
-          canonicalRef,
-          {
-            'eventId': canonicalEventId,
-            'eventType': CopilotEventType.goal,
-            'careerId': resolvedCareerId,
-            'goalId': goal.id,
-            'topic': goal.linkedSkill,
-            'correct': true,
-            'xp': reward,
-            'metadata': _boundedMetadata({
-              'goalId': goal.id,
-              'category': goal.category.label,
-              'date': goal.date,
-            }),
-            'recordedAt': DateTime.now().toIso8601String(),
-          },
-          SetOptions(merge: true),
-        );
-      }
+    // Completion and every XP/evidence write are server-authoritative.
+    // The client sends only careerId + goalId; it never supplies XP or UID.
+    final gatewayResult = await XpGatewayGoalClient.completeGoal(
+      careerId: resolvedCareerId,
+      goalId: goal.id,
+    );
 
-      if (shouldWriteCareerEvent) {
-        tx.set(
-          careerEventRef!,
-          {
-            'eventId': canonicalEventId,
-            'eventType': CopilotEventType.goal,
-            'careerId': resolvedCareerId,
-            'topic': goal.linkedSkill,
-            'correct': true,
-            'xp': reward,
-            'metadata': _boundedMetadata({
-              'goalId': goal.id,
-              'category': goal.category.label,
-              'date': goal.date,
-            }),
-            'recordedAt': DateTime.now().toIso8601String(),
-          },
-          SetOptions(merge: true),
-        );
-      }
-
-      return GoalToggleResult(
-        isCompleted: requestedNewState,
-        becameCompleted: shouldAwardCompletion,
-      );
-    });
+    return GoalToggleResult(
+      isCompleted: gatewayResult.isCompleted,
+      becameCompleted: gatewayResult.awarded,
+    );
   }
 
   /// Authoritative lifetime count of successfully completed goals.
