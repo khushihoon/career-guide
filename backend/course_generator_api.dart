@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import '../lib/data/courses/course_generator_config.dart';
 import '../lib/services/local_course_generator.dart';
 import 'api_security_guard.dart';
+import 'firestore_rest_store.dart';
+import 'xp_gateway_core.dart';
 
 /// Course Generator API + secure Claude proxy.
 ///
@@ -72,6 +74,10 @@ class CourseGeneratorApi {
   static Map<String, String> _env = Platform.environment;
   static SecurityConfig? _config;
   static ApiSecurityGuard? _guard;
+  static XpGateway? _xpGateway;
+
+  static bool get _xpEnabled => _envStr('XP_GATEWAY_ENABLED').toLowerCase() == 'true';
+  static int get _xpPerMinute => _envInt('XP_USER_PER_MINUTE', 60, 1, 600);
 
   /// Shared cache of generated (validated) course / lesson-list JSON, keyed by
   /// the validated request identity. Content does not depend on the user.
@@ -161,6 +167,14 @@ class CourseGeneratorApi {
     _config = config;
     _guard =
         guard ?? ApiSecurityGuard(config: config, log: (m) => stderr.writeln(m));
+    // XP writes are opt-in and fail closed. Enabling the route requires a
+    // server-only Firestore service-account secret or attached workload identity.
+    _xpGateway = _xpEnabled
+        ? XpGateway(
+            store: FirestoreRestStore.fromEnvironment(_env),
+            config: const XpGatewayConfig(projectPolicy: ProjectXpPolicy.disabled),
+          )
+        : null;
     _contentCache.clear();
 
     final address = InternetAddress.tryParse(config.bindAddress);
@@ -239,21 +253,32 @@ class CourseGeneratorApi {
       final lessons =
           req.method == 'POST' && req.uri.path == '/generate-lesson-list';
       final claude = req.method == 'POST' && req.uri.path == '/claude/messages';
-      if (!course && !lessons && !claude) {
+      final xpCourse = req.method == 'POST' && req.uri.path == '/xp/course-event';
+      final xpGoal = req.method == 'POST' && req.uri.path == '/xp/complete-goal';
+      final xp = xpCourse || xpGoal;
+      if (!course && !lessons && !claude && !xp) {
         await _send(
             req, 404, {'success': false, 'error': 'Endpoint not found.'});
         return;
       }
 
+      if (xp && _xpGateway == null) {
+        await _send(req, 503, {
+          'success': false,
+          'error': 'XP service is not configured on the server.',
+        });
+        return;
+      }
+
       // Per-IP limit -> Firebase Auth -> App Check -> per-user limit.
-      // Claude ALWAYS requires a Firebase token (even in development).
+      // Claude and XP routes ALWAYS require a verified Firebase token.
       final decision = await guard.authorize(
         clientIp: ip,
         authorizationHeader: req.headers.value(HttpHeaders.authorizationHeader),
         appCheckHeader: req.headers.value('x-firebase-appcheck'),
-        bucket: claude ? 'claude' : 'general',
-        userPerMinute: claude ? _claudePerMinute : _coursePerMinute,
-        forceAuth: claude,
+        bucket: xp ? 'xp' : (claude ? 'claude' : 'general'),
+        userPerMinute: xp ? _xpPerMinute : (claude ? _claudePerMinute : _coursePerMinute),
+        forceAuth: claude || xp,
       );
       if (!decision.allowed) {
         if (decision.retryAfterSeconds > 0) {
@@ -274,13 +299,39 @@ class CourseGeneratorApi {
         return;
       }
       final data = await _readBody(req, claude ? _claudeMaxBody : _courseMaxBody);
-      if (course) {
+      if (xp) {
+        final uid = decision.uid;
+        if (uid == null || uid.isEmpty) {
+          await _send(req, 401, {
+            'success': false,
+            'error': 'A verified Firebase identity is required.',
+          });
+          return;
+        }
+        final gateway = _xpGateway!;
+        final result = xpCourse
+            ? await gateway.recordCourseEvent(uid, CourseEventRequest.fromJson(data))
+            : await gateway.completeGoal(uid, GoalRequest.fromJson(data));
+        await _send(req, 200, {'success': true, 'result': result.toJson()});
+      } else if (course) {
         await _generateCourse(req, data, decision.rateKey);
       } else if (lessons) {
         await _generateLessonList(req, data, decision.rateKey);
       } else {
         await _generateClaudeMessage(req, data, decision.rateKey);
       }
+    } on GatewayRejection catch (e) {
+      await _send(req, e.status, {
+        'success': false,
+        'error': e.message,
+        'code': e.code,
+      });
+    } on XpStoreException {
+      // Store/auth details can contain infrastructure information; never expose them.
+      await _send(req, 503, {
+        'success': false,
+        'error': 'XP service is temporarily unavailable. Please try again.',
+      });
     } on _TooLarge {
       await _send(
           req, 413, {'success': false, 'error': 'Request body is too large.'});
