@@ -1725,7 +1725,7 @@ class _FixGapSheet extends StatelessWidget {
                       color: _mint,
                     ),
                     label: const Text(
-                      'Mark Copilot action as done',
+                      'Mark Learning Step Complete',
                       style: TextStyle(color: _mint),
                     ),
                     style: OutlinedButton.styleFrom(

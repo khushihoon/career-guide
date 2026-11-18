@@ -400,7 +400,7 @@ class _SplashScreenState extends State<SplashScreen>
           _buildLogo(badgeSize),
           const SizedBox(height: 22),
           const Text(
-            'CAREER GUIDE',
+            'AI CAREER GUIDE',
             style: TextStyle(
               color: Colors.white,
               fontSize: 28,

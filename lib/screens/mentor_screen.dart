@@ -45,7 +45,7 @@ class _MentorScreenState extends State<MentorScreen> {
     // Add welcome message
     _addMessage(
       text:
-          "Hi! I'm Aria, your AI career mentor powered by Claude. 🤖\n\nI can help you with:\n• AI career paths & job roles\n• Required skills & learning resources\n• Salary insights for India\n• Interview & portfolio tips\n• Latest AI tools\n\nWhat would you like to know?",
+          "Hi! I'm Aria, your AI career mentor powered by AI Career App. 🤖\n\nI can help you with:\n• AI career paths & job roles\n• Required skills & learning resources\n• Salary insights for India\n• Interview & portfolio tips\n• Latest AI tools\n\nWhat would you like to know?",
       isUser: false,
       isSystem: true,
     );
@@ -53,7 +53,7 @@ class _MentorScreenState extends State<MentorScreen> {
     if (!_apiKeyValid) {
       _addMessage(
         text:
-            '⚠️ Note: API key not configured. Please add ANTHROPIC_API_KEY to your .env file to chat with the AI mentor.',
+            '⚠️ Note: AI mentor is temporarily unavailable. Please try again later. or ask chatgpt',
         isUser: false,
         isWarning: true,
       );
@@ -107,7 +107,7 @@ class _MentorScreenState extends State<MentorScreen> {
     // Check API key
     if (!_apiKeyValid) {
       _addMessage(
-        text: '⚠️ API key not configured. Please add ANTHROPIC_API_KEY to .env',
+        text: '⚠️ AI mentor is temporarily unavailable.Please try again later. or ask chatgpt',
         isUser: false,
         isWarning: true,
       );
@@ -289,7 +289,7 @@ class _MentorScreenState extends State<MentorScreen> {
                   ),
                 ),
                 Text(
-                  'Powered by Claude',
+                  'Powered by AI Career App',
                   style: TextStyle(
                     fontSize: 11,
                     color: Color(0xFF888899),

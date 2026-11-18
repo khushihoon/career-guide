@@ -1,33 +1,62 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════════════
-// AI Career App — Firestore Security Rules (production hardening, Phase 1)
+// AI Career App — Firestore Security Rules
+// PHASE 3 / STAGE 1 — SERVER-AUTHORITATIVE TARGET STATE
 //
-// Collections covered (all inventoried from the app source):
-//   users/{uid}  (+ copilot* subcollections)   rewards/{uid}(+history)
-//   quests/{uid}  achievements/{uid}  ai_memory/{uid}(+careers)
-//   leaderboard/{board}/entries/{uid}  saved_jobs/{id}  applications/{id}
-// Everything else: DEFAULT DENY.
+// !!  DEPLOYMENT GATE  !!
+// These rules DENY every client write that awards XP or a reward
+// (users.totalXp / totalGoalsCompleted, the XP ledgers, rewards, quests,
+// achievements, leaderboard). The CURRENT Flutter client still performs
+// those writes itself, so deploying this file BEFORE the trusted XP
+// gateway and the matching Flutter changes ship will stop every user from
+// earning XP. Keep the Phase 1 rules deployed until Stage 2 is live.
 //
-// WHAT THESE RULES DO
-//   * UID ownership on every user-owned path.
-//   * XP ledgers (copilot_goal_events, copilot_job_offer_events,
-//     copilot_learning_progress/*/events, rewards/*/history) are CREATE-ONLY,
-//     so evidence/idempotency anchors cannot be deleted or rewritten.
-//   * users.totalXp can only grow, by a bounded amount per write.
-//     users.totalGoalsCompleted can only grow by 1 per write.
-//   * Claim lists (claimedQuestIds, claimedMilestoneIds, achievements.unlocked)
-//     can only grow — re-claim by shrinking them is blocked.
-//   * Leaderboard XP can never exceed the user's own users.totalXp.
+// WHAT CHANGED vs Phase 1
+//   users/{uid}
+//     * totalXp, totalGoalsCompleted, xpPoints: client can no longer change
+//       them (Phase 1 allowed unlimited +3000 / +1 writes).
+//     * create: server-owned counters must be absent or 0 (Phase 1 allowed
+//       a new account to start with up to 3000 XP).
+//     * known profile fields are type/size validated when they change.
+//     * every other field stays client-writable on purpose (see "field
+//       inventory" below) so no legitimate flow breaks.
+//   XP ledgers (copilot_goal_events, copilot_job_offer_events,
+//   copilot_learning_progress/*/events, rewards/*/history)
+//     * XP-bearing rows (quiz, challenge, goal, course project, rewards
+//       history): client create/update/delete denied (server-written).
+//     * ZERO-XP evidence rows (lesson:, project:, jobApplication:,
+//       interview:, jobOffer:) may still be CREATED by the client because the
+//       existing appendCompleted*/appendAppliedJob/recordJobOffer writers do
+//       so; they can never be updated or deleted. (Revision 2 fix: revision 1
+//       denied these and would have broken those flows.)
+//   copilot_learning_progress/{careerId}  (aggregate)
+//     * careerTotalXp, completedCourseEventIds, courseEvidenceIds are
+//       server-owned. Lesson progress fields stay client-writable.
+//   copilot_daily_goals
+//     * isCompleted can no longer be set/flipped by the client; xpReward
+//       stays capped as defence in depth (the server ignores it).
+//   rewards/{uid}, quests/{uid}, achievements/{uid}
+//     * read-only for the owner; all writes server-only.
+//   leaderboard/{board}/entries/{uid}
+//     * read: any signed-in user. create/update: server only.
+//       delete: owner (privacy), harmless because the server re-syncs.
+//   analytics/{uid}
+//     * NEW: owner read, no client writes. Fixes the Phase 1 regression in
+//       which AnalyticsScreen's read of its own doc was default-denied.
 //
-// WHAT RULES CANNOT DO (needs a trusted backend — Phase 2)
-//   * Rules cannot inspect the contents of quest/achievement arrays, and
-//     cannot stop a modified client from creating many goal docs or looping
-//     small XP increments. Caps only make casual tampering fail; they do not
-//     make XP authoritative. Server-issued XP (Cloud Functions) does.
+// FIELD INVENTORY — users/{uid} fields written by the client (seen in the
+// audited source): name, city, phone, bio, targetRole, experience, skills,
+// updatedAt (ProfileScreen) and signup fields (name, xpPoints:0, createdAt).
+// Fields written elsewhere but NOT yet confirmed (appliedJobs,
+// completedSteps, dailyStreak, location, email, lastActiveAt, ...) are left
+// client-writable until a repo-wide grep confirms their writers. Only the
+// three XP fields are blocked.
 //
-// TUNABLE LIMITS are the maxXxx() functions below. Raise them if a real
-// reward in your catalogs exceeds them.
+// WHAT RULES CANNOT DO
+//   Rules alone cannot verify that a learner really completed an activity.
+//   That decision belongs to the trusted backend (Stage 2). These rules make
+//   sure the client cannot bypass it.
 // ═══════════════════════════════════════════════════════════════════════
 
 service cloud.firestore {
@@ -37,106 +66,105 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
 
-    // ── Tunable limits ────────────────────────────────────────────────
-    // Largest legit single write to users.totalXp: all achievements at once
-    // sum to 2700; quest/milestone rewards max 1000.
-    function maxXpPerWrite() { return 3000; }
-    // Per course/goal evidence event (quiz 10, challenge 15, project ~100;
-    // weekly/monthly goals up to 400).
-    function maxEventXp() { return 500; }
-    function maxGoalXp() { return 500; }
-    function maxHistoryXp() { return 1000; }
-
-    // ── Generic helpers ───────────────────────────────────────────────
-    // True when the list field did not exist or only grew (update only).
-    function listOnlyGrows(field) {
-      return !(field in resource.data)
-        || (field in request.resource.data
-            && request.resource.data[field] is list
-            && request.resource.data[field].hasAll(resource.data[field]));
+    // Keys whose value changes in this update (unchanged keys are excluded).
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
     }
 
-    function listSizeOk(d, field, n) {
-      return !(field in d) || (d[field] is list && d[field].size() <= n);
+    // ── Server-owned key sets ─────────────────────────────────────────
+    function userServerKeys() {
+      return ['totalXp', 'totalGoalsCompleted', 'xpPoints'];
+    }
+    function lpServerKeys() {
+      return ['careerTotalXp', 'completedCourseEventIds', 'courseEvidenceIds'];
     }
 
-    // ── users.totalXp / totalGoalsCompleted ───────────────────────────
-    function xpDeltaOk() {
-      let before = resource.data.get('totalXp', 0);
-      let after = request.resource.data.get('totalXp', 0);
-      return before is number && after is number
-        && after >= before
-        && after - before <= maxXpPerWrite();
-    }
-
-    function goalsDeltaOk() {
-      let before = resource.data.get('totalGoalsCompleted', 0);
-      let after = request.resource.data.get('totalGoalsCompleted', 0);
-      return before is number && after is number
-        && after >= before
-        && after - before <= 1;
+    // ── users: profile validation ─────────────────────────────────────
+    // `changed` is the set of keys being created/modified. Only those keys
+    // are validated, so legacy documents with odd values in untouched
+    // fields never block an unrelated update.
+    function profileFieldsOk(d, changed) {
+      return (!('name' in changed) ||
+              (d.get('name', '') is string && d.get('name', '').size() <= 100))
+          && (!('city' in changed) ||
+              (d.get('city', '') is string && d.get('city', '').size() <= 120))
+          && (!('location' in changed) ||
+              (d.get('location', '') is string && d.get('location', '').size() <= 120))
+          && (!('phone' in changed) ||
+              (d.get('phone', '') is string && d.get('phone', '').size() <= 40))
+          && (!('bio' in changed) ||
+              (d.get('bio', '') is string && d.get('bio', '').size() <= 1000))
+          && (!('targetRole' in changed) ||
+              (d.get('targetRole', '') is string && d.get('targetRole', '').size() <= 80))
+          && (!('experience' in changed) ||
+              (d.get('experience', '') is string && d.get('experience', '').size() <= 40))
+          && (!('skills' in changed) ||
+              (d.get('skills', []) is list && d.get('skills', []).size() <= 200));
     }
 
     function userCreateOk() {
       let d = request.resource.data;
-      let xp = d.get('totalXp', 0);
-      let goals = d.get('totalGoalsCompleted', 0);
-      return xp is number && xp >= 0 && xp <= maxXpPerWrite()
-        && goals is number && goals >= 0 && goals <= 1;
+      return d.get('totalXp', 0) == 0
+          && d.get('totalGoalsCompleted', 0) == 0
+          && d.get('xpPoints', 0) == 0
+          && profileFieldsOk(d, d.keys());
     }
 
-    // ── Ledger / goal validation ──────────────────────────────────────
-    function ledgerXpOk() {
-      let x = request.resource.data.get('xp', 0);
-      return x is number && x >= 0 && x <= maxEventXp();
+    function userUpdateOk() {
+      return !changedKeys().hasAny(userServerKeys())
+          && profileFieldsOk(request.resource.data, changedKeys());
     }
 
-    function goalDocOk() {
-      let x = request.resource.data.get('xpReward', 0);
-      return x is number && x >= 0 && x <= maxGoalXp();
+    // ── zero-XP evidence events ───────────────────────────────────────
+    // Lesson / project / application / interview / job-offer EVIDENCE rows are
+    // still written by the client (appendCompletedLesson, appendCompletedProject,
+    // appendAppliedJob, appendCompletedInterview, recordJobOffer). They carry
+    // NO XP. Anything with xp > 0 (quiz, challenge, goal, course project) is
+    // written only by the trusted backend. The id prefix and eventType must
+    // agree so a zero-XP row cannot squat on an XP-bearing id (quiz:, goal:, ...).
+    // Project XP events created by the trusted gateway use the exact ID
+    // `project:<courseId>`, where courseId follows the gateway's canonical
+    // `<careerId>_level<N>` or `<careerId>_level<N>_lesson<N>` format.
+    // Client zero-XP project evidence must not be allowed to pre-create those
+    // reserved IDs, otherwise it could block the trusted XP transaction.
+    function isReservedProjectXpEventId(eventId) {
+      return eventId.matches(
+        '^project:.*_level[0-9]{1,3}(_lesson[0-9]{1,3})?$'
+      );
     }
 
-    // ── rewards/{uid} ─────────────────────────────────────────────────
-    function rewardsFieldsOk() {
+    // Enforce an exact eventType-to-prefix mapping. This prevents a client
+    // from labelling one kind of evidence as another. All client-created
+    // evidence is zero-XP and create-only; trusted XP event IDs are reserved.
+    function zeroXpEventOk(eventId) {
       let d = request.resource.data;
-      let shields = d.get('streakShieldCount', 0);
-      let mult = d.get('xpMultiplierValue', 1.0);
-      let exp = d.get('xpMultiplierExpiresAt', 0);
-      return shields is number && shields >= 0 && shields <= 100
-        && mult is number && mult <= 3.0
-        && exp is number
-        && exp <= request.time.toMillis() + 604800000;   // now + 7 days
+      let eventType = d.get('eventType', '');
+      return d.get('xp', 0) == 0
+          && (
+            (eventType == 'lesson'
+              && eventId.matches('^lesson:.+$'))
+            || (eventType == 'project'
+              && eventId.matches('^project:.+$')
+              && !isReservedProjectXpEventId(eventId))
+            || (eventType == 'jobApplication'
+              && eventId.matches('^jobApplication:.+$'))
+            || (eventType == 'interview'
+              && eventId.matches('^interview:.+$'))
+            || (eventType == 'jobOffer'
+              && eventId.matches('^jobOffer:.+$'))
+          );
     }
 
-    function rewardsDeltaOk() {
-      let before = resource.data.get('streakShieldCount', 0);
-      let after = request.resource.data.get('streakShieldCount', 0);
-      return after <= before + 2
-        && listOnlyGrows('claimedMilestoneIds');
+    // ── daily goals ───────────────────────────────────────────────────
+    function goalXpOk(d) {
+      let x = d.get('xpReward', 0);
+      return x is number && x >= 0 && x <= 500;
     }
 
-    function historyXpOk() {
-      let x = request.resource.data.get('xpAmount', 0);
-      return x is number && x >= 0 && x <= maxHistoryXp();
-    }
-
-    // ── leaderboard ───────────────────────────────────────────────────
-    function validBoard(board) {
-      return board == 'global'
-        || board.matches('weekly_[0-9]{4}_[0-9]{1,2}_[0-9]{1,2}');
-    }
-
-    function leaderboardEntryOk(uid) {
-      let d = request.resource.data;
-      let ownXp = get(/databases/$(database)/documents/users/$(uid)).data.get('totalXp', 0);
-      return d.displayName is string && d.displayName.size() <= 60
-        && d.totalXp is number && d.totalXp >= 0 && d.totalXp <= ownXp
-        && d.get('weeklyXp', 0) is number
-        && d.get('weeklyXp', 0) >= 0
-        && d.get('weeklyXp', 0) <= d.totalXp
-        && d.get('level', 1) is number
-        && d.get('level', 1) >= 1 && d.get('level', 1) <= 100
-        && (!('photoUrl' in d) || (d.photoUrl is string && d.photoUrl.size() <= 2048));
+    // ── applications ──────────────────────────────────────────────────
+    function coverLetterOk(d) {
+      let c = d.get('coverLetter', '');
+      return c is string && c.size() <= 10000;
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -145,46 +173,58 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isOwner(uid);
       allow create: if isOwner(uid) && userCreateOk();
-      allow update: if isOwner(uid) && xpDeltaOk() && goalsDeltaOk();
-      allow delete: if false;      // account deletion runs in Cloud Function
+      allow update: if isOwner(uid) && userUpdateOk();
+      allow delete: if false;      // account deletion runs on the server
 
-      // ── XP ledgers: create-only ────────────────────────────────────
+      // ── XP ledgers: server-written, owner-readable ─────────────────
       match /copilot_goal_events/{eventId} {
         allow read: if isOwner(uid);
-        allow create: if isOwner(uid) && ledgerXpOk();
-        allow update, delete: if false;
+        allow write: if false;
       }
 
       match /copilot_job_offer_events/{eventId} {
         allow read: if isOwner(uid);
-        allow create: if isOwner(uid) && ledgerXpOk();
+        allow create: if isOwner(uid) && zeroXpEventOk(eventId);
         allow update, delete: if false;
       }
 
-      // Aggregate doc stays writable (arrayUnion / careerTotalXp mirror);
-      // only its immutable event ledger is locked down.
+      // Aggregate doc: lesson progress stays client-writable; the XP and
+      // course-evidence mirrors are server-owned. The event ledger below
+      // it is server-only.
       match /copilot_learning_progress/{careerId} {
-        allow read, write: if isOwner(uid);
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && !request.resource.data.keys().hasAny(lpServerKeys());
+        allow update: if isOwner(uid)
+          && !changedKeys().hasAny(lpServerKeys());
+        allow delete: if false;
 
         match /events/{eventId} {
           allow read: if isOwner(uid);
-          allow create: if isOwner(uid) && ledgerXpOk();
+          allow create: if isOwner(uid) && zeroXpEventOk(eventId);
           allow update, delete: if false;
         }
       }
 
-      // Daily goals: owner-managed, but the reward a goal can carry is capped.
+      // Daily goals: the client authors the goal text, but completion
+      // (isCompleted) is decided by the server.
       match /copilot_daily_goals/{goalId} {
         allow read, delete: if isOwner(uid);
-        allow create, update: if isOwner(uid) && goalDocOk();
+        allow create: if isOwner(uid)
+          && goalXpOk(request.resource.data)
+          && request.resource.data.get('isCompleted', false) == false;
+        allow update: if isOwner(uid)
+          && goalXpOk(request.resource.data)
+          && !changedKeys().hasAny(['isCompleted']);
       }
 
       // All other user subcollections (copilot/, copilot_progress/,
       // copilot_skill_gaps/, copilot_next_actions/, copilot_recommendations/,
       // copilot_skill_gap_history/ and any not seen in the audited source)
-      // keep the previous owner-only behaviour. The explicitly protected
-      // subcollections above are excluded so OR-ing of rules cannot
-      // re-open them.
+      // keep the previous owner-only behaviour. The protected
+      // subcollections above are excluded so OR-ing of rules can never
+      // re-open them. NOTE: data here is non-authoritative; the server must
+      // never derive XP, streaks or rewards from it.
       match /{sub}/{docPath=**} {
         allow read, write: if isOwner(uid)
           && !(sub in [
@@ -197,51 +237,40 @@ service cloud.firestore {
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // REWARDS  rewards/{uid}  (+ history, create-only)
+    // REWARDS  rewards/{uid}  (+ history) — server-only writes
     // ══════════════════════════════════════════════════════════════════
     match /rewards/{uid} {
       allow read: if isOwner(uid);
-      allow create: if isOwner(uid) && rewardsFieldsOk();
-      allow update: if isOwner(uid) && rewardsFieldsOk() && rewardsDeltaOk();
-      allow delete: if false;
+      allow write: if false;
 
       match /history/{historyId} {
         allow read: if isOwner(uid);
-        allow create: if isOwner(uid) && historyXpOk();
-        allow update, delete: if false;
+        allow write: if false;
       }
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // QUESTS  quests/{uid}
+    // QUESTS  quests/{uid} — server-only writes
     // ══════════════════════════════════════════════════════════════════
     match /quests/{uid} {
       allow read: if isOwner(uid);
-      allow create: if isOwner(uid)
-        && listSizeOk(request.resource.data, 'daily', 20)
-        && listSizeOk(request.resource.data, 'weekly', 20)
-        && listSizeOk(request.resource.data, 'monthly', 20);
-      allow update: if isOwner(uid)
-        && listOnlyGrows('claimedQuestIds')
-        && listSizeOk(request.resource.data, 'daily', 20)
-        && listSizeOk(request.resource.data, 'weekly', 20)
-        && listSizeOk(request.resource.data, 'monthly', 20);
-      allow delete: if false;
+      allow write: if false;
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // ACHIEVEMENTS  achievements/{uid}
+    // ACHIEVEMENTS  achievements/{uid} — server-only writes
     // ══════════════════════════════════════════════════════════════════
     match /achievements/{uid} {
       allow read: if isOwner(uid);
-      allow create: if isOwner(uid)
-        && listSizeOk(request.resource.data, 'unlocked', 50)
-        && listSizeOk(request.resource.data, 'inProgress', 50);
-      allow update: if isOwner(uid)
-        && listOnlyGrows('unlocked')
-        && listSizeOk(request.resource.data, 'unlocked', 50)
-        && listSizeOk(request.resource.data, 'inProgress', 50);
-      allow delete: if false;
+      allow write: if false;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // ANALYTICS  analytics/{uid} — derived cache, server-only writes
+    // ══════════════════════════════════════════════════════════════════
+    match /analytics/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -258,20 +287,18 @@ service cloud.firestore {
     // ══════════════════════════════════════════════════════════════════
     // LEADERBOARD  leaderboard/{board}/entries/{uid}
     //   board = 'global' | 'weekly_YYYY_M_D'
+    //   Entries are written by the trusted server from authoritative XP.
     // ══════════════════════════════════════════════════════════════════
     match /leaderboard/{board}/entries/{uid} {
       allow read: if signedIn();
-      allow create, update: if isOwner(uid)
-        && validBoard(board)
-        && leaderboardEntryOk(uid);
+      allow create, update: if false;
       allow delete: if isOwner(uid);
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // SAVED JOBS  saved_jobs/{uid_jobId}
-    //   A get() of a NON-EXISTENT doc has resource == null; the previous
-    //   rule dereferenced resource.data and was therefore denied. The
-    //   'uid_' prefix check makes the existence probe safe.
+    // SAVED JOBS  saved_jobs/{uid_jobId}   (unchanged from Phase 1)
+    //   A get() of a NON-EXISTENT doc has resource == null; the 'uid_'
+    //   prefix check makes the existence probe safe.
     // ══════════════════════════════════════════════════════════════════
     match /saved_jobs/{savedJobId} {
       allow get: if signedIn() && (
@@ -289,6 +316,7 @@ service cloud.firestore {
 
     // ══════════════════════════════════════════════════════════════════
     // APPLICATIONS  applications/{uid_jobId}   (contains PII)
+    //   Phase 3: the cover-letter size limit now also applies to updates.
     // ══════════════════════════════════════════════════════════════════
     match /applications/{applicationId} {
       allow get: if signedIn() && (
@@ -297,11 +325,11 @@ service cloud.firestore {
       allow list: if signedIn() && resource.data.userId == request.auth.uid;
       allow create: if signedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.get('coverLetter', '') is string
-        && request.resource.data.get('coverLetter', '').size() <= 10000;
+        && coverLetterOk(request.resource.data);
       allow update: if signedIn()
         && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && coverLetterOk(request.resource.data);
       allow delete: if signedIn()
         && resource.data.userId == request.auth.uid;
     }

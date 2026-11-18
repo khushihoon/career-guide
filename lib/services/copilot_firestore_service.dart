@@ -158,6 +158,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/copilot_models.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 /// Event types supported by the structured career-evidence subcollection.
 class CopilotEventType {
@@ -541,6 +542,10 @@ class CopilotFirestoreService {
         .where((g) => g.careerId == null || g.careerId!.isEmpty)
         .toList();
   }
+
+  //safe id parity test hook.
+  @visibleForTesting
+  static String safeIdForParityTest(String? raw) => _safeId(raw);
 
   // ── Personalized Roadmap ───────────────────────────────────────────────────
 
